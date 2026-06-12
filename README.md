@@ -4,6 +4,8 @@
 SignalR (WebSockets). .NET 10 backend + Angular 21 (Bootstrap 5) frontend; persistence via EF Core with a
 configurable provider (SQLite by default; SQL Server / PostgreSQL also supported).
 
+[Support on Ko-Fi](https://ko-fi.com/bizzehdee)
+
 ## Features
 
 - Create named sessions; share a short invite link (`/join/<code>`).
