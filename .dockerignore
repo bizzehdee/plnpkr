@@ -1,0 +1,24 @@
+# Keep the build context small and avoid leaking local artifacts into the image.
+.git/
+.vs/
+.vscode/
+.idea/
+
+# .NET build output
+**/bin/
+**/obj/
+**/publish/
+**/TestResults/
+
+# Angular build output + caches + deps (npm ci runs inside the image)
+**/node_modules/
+**/dist/
+**/.angular/
+
+# Local SQLite databases (the container uses its own volume at /data)
+*.db
+*.db-shm
+*.db-wal
+**/*.db
+**/*.db-shm
+**/*.db-wal

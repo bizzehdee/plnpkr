@@ -1,0 +1,31 @@
+<nav class="navbar navbar-expand bg-body-tertiary border-bottom">
+  <div class="container">
+    <a class="navbar-brand mb-0 h1" routerLink="/">PlnPkr</a>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge {{ statusClass() }}">{{ status() }}</span>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        (click)="cycleTheme()"
+        [title]="'Theme: ' + themePreference() + ' (click to change)'"
+        aria-label="Toggle theme"
+      >
+        {{ themeIcon() }}
+      </button>
+    </div>
+  </div>
+</nav>
+
+<router-outlet />
+
+<footer class="border-top mt-auto py-3">
+  <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2 small text-body-secondary">
+    <span>PlnPkr — © 2026
+      <a href="https://www.darrenhorrocks.co.uk" target="_blank" rel="noopener">Darren Horrocks</a>
+    </span>
+    <span class="d-flex gap-3">
+      <a href="https://www.darrenhorrocks.co.uk" target="_blank" rel="noopener">Website</a>
+      <a href="https://github.com/bizzehdee/plnpkr" target="_blank" rel="noopener">GitHub</a>
+    </span>
+  </div>
+</footer>

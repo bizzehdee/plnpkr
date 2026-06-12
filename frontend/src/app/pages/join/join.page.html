@@ -1,0 +1,84 @@
+<main class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          @if (loading()) {
+            <p class="text-body-secondary mb-0">Checking invite…</p>
+          } @else if (notFound()) {
+            <h1 class="h4 mb-3">Session not found</h1>
+            <p class="text-body-secondary">
+              The code <code>{{ shortCode }}</code> doesn't match an active session. Check the link
+              or start a new one.
+            </p>
+          } @else {
+            <h1 class="h5 mb-1">Join “{{ sessionName() }}”</h1>
+            <p class="text-body-secondary small mb-3">Code: <code>{{ shortCode }}</code></p>
+
+            @if (error()) {
+              <div class="alert alert-danger" role="alert">{{ error() }}</div>
+            }
+
+            <form (ngSubmit)="join()">
+              <div class="mb-3">
+                <label class="form-label" for="displayName">Your name</label>
+                <input
+                  id="displayName"
+                  name="displayName"
+                  class="form-control"
+                  [(ngModel)]="displayName"
+                  placeholder="e.g. Bob"
+                  autocomplete="off"
+                />
+              </div>
+
+              @if (requiresPassword()) {
+                <div class="mb-3">
+                  <label class="form-label" for="joinPassword">Password</label>
+                  <input
+                    id="joinPassword"
+                    name="joinPassword"
+                    type="password"
+                    class="form-control"
+                    [(ngModel)]="password"
+                    placeholder="Session password"
+                    autocomplete="off"
+                  />
+                </div>
+              }
+
+              <div class="mb-3">
+                <span class="form-label d-block">Join as</span>
+                <div class="btn-group" role="group">
+                  <input
+                    type="radio"
+                    class="btn-check"
+                    name="role"
+                    id="roleVoter"
+                    [value]="'Voter'"
+                    [(ngModel)]="role"
+                  />
+                  <label class="btn btn-outline-primary" for="roleVoter">Voter</label>
+
+                  <input
+                    type="radio"
+                    class="btn-check"
+                    name="role"
+                    id="roleObserver"
+                    [value]="'Observer'"
+                    [(ngModel)]="role"
+                  />
+                  <label class="btn btn-outline-primary" for="roleObserver">Observer 👁</label>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary w-100" [disabled]="busy() || !displayName.trim()">
+                {{ busy() ? 'Joining…' : 'Join session' }}
+              </button>
+            </form>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</main>

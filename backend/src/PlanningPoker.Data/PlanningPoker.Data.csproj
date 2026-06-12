@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\PlanningPoker.Core\PlanningPoker.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Data holds the model + DbContext only; the concrete EF Core driver lives in each provider
+         project (PlanningPoker.Data.{Sqlite,SqlServer,PostgreSql}) so a build ships only the engine it
+         references. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.9" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

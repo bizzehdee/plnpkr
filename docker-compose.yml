@@ -1,0 +1,29 @@
+# Local one-command run of the whole app: `docker compose up --build` → http://localhost:8080
+# Single instance by design — do not set `deploy.replicas > 1` (in-process SignalR + local SQLite).
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      # Database engine. Defaults to on-disk SQLite on the volume below. To use a server engine,
+      # set the provider + connection string (and you can drop the volume), e.g.:
+      #   - Database__Provider=PostgreSql
+      #   - ConnectionStrings__Default=Host=db;Database=planningpoker;Username=pp;Password=...
+      # Supported: Sqlite (default) | SqlServer | PostgreSql. MySQL/MariaDB is wired but not yet enabled.
+      - Database__Provider=Sqlite
+      # Turn each issue-tracker provider on independently for local use; OAuth client id/secret
+      # (if used) come from the environment too — never bake secrets into the image.
+      - Integrations__Jira__Enabled=true
+      - Integrations__Ado__Enabled=false
+      # - Integrations__Jira__OAuth__ClientId=...
+      # - Integrations__Jira__OAuth__ClientSecret=...
+    volumes:
+      # Named volume keeps the SQLite database across container restarts.
+      - pp-data:/data
+    restart: unless-stopped
+
+volumes:
+  pp-data:

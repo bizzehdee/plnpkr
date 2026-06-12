@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PlanningPoker.Api/PlanningPoker.Api.csproj" />
+    <Project Path="src/PlanningPoker.Core/PlanningPoker.Core.csproj" />
+    <Project Path="src/PlanningPoker.Data/PlanningPoker.Data.csproj" />
+    <Project Path="src/PlanningPoker.Data.Sqlite/PlanningPoker.Data.Sqlite.csproj" />
+    <Project Path="src/PlanningPoker.Data.SqlServer/PlanningPoker.Data.SqlServer.csproj" />
+    <Project Path="src/PlanningPoker.Data.PostgreSql/PlanningPoker.Data.PostgreSql.csproj" />
+    <Project Path="src/PlanningPoker.Integrations/PlanningPoker.Integrations.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PlanningPoker.Api.Tests/PlanningPoker.Api.Tests.csproj" />
+    <Project Path="tests/PlanningPoker.Core.Tests/PlanningPoker.Core.Tests.csproj" />
+    <Project Path="tests/PlanningPoker.Data.Tests/PlanningPoker.Data.Tests.csproj" />
+    <Project Path="tests/PlanningPoker.Integrations.Tests/PlanningPoker.Integrations.Tests.csproj" />
+  </Folder>
+</Solution>

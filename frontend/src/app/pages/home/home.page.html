@@ -1,0 +1,99 @@
+<main class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h1 class="h4 mb-3">Start a planning session</h1>
+
+          @if (error()) {
+            <div class="alert alert-danger" role="alert">{{ error() }}</div>
+          }
+
+          <form (ngSubmit)="create()">
+            <div class="mb-3">
+              <label class="form-label" for="sessionName">Session name</label>
+              <input
+                id="sessionName"
+                name="sessionName"
+                class="form-control"
+                [(ngModel)]="sessionName"
+                placeholder="e.g. Sprint 24 backlog"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="displayName">Your name</label>
+              <input
+                id="displayName"
+                name="displayName"
+                class="form-control"
+                [(ngModel)]="displayName"
+                placeholder="e.g. Alice"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="deckType">Card deck</label>
+              <select id="deckType" name="deckType" class="form-select" [(ngModel)]="deckType">
+                @for (opt of deckOptions; track opt[0]) {
+                  <option [value]="opt[0]">{{ opt[1] }}</option>
+                }
+              </select>
+            </div>
+
+            @if (deckType === 'Custom') {
+              <div class="mb-3">
+                <label class="form-label" for="customCards">Custom cards (comma-separated)</label>
+                <input
+                  id="customCards"
+                  name="customCards"
+                  class="form-control"
+                  [(ngModel)]="customCards"
+                  placeholder="e.g. 1, 2, 3, 5, 8"
+                  autocomplete="off"
+                />
+              </div>
+            }
+
+            <div class="mb-3">
+              <label class="form-label" for="password">Password <span class="text-body-secondary">(optional)</span></label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                class="form-control"
+                [(ngModel)]="password"
+                placeholder="Leave blank for no password"
+                autocomplete="new-password"
+              />
+              <div class="form-text">If set, joiners must enter this password.</div>
+            </div>
+
+            <div class="form-check mb-3">
+              <input
+                id="organise"
+                name="organise"
+                type="checkbox"
+                class="form-check-input"
+                [(ngModel)]="organise"
+              />
+              <label class="form-check-label" for="organise">
+                I'll organise this session
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              class="btn btn-primary w-100"
+              [disabled]="busy() || !sessionName.trim() || !displayName.trim() || (deckType === 'Custom' && !customCards.trim())"
+            >
+              {{ busy() ? 'Creating…' : 'Create session' }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
