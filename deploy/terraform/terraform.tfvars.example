@@ -1,0 +1,24 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit secrets.
+
+# Required
+ec2_key_pair_name = "my-key-pair"   # must already exist in your AWS account
+
+# Optional — remove or leave empty to use the CloudFront *.cloudfront.net domain
+# domain_name     = "poker.example.com"
+# route53_zone_id = "Z1234567890ABC"  # only needed for automatic DNS + cert validation
+
+# Deployment region
+# aws_region = "eu-west-1"
+
+# EC2 size (t3.micro = free-tier eligible; t4g.nano = ~$3/mo ARM after free tier)
+# ec2_instance_type = "t3.micro"
+
+# CloudFront edge network (PriceClass_100 = US+Europe only, cheapest)
+# cloudfront_price_class = "PriceClass_100"
+
+# Integrations (disabled by default)
+# jira_enabled       = true
+# jira_client_id     = "your-jira-oauth-client-id"
+# jira_client_secret = "your-jira-oauth-client-secret"
+# ado_enabled        = false
