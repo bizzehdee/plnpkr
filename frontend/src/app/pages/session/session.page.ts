@@ -16,6 +16,7 @@ import { DeckStorageService } from '../../core/deck-storage.service';
   selector: 'app-session',
   imports: [DecimalPipe, RouterLink, FormsModule],
   templateUrl: './session.page.html',
+  styleUrl: './session.page.scss',
 })
 export class SessionPage implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);

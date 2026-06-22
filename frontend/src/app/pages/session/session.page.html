@@ -212,13 +212,14 @@
                 @for (card of s.cards; track card) {
                   <button
                     type="button"
-                    class="btn"
-                    [class.btn-primary]="selectedCard() === card"
-                    [class.btn-outline-primary]="selectedCard() !== card"
-                    style="min-width: 3.5rem; font-weight: 600;"
+                    class="playing-card"
+                    [class.selected]="selectedCard() === card"
+                    [attr.aria-pressed]="selectedCard() === card"
                     (click)="vote(card)"
                   >
-                    {{ card }}
+                    <span class="playing-card-tl" aria-hidden="true">{{ card }}</span>
+                    <span class="playing-card-center">{{ card }}</span>
+                    <span class="playing-card-br" aria-hidden="true">{{ card }}</span>
                   </button>
                 }
               </div>

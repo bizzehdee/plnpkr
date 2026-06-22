@@ -1,0 +1,87 @@
+// ── Playing cards ────────────────────────────────────────────────────────────
+// The vote buttons are styled to look like physical playing cards.
+// Cards are always white (like real cards) regardless of the app's colour theme.
+
+.playing-card {
+  // Dimensions — roughly a 2:3 aspect ratio.
+  width: 64px;
+  height: 96px;
+  padding: 5px 6px;
+  border-radius: 8px;
+
+  // Appearance — always white, like a real card.
+  appearance: none;
+  background: #fff;
+  color: #1a1a1a;
+  border: 1.5px solid #c8c8c8;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.14), 0 1px 2px rgba(0, 0, 0, 0.1);
+
+  // Layout — corner labels at top-left / bottom-right, big value in the middle.
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+
+  &:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+  }
+
+  &:hover {
+    transform: translateY(-5px) scale(1.04);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18), 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-color: #aaa;
+    z-index: 1;
+  }
+
+  &:active {
+    transform: translateY(-2px) scale(1.01);
+    transition-duration: 0.05s;
+  }
+
+  &.selected {
+    color: var(--bs-primary);
+    border-color: var(--bs-primary);
+    box-shadow:
+      0 0 0 2.5px rgba(var(--bs-primary-rgb), 0.3),
+      0 8px 18px rgba(0, 0, 0, 0.18);
+    transform: translateY(-8px) scale(1.04);
+  }
+}
+
+// Small label in the top-left corner.
+.playing-card-tl {
+  display: block;
+  font-size: 0.625rem;  // 10px
+  font-weight: 700;
+  line-height: 1;
+  text-align: left;
+  letter-spacing: -0.01em;
+}
+
+// Large value centred in the card body.
+.playing-card-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+// Mirror of the top-left label, rotated 180° to sit at the bottom-right.
+.playing-card-br {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: left; // rotation flips the axis — left before rotate becomes visual right
+  letter-spacing: -0.01em;
+  transform: rotate(180deg);
+}
