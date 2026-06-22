@@ -108,9 +108,9 @@ describe('SessionPage', () => {
     const fake = new FakeRealtimeClient();
     const fixture = setup(fake);
 
-    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button.btn-outline-primary, button.btn-primary');
-    // Card buttons include the deck values
-    const cardButton = [...buttons].find((b) => b.textContent?.trim() === '3') as HTMLButtonElement;
+    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button.playing-card');
+    // Card buttons carry the value in a data attribute.
+    const cardButton = [...buttons].find((b) => (b as HTMLButtonElement).dataset['cardValue'] === '3') as HTMLButtonElement;
     expect(cardButton).toBeTruthy();
 
     cardButton.click();
@@ -124,9 +124,7 @@ describe('SessionPage', () => {
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain("You're observing");
-    const cardButtons = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].filter(
-      (b) => b.textContent?.trim() === '3',
-    );
+    const cardButtons = (fixture.nativeElement as HTMLElement).querySelectorAll('button.playing-card');
     expect(cardButtons.length).toBe(0);
   });
 
@@ -895,9 +893,7 @@ describe('SessionPage', () => {
     expect(text).toContain('closed');
     expect(text).not.toContain('Organiser controls');
     // No deck buttons and no reaction bar on a closed session.
-    const cardButtons = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].filter(
-      (b) => b.textContent?.trim() === '3',
-    );
+    const cardButtons = (fixture.nativeElement as HTMLElement).querySelectorAll('button.playing-card');
     expect(cardButtons.length).toBe(0);
     expect((fixture.nativeElement as HTMLElement).querySelectorAll('button.reaction-btn').length).toBe(0);
   });

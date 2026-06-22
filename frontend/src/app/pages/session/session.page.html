@@ -215,6 +215,7 @@
                     class="playing-card"
                     [class.selected]="selectedCard() === card"
                     [attr.aria-pressed]="selectedCard() === card"
+                    [attr.data-card-value]="card"
                     (click)="vote(card)"
                   >
                     <span class="playing-card-tl" aria-hidden="true">{{ card }}</span>
