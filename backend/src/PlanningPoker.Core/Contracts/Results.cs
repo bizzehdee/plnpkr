@@ -5,6 +5,8 @@ public enum CreateSessionStatus
     Ok,
     InvalidName,
     InvalidDeck,
+    /// <summary>The caller is creating sessions too quickly (abuse throttle). See #3-abuse.</summary>
+    RateLimited,
 }
 
 public record CreateSessionResult(
@@ -15,6 +17,8 @@ public record CreateSessionResult(
     public static CreateSessionResult Ok(SessionSnapshot session) => new(CreateSessionStatus.Ok, session, null);
     public static CreateSessionResult InvalidName(string error) => new(CreateSessionStatus.InvalidName, null, error);
     public static CreateSessionResult InvalidDeck(string error) => new(CreateSessionStatus.InvalidDeck, null, error);
+    public static CreateSessionResult RateLimited() =>
+        new(CreateSessionStatus.RateLimited, null, "You're doing that too often — please wait a moment and try again.");
 }
 
 public enum JoinStatus
@@ -26,6 +30,10 @@ public enum JoinStatus
     PasswordRequired,
     WrongPassword,
     SessionClosed,
+    /// <summary>The session has reached its participant cap. See #3-abuse.</summary>
+    SessionFull,
+    /// <summary>The caller is joining too quickly (abuse throttle). See #3-abuse.</summary>
+    RateLimited,
 }
 
 public record JoinResult(
@@ -47,6 +55,10 @@ public record JoinResult(
         new(JoinStatus.WrongPassword, null, null, "Incorrect password — please try again.");
     public static JoinResult SessionClosed() =>
         new(JoinStatus.SessionClosed, null, null, "This session is closed and can no longer be joined.");
+    public static JoinResult SessionFull() =>
+        new(JoinStatus.SessionFull, null, null, "This session is full — it has reached its participant limit.");
+    public static JoinResult RateLimited() =>
+        new(JoinStatus.RateLimited, null, null, "You're doing that too often — please wait a moment and try again.");
 }
 
 /// <summary>Lean info for the /join landing page: enough to render it without exposing the full snapshot. See #2.</summary>

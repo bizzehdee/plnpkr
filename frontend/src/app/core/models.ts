@@ -147,7 +147,7 @@ export interface SessionActionResult {
   session: SessionSnapshot | null;
 }
 
-export type CreateSessionStatus = 'Ok' | 'InvalidName' | 'InvalidDeck';
+export type CreateSessionStatus = 'Ok' | 'InvalidName' | 'InvalidDeck' | 'RateLimited';
 export interface CreateSessionResult {
   status: CreateSessionStatus;
   session: SessionSnapshot | null;
@@ -161,7 +161,9 @@ export type JoinStatus =
   | 'NameTaken'
   | 'PasswordRequired'
   | 'WrongPassword'
-  | 'SessionClosed';
+  | 'SessionClosed'
+  | 'SessionFull'
+  | 'RateLimited';
 
 /** Lean /join landing info from GET /api/sessions/{shortCode} (#9). */
 export interface SessionLanding {

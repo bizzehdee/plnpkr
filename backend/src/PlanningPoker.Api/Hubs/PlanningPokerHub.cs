@@ -17,15 +17,17 @@ public class PlanningPokerHub : Hub
     private readonly ConnectionRegistry _connections;
     private readonly IntegrationService _integrations;
     private readonly ReactionRateLimiter _reactions;
+    private readonly HubThrottle _throttle;
 
     public PlanningPokerHub(
         SessionService sessions, ConnectionRegistry connections, IntegrationService integrations,
-        ReactionRateLimiter reactions)
+        ReactionRateLimiter reactions, HubThrottle throttle)
     {
         _sessions = sessions;
         _connections = connections;
         _integrations = integrations;
         _reactions = reactions;
+        _throttle = throttle;
     }
 
     /// <summary>Liveness handshake (retained from M1).</summary>
@@ -39,6 +41,12 @@ public class PlanningPokerHub : Hub
         string name, DeckType deckType, string? customCards, string userId, string displayName, bool organise,
         string? password, bool enableReactions, int? timerDurationSeconds)
     {
+        // Throttle anonymous session creation per connection (#3-abuse).
+        if (!_throttle.TryCreate(Context.ConnectionId))
+        {
+            return CreateSessionResult.RateLimited();
+        }
+
         var result = await _sessions.CreateAsync(
             new CreateSessionRequest(
                 name, deckType, customCards, userId, displayName, organise, password, enableReactions,
@@ -54,6 +62,12 @@ public class PlanningPokerHub : Hub
 
     public async Task<JoinResult> JoinSession(string shortCode, string userId, string displayName, ParticipantRole role, string? password)
     {
+        // Throttle join attempts per connection — blunts password-guessing and join floods (#3-abuse).
+        if (!_throttle.TryJoin(Context.ConnectionId))
+        {
+            return JoinResult.RateLimited();
+        }
+
         var result = await _sessions.JoinAsync(new JoinSessionRequest(shortCode, userId, displayName, role, password));
 
         if (result.Status == JoinStatus.Ok)
@@ -229,6 +243,7 @@ public class PlanningPokerHub : Hub
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         _reactions.Forget(Context.ConnectionId);
+        _throttle.Forget(Context.ConnectionId);
 
         // A drop marks the participant away (keeping their vote/role/organiser for reconnect) rather
         // than removing them; idle eviction cleans up if they don't return. See #34.

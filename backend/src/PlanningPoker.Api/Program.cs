@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using PlanningPoker.Api;
@@ -60,6 +62,19 @@ public class Program
         builder.Services.AddScoped<SessionMaintenanceService>();
         builder.Services.AddSingleton<ConnectionRegistry>();
         builder.Services.AddSingleton<ReactionRateLimiter>();
+
+        // Abuse protection (#3-abuse): room-size cap (enforced in SessionService) and per-connection
+        // throttles on session create/join (enforced in the hub). All tunable via "Abuse:*".
+        builder.Services.AddSingleton(new SessionLimits
+        {
+            MaxParticipants = builder.Configuration.GetValue("Abuse:MaxParticipants", 100),
+        });
+        builder.Services.AddSingleton(new HubThrottle.Options
+        {
+            CreatePerMinute = builder.Configuration.GetValue("Abuse:CreatePerMinute", 10),
+            JoinPerMinute = builder.Configuration.GetValue("Abuse:JoinPerMinute", 30),
+        });
+        builder.Services.AddSingleton<HubThrottle>();
         builder.Services.AddHostedService<SessionEvictionService>();
         builder.Services.AddHostedService<RoundTimerService>(); // expires round timers → auto-reveal (#14)
 
@@ -100,6 +115,24 @@ public class Program
         // as names here too, matching the SignalR protocol and the TypeScript string-union client. #9.
         builder.Services.AddControllers().AddJsonOptions(options =>
             options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+        // REST rate limiting (#3-abuse): a per-IP fixed window over the HTTP surface (landing,
+        // integration options/OAuth). Rejected requests get 429. SignalR hub traffic is throttled
+        // separately by HubThrottle. Tunable via "Abuse:Rest:*".
+        const string RestRateLimitPolicy = "rest";
+        var restPermitPerMinute = builder.Configuration.GetValue("Abuse:Rest:PermitPerMinute", 120);
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy(RestRateLimitPolicy, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = restPermitPerMinute,
+                        Window = TimeSpan.FromMinutes(1),
+                    }));
+        });
 
         // Health checks (#3). The database check is tagged "ready" so liveness can exclude it.
         builder.Services.AddHealthChecks()
@@ -144,6 +177,9 @@ public class Program
         // configured split-deploy SPA origins.
         app.UseCors(SpaCorsPolicy);
 
+        // Enforce the REST rate limiter (applied per-endpoint via RequireRateLimiting below). #3-abuse.
+        app.UseRateLimiter();
+
         // Serve the built Angular app from wwwroot (production) with SPA deep-link fallback.
         app.UseDefaultFiles();
         app.UseStaticFiles();
@@ -160,7 +196,8 @@ public class Program
         });
 
         // REST endpoints live in MVC controllers (SessionsController, IntegrationsController). See #9.
-        app.MapControllers();
+        // The per-IP rate limiter guards the public HTTP surface against floods (#3-abuse).
+        app.MapControllers().RequireRateLimiting(RestRateLimitPolicy);
 
         app.MapHub<PlanningPokerHub>("/hubs/poker");
 

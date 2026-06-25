@@ -17,13 +17,17 @@ public class SessionService
     private readonly IShortCodeGenerator _shortCodes;
     private readonly IClock _clock;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly SessionLimits _limits;
 
-    public SessionService(ISessionStore store, IShortCodeGenerator shortCodes, IClock clock, IPasswordHasher? passwordHasher = null)
+    public SessionService(
+        ISessionStore store, IShortCodeGenerator shortCodes, IClock clock,
+        IPasswordHasher? passwordHasher = null, SessionLimits? limits = null)
     {
         _store = store;
         _shortCodes = shortCodes;
         _clock = clock;
         _passwordHasher = passwordHasher ?? new Pbkdf2PasswordHasher();
+        _limits = limits ?? new SessionLimits();
     }
 
     public async Task<CreateSessionResult> CreateAsync(CreateSessionRequest request, CancellationToken ct = default)
@@ -129,6 +133,13 @@ public class SessionService
         if (nameClash)
         {
             return JoinResult.NameTaken();
+        }
+
+        // Cap room size to guard against abuse (anonymous + public). A reconnecting participant
+        // (existing seat) is never blocked — only genuinely new joiners count against the cap. See #3-abuse.
+        if (existing is null && session.Participants.Count >= _limits.MaxParticipants)
+        {
+            return JoinResult.SessionFull();
         }
 
         var now = _clock.UtcNow;
