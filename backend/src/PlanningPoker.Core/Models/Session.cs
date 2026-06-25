@@ -95,4 +95,7 @@ public class Session
     public DateTimeOffset? DeletedAt { get; set; }
 
     public List<Participant> Participants { get; set; } = new();
+
+    /// <summary>Completed estimation rounds, oldest first — the session's history for analytics (#11).</summary>
+    public List<RoundResult> RoundResults { get; set; } = new();
 }

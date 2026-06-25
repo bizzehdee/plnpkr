@@ -53,6 +53,7 @@
                 @if (!isClosed()) {
                   <li><button type="button" class="dropdown-item" (click)="openModal('invite')">Invite others</button></li>
                 }
+                <li><button type="button" class="dropdown-item" (click)="openModal('analytics')">Analytics</button></li>
                 @if (canControl() && integrationsEnabled() && !isClosed()) {
                   <li><button type="button" class="dropdown-item" (click)="openModal('tracker')">Issue tracker</button></li>
                 }
@@ -531,6 +532,7 @@
                 @case ('tracker') { Issue tracker }
                 @case ('settings') { Settings }
                 @case ('danger') { Close or delete session }
+                @case ('analytics') { Session analytics }
               }
             </h2>
             <button type="button" class="btn-close" aria-label="Close" (click)="closeModal()"></button>
@@ -746,6 +748,42 @@
                     <button class="btn btn-danger btn-sm" (click)="deleteSession()">Yes, delete</button>
                     <button class="btn btn-outline-secondary btn-sm" (click)="confirmingDelete.set(false)">Cancel</button>
                   </div>
+                }
+              }
+
+              <!-- Velocity / throughput analytics (#11) -->
+              @case ('analytics') {
+                @if (analyticsBusy()) {
+                  <p class="text-body-secondary small mb-0">Loading…</p>
+                } @else if (analytics(); as a) {
+                  @if (a.roundsCompleted === 0) {
+                    <p class="text-body-secondary small mb-0">No rounds completed yet — estimates appear here once you reveal and move on.</p>
+                  } @else {
+                    <div class="d-flex flex-wrap gap-3 mb-3">
+                      <div><div class="h4 mb-0">{{ a.roundsCompleted }}</div><div class="small text-body-secondary">Rounds</div></div>
+                      <div><div class="h4 mb-0">{{ (a.consensusRate * 100) | number: '1.0-0' }}%</div><div class="small text-body-secondary">Consensus</div></div>
+                      <div><div class="h4 mb-0">{{ a.averageVotesPerRound !== null ? (a.averageVotesPerRound | number: '1.0-1') : '—' }}</div><div class="small text-body-secondary">Avg voters</div></div>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-sm small mb-0">
+                        <thead>
+                          <tr><th>Story</th><th class="text-end">Final</th><th class="text-end">Avg</th><th class="text-center">Consensus</th></tr>
+                        </thead>
+                        <tbody>
+                          @for (r of a.rounds; track $index) {
+                            <tr>
+                              <td>{{ r.story || '—' }}</td>
+                              <td class="text-end">{{ r.finalEstimate || '—' }}</td>
+                              <td class="text-end">{{ r.average !== null ? (r.average | number: '1.0-2') : '—' }}</td>
+                              <td class="text-center">{{ r.consensus ? '✓' : '' }}</td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                } @else {
+                  <p class="text-danger small mb-0">Couldn't load analytics.</p>
                 }
               }
             }

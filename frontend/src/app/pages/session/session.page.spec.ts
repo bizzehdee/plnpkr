@@ -1057,7 +1057,8 @@ describe('SessionPage', () => {
     const items = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.dropdown-item')].map((b) =>
       b.textContent?.trim(),
     );
-    expect(items).toEqual(['Invite others']);
+    // Analytics is read-only and offered to everyone; organiser-only items stay hidden.
+    expect(items).toEqual(['Invite others', 'Analytics']);
   });
 
   it('renders the observing notice above the participants list in the right column', () => {

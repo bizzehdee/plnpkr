@@ -179,6 +179,28 @@ export interface JoinResult {
   error: string | null;
 }
 
+/** One completed round in the session history (#11). */
+export interface RoundResultInfo {
+  story: string | null;
+  note: string | null;
+  finalEstimate: string | null;
+  average: number | null;
+  consensus: boolean;
+  voteCount: number;
+  recordedAt: string;
+}
+
+/** Velocity/throughput summary for a session (#11). */
+export interface SessionAnalytics {
+  shortCode: string;
+  name: string;
+  roundsCompleted: number;
+  consensusRounds: number;
+  consensusRate: number;
+  averageVotesPerRound: number | null;
+  rounds: RoundResultInfo[];
+}
+
 export const DECK_LABELS: Record<DeckType, string> = {
   Sequential: 'Sequential (0–10)',
   Fibonacci: 'Fibonacci',

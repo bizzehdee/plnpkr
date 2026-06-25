@@ -82,6 +82,46 @@ namespace PlanningPoker.Data.PostgreSql.Migrations
                     b.ToTable("Participants");
                 });
 
+            modelBuilder.Entity("PlanningPoker.Core.Models.RoundResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("Average")
+                        .HasColumnType("double precision");
+
+                    b.Property<bool>("Consensus")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("FinalEstimate")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Story")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("VoteCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("RoundResult");
+                });
+
             modelBuilder.Entity("PlanningPoker.Core.Models.Session", b =>
                 {
                     b.Property<Guid>("Id")
@@ -183,6 +223,17 @@ namespace PlanningPoker.Data.PostgreSql.Migrations
                     b.Navigation("Session");
                 });
 
+            modelBuilder.Entity("PlanningPoker.Core.Models.RoundResult", b =>
+                {
+                    b.HasOne("PlanningPoker.Core.Models.Session", "Session")
+                        .WithMany("RoundResults")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
             modelBuilder.Entity("PlanningPoker.Core.Models.Session", b =>
                 {
                     b.OwnsOne("PlanningPoker.Core.Models.LinkedIssue", "LinkedIssue", b1 =>
@@ -229,6 +280,8 @@ namespace PlanningPoker.Data.PostgreSql.Migrations
             modelBuilder.Entity("PlanningPoker.Core.Models.Session", b =>
                 {
                     b.Navigation("Participants");
+
+                    b.Navigation("RoundResults");
                 });
 #pragma warning restore 612, 618
         }

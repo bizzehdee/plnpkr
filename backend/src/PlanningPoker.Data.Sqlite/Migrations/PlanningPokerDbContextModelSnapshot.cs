@@ -75,6 +75,46 @@ namespace PlanningPoker.Data.Sqlite.Migrations
                     b.ToTable("Participants");
                 });
 
+            modelBuilder.Entity("PlanningPoker.Core.Models.RoundResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("Average")
+                        .HasColumnType("REAL");
+
+                    b.Property<bool>("Consensus")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FinalEstimate")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Story")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("VoteCount")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("RoundResult");
+                });
+
             modelBuilder.Entity("PlanningPoker.Core.Models.Session", b =>
                 {
                     b.Property<Guid>("Id")
@@ -176,6 +216,17 @@ namespace PlanningPoker.Data.Sqlite.Migrations
                     b.Navigation("Session");
                 });
 
+            modelBuilder.Entity("PlanningPoker.Core.Models.RoundResult", b =>
+                {
+                    b.HasOne("PlanningPoker.Core.Models.Session", "Session")
+                        .WithMany("RoundResults")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
             modelBuilder.Entity("PlanningPoker.Core.Models.Session", b =>
                 {
                     b.OwnsOne("PlanningPoker.Core.Models.LinkedIssue", "LinkedIssue", b1 =>
@@ -222,6 +273,8 @@ namespace PlanningPoker.Data.Sqlite.Migrations
             modelBuilder.Entity("PlanningPoker.Core.Models.Session", b =>
                 {
                     b.Navigation("Participants");
+
+                    b.Navigation("RoundResults");
                 });
 #pragma warning restore 612, 618
         }

@@ -18,6 +18,7 @@ public class EfSessionStore : ISessionStore
     public Task<Session?> FindByShortCodeAsync(string shortCode, CancellationToken cancellationToken = default) =>
         _db.Sessions
             .Include(s => s.Participants)
+            .Include(s => s.RoundResults)
             .FirstOrDefaultAsync(s => s.ShortCode == shortCode, cancellationToken);
 
     public Task<Session?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>

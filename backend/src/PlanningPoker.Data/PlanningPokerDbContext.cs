@@ -61,8 +61,23 @@ public class PlanningPokerDbContext : DbContext
                 .HasForeignKey(p => p.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Completed-round history for analytics/export (#11). Own table, cascade with the session.
+            e.HasMany(s => s.RoundResults)
+                .WithOne(r => r.Session!)
+                .HasForeignKey(r => r.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Soft delete (#26): a deleted session is hidden from every query.
             e.HasQueryFilter(s => s.DeletedAt == null);
+        });
+
+        modelBuilder.Entity<RoundResult>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.Property(r => r.Story).HasMaxLength(500);
+            e.Property(r => r.Note).HasMaxLength(2000);
+            e.Property(r => r.FinalEstimate).HasMaxLength(16);
+            e.HasIndex(r => r.SessionId);
         });
 
         modelBuilder.Entity<Participant>(e =>

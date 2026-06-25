@@ -9,7 +9,7 @@ import { SignalrRealtimeClient } from '../../core/realtime.client';
 import { IdentityService } from '../../core/identity.service';
 import { TrackerStorageService } from '../../core/tracker-storage.service';
 import { resolveApiBase } from '../../core/app-config';
-import { DECK_LABELS, DeckType, IntegrationProvider, ParticipantInfo, ParticipantRole, REACTION_EMOJI, SavedDeck } from '../../core/models';
+import { DECK_LABELS, DeckType, IntegrationProvider, ParticipantInfo, ParticipantRole, REACTION_EMOJI, SavedDeck, SessionAnalytics } from '../../core/models';
 import { DeckStorageService } from '../../core/deck-storage.service';
 import { RevealCueService } from '../../core/reveal-cue.service';
 
@@ -57,7 +57,7 @@ export class SessionPage implements OnInit, OnDestroy {
   // --- Top-right menu + modals (#30, #26) ---
   protected readonly menuOpen = signal(false);
   /** Which modal is open, if any. */
-  protected readonly activeModal = signal<'invite' | 'tracker' | 'settings' | 'danger' | null>(null);
+  protected readonly activeModal = signal<'invite' | 'tracker' | 'settings' | 'danger' | 'analytics' | null>(null);
 
   /** True once the session has been closed (read-only, #26). */
   protected readonly isClosed = computed(() => this.session()?.isClosed ?? false);
@@ -66,13 +66,36 @@ export class SessionPage implements OnInit, OnDestroy {
     this.menuOpen.update((v) => !v);
   }
 
-  protected openModal(modal: 'invite' | 'tracker' | 'settings' | 'danger'): void {
+  protected openModal(modal: 'invite' | 'tracker' | 'settings' | 'danger' | 'analytics'): void {
+    if (modal === 'analytics') {
+      void this.loadAnalytics();
+    }
     this.activeModal.set(modal);
     this.menuOpen.set(false);
   }
 
   protected closeModal(): void {
     this.activeModal.set(null);
+  }
+
+  // --- Analytics (#11) ---
+  protected readonly analytics = signal<SessionAnalytics | null>(null);
+  protected readonly analyticsBusy = signal(false);
+
+  /** Fetches the session's velocity/throughput summary for the analytics modal. */
+  protected async loadAnalytics(): Promise<void> {
+    this.analyticsBusy.set(true);
+    try {
+      this.analytics.set(
+        await firstValueFrom(
+          this.http.get<SessionAnalytics>(`${resolveApiBase()}/api/sessions/${this.shortCode}/analytics`),
+        ),
+      );
+    } catch {
+      this.analytics.set(null);
+    } finally {
+      this.analyticsBusy.set(false);
+    }
   }
 
   /** Esc closes an open modal first, otherwise the menu. */

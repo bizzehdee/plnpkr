@@ -314,7 +314,14 @@ public class SessionService
             return error;
         }
 
-        foreach (var p in session!.Participants)
+        // Resetting a revealed round means the team is done with this item — capture it for analytics
+        // before clearing the votes. See #11.
+        if (session!.State == SessionState.Revealed)
+        {
+            RecordCompletedRound(session);
+        }
+
+        foreach (var p in session.Participants)
         {
             ClearVote(p);
         }
@@ -925,6 +932,32 @@ public class SessionService
         }
     }
 
+    /// <summary>
+    /// Appends a <see cref="RoundResult"/> capturing the just-revealed round's outcome (#11). Skips
+    /// rounds where nobody voted. The final estimate is the consensus card when unanimous, else null.
+    /// </summary>
+    private void RecordCompletedRound(Session session)
+    {
+        var stats = StatsCalculator.Compute(session.Participants);
+        if (stats.VoteCount == 0)
+        {
+            return;
+        }
+
+        session.RoundResults.Add(new RoundResult
+        {
+            Id = Guid.NewGuid(),
+            SessionId = session.Id,
+            Story = session.CurrentStory,
+            Note = session.CurrentStoryNote,
+            FinalEstimate = stats.Consensus && stats.Distribution.Count > 0 ? stats.Distribution[0].Value : null,
+            Average = stats.Average,
+            Consensus = stats.Consensus,
+            VoteCount = stats.VoteCount,
+            RecordedAt = _clock.UtcNow,
+        });
+    }
+
     private static void ClearVote(Participant p)
     {
         p.Vote = null;
@@ -943,6 +976,32 @@ public class SessionService
     {
         var session = await _store.FindByShortCodeAsync(shortCode, ct);
         return session is null ? null : ToSnapshot(session);
+    }
+
+    /// <summary>
+    /// Velocity/throughput analytics for a session (#11): counts, consensus rate, and the per-round
+    /// history (newest first). Null if the session is unknown.
+    /// </summary>
+    public async Task<SessionAnalytics?> GetAnalyticsAsync(string shortCode, CancellationToken ct = default)
+    {
+        var session = await _store.FindByShortCodeAsync(shortCode, ct);
+        if (session is null)
+        {
+            return null;
+        }
+
+        var rounds = session.RoundResults
+            .OrderByDescending(r => r.RecordedAt)
+            .Select(r => new RoundResultInfo(r.Story, r.Note, r.FinalEstimate, r.Average, r.Consensus, r.VoteCount, r.RecordedAt))
+            .ToList();
+
+        var completed = rounds.Count;
+        var consensusRounds = rounds.Count(r => r.Consensus);
+        var consensusRate = completed == 0 ? 0d : (double)consensusRounds / completed;
+        double? averageVotes = completed == 0 ? null : rounds.Average(r => r.VoteCount);
+
+        return new SessionAnalytics(
+            session.ShortCode, session.Name, completed, consensusRounds, consensusRate, averageVotes, rounds);
     }
 
     /// <summary>Landing info for the /join page — exposes only whether a password is required. See #2.</summary>

@@ -23,4 +23,12 @@ public sealed class SessionsController : ControllerBase
         var landing = await _sessions.GetLandingAsync(shortCode, ct);
         return landing is null ? NotFound() : Ok(landing);
     }
+
+    /// <summary>Velocity/throughput analytics: per-round history + summary counts (#11).</summary>
+    [HttpGet("{shortCode}/analytics")]
+    public async Task<IActionResult> Analytics(string shortCode, CancellationToken ct)
+    {
+        var analytics = await _sessions.GetAnalyticsAsync(shortCode, ct);
+        return analytics is null ? NotFound() : Ok(analytics);
+    }
 }
