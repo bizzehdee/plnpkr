@@ -21,6 +21,9 @@ public sealed record AdoSharedQuery(string Project, string QueryId) : IssueQuery
 /// <summary>An explicit list of ticket keys/ids (the fallback input).</summary>
 public sealed record KeyListQuery(IReadOnlyList<string> Keys) : IssueQuery;
 
+/// <summary>List the open issues of the connected project/repo (GitHub/GitLab board URL). See #13/#14.</summary>
+public sealed record OpenIssuesQuery : IssueQuery;
+
 /// <summary>Lightweight ticket row for the queue. Full description is fetched on select. See #38.</summary>
 public record IssueSummary(string Key, string Title, string? Status, double? StoryPoints, string Url);
 

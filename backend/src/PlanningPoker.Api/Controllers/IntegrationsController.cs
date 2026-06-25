@@ -40,6 +40,14 @@ public sealed class IntegrationsController : ControllerBase
         {
             providers.Add(new { id = "AzureDevOps", oauth = _oauth.IsConfigured(IntegrationProvider.AzureDevOps) });
         }
+        if (_options.GitHub.Enabled)
+        {
+            providers.Add(new { id = "GitHub", oauth = _oauth.IsConfigured(IntegrationProvider.GitHub) });
+        }
+        if (_options.GitLab.Enabled)
+        {
+            providers.Add(new { id = "GitLab", oauth = _oauth.IsConfigured(IntegrationProvider.GitLab) });
+        }
         return Ok(new { providers });
     }
 
@@ -100,6 +108,8 @@ public sealed class IntegrationsController : ControllerBase
         {
             case "jira": provider = IntegrationProvider.Jira; return true;
             case "azuredevops" or "ado": provider = IntegrationProvider.AzureDevOps; return true;
+            case "github": provider = IntegrationProvider.GitHub; return true;
+            case "gitlab": provider = IntegrationProvider.GitLab; return true;
             default: provider = default; return false;
         }
     }

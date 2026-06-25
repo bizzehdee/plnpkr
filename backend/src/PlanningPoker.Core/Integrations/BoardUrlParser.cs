@@ -21,6 +21,14 @@ public sealed class BoardUrlParser : IBoardUrlParser
 
         var query = ParseQueryString(uri.Query);
 
+        // --- GitHub / GitLab: a repo/project URL → "list the connected project's open issues" (#13/#14).
+        // owner/repo (or group/project) come from the connection's BaseUrl, so the query carries no args. ---
+        if (uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase)
+            || uri.Host.Equals("gitlab.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return new OpenIssuesQuery();
+        }
+
         // --- Azure DevOps: .../{project}/_queries/query/{guid}[/...] ---
         var ado = AdoQuery.Match(uri.AbsolutePath);
         if (uri.Host.Contains("azure.com") || uri.Host.Contains("visualstudio.com"))

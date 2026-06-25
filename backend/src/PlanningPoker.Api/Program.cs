@@ -83,6 +83,8 @@ public class Program
         {
             Jira = new() { Enabled = builder.Configuration.GetValue("Integrations:Jira:Enabled", false) },
             Ado = new() { Enabled = builder.Configuration.GetValue("Integrations:Ado:Enabled", false) },
+            GitHub = new() { Enabled = builder.Configuration.GetValue("Integrations:GitHub:Enabled", false) },
+            GitLab = new() { Enabled = builder.Configuration.GetValue("Integrations:GitLab:Enabled", false) },
         };
         builder.Services.AddSingleton(integrationOptions);
 
@@ -92,6 +94,7 @@ public class Program
         builder.Services.AddSingleton<IHtmlDescriptionSanitizer, HtmlDescriptionSanitizer>();
         builder.Services.AddSingleton<IIssueTracker, JiraIssueTracker>();
         builder.Services.AddSingleton<IIssueTracker, AzureDevOpsIssueTracker>();
+        builder.Services.AddSingleton<IIssueTracker, GitHubIssueTracker>(); // #13
         builder.Services.AddSingleton<IIssueTrackerFactory, IssueTrackerFactory>();
         builder.Services.AddSingleton<IIntegrationConnectionStore, InMemoryIntegrationConnectionStore>();
         builder.Services.AddSingleton<IBoardUrlParser, BoardUrlParser>();

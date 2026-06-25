@@ -609,16 +609,16 @@
                     <div class="text-center text-body-secondary small mb-2">or use a token</div>
                   }
                   <input class="form-control form-control-sm mb-2" [(ngModel)]="trackerBaseUrl"
-                    [placeholder]="trackerProvider === 'Jira' ? 'Site URL e.g. https://acme.atlassian.net' : 'Org URL e.g. https://dev.azure.com/acme'"
+                    [placeholder]="baseUrlPlaceholder(trackerProvider)"
                     autocomplete="off" />
                   @if (trackerProvider === 'Jira') {
                     <input class="form-control form-control-sm mb-2" [(ngModel)]="trackerEmail"
                       placeholder="Account email" autocomplete="off" />
                   }
                   <input class="form-control form-control-sm mb-2" [(ngModel)]="trackerToken" type="password"
-                    [placeholder]="trackerProvider === 'Jira' ? 'API token' : 'Personal access token'" autocomplete="off" />
+                    [placeholder]="tokenPlaceholder(trackerProvider)" autocomplete="off" />
                   <input class="form-control form-control-sm mb-1" [(ngModel)]="trackerStoryPointsField"
-                    [placeholder]="trackerProvider === 'Jira' ? 'Story points field (optional) e.g. customfield_10016' : 'Story points field (optional) e.g. Custom.StoryPoints'"
+                    [placeholder]="storyPointsPlaceholder(trackerProvider)"
                     autocomplete="off" />
                   <div class="form-text small mb-2">
                     Leave blank to auto-detect. Set a field id or name if auto-detect can't find Story Points.

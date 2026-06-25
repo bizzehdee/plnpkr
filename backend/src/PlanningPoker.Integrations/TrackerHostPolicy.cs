@@ -20,7 +20,7 @@ public sealed class TrackerHostPolicy : ITrackerHostPolicy
     /// <param name="allowedHostSuffixes">e.g. "atlassian.net", "dev.azure.com", "visualstudio.com".</param>
     public TrackerHostPolicy(IEnumerable<string>? allowedHostSuffixes = null)
     {
-        _allowedSuffixes = (allowedHostSuffixes ?? new[] { "atlassian.net", "atlassian.com", "dev.azure.com", "visualstudio.com" })
+        _allowedSuffixes = (allowedHostSuffixes ?? new[] { "atlassian.net", "atlassian.com", "dev.azure.com", "visualstudio.com", "github.com", "gitlab.com" })
             .Select(s => s.Trim().TrimStart('.').ToLowerInvariant())
             .Where(s => s.Length > 0)
             .ToArray();

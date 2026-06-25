@@ -56,6 +56,14 @@ public class BoardUrlParserTests
         _sut.Parse(url).Should().BeNull();
     }
 
+    [Theory]
+    [InlineData("https://github.com/acme/widgets/issues")]
+    [InlineData("https://gitlab.com/acme/widgets/-/issues")]
+    public void GitHub_and_GitLab_repo_urls_become_an_open_issues_query(string url)
+    {
+        _sut.Parse(url).Should().BeOfType<OpenIssuesQuery>();
+    }
+
     [Fact]
     public void Ado_query_path_on_a_non_azure_host_is_ignored()
     {

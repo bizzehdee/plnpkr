@@ -360,7 +360,37 @@ export class SessionPage implements OnInit, OnDestroy {
 
   /** Display label for a provider id. */
   protected providerLabel(p: IntegrationProvider): string {
-    return p === 'Jira' ? 'Jira' : 'Azure DevOps';
+    switch (p) {
+      case 'Jira': return 'Jira';
+      case 'AzureDevOps': return 'Azure DevOps';
+      case 'GitHub': return 'GitHub';
+      case 'GitLab': return 'GitLab';
+    }
+  }
+
+  /** Placeholder for the base-URL field, tailored per provider. */
+  protected baseUrlPlaceholder(p: IntegrationProvider): string {
+    switch (p) {
+      case 'Jira': return 'Site URL e.g. https://acme.atlassian.net';
+      case 'AzureDevOps': return 'Org URL e.g. https://dev.azure.com/acme';
+      case 'GitHub': return 'Repo URL e.g. https://github.com/owner/repo';
+      case 'GitLab': return 'Project URL e.g. https://gitlab.com/group/project';
+    }
+  }
+
+  /** Placeholder for the token field, tailored per provider. */
+  protected tokenPlaceholder(p: IntegrationProvider): string {
+    return p === 'Jira' ? 'API token' : 'Personal access token';
+  }
+
+  /** Placeholder for the optional story-points field, tailored per provider. */
+  protected storyPointsPlaceholder(p: IntegrationProvider): string {
+    switch (p) {
+      case 'Jira': return 'Story points field (optional) e.g. customfield_10016';
+      case 'AzureDevOps': return 'Story points field (optional) e.g. Custom.StoryPoints';
+      case 'GitHub':
+      case 'GitLab': return 'Points label prefix (optional) e.g. points:';
+    }
   }
 
   /** Whether the currently-selected provider offers OAuth ("Log in"). */

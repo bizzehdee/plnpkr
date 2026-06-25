@@ -5,6 +5,8 @@ public enum IntegrationProvider
 {
     Jira,
     AzureDevOps,
+    GitHub,
+    GitLab,
 }
 
 /// <summary>How the token authenticates: HTTP Basic (PAT/API token) or Bearer (OAuth access token).</summary>

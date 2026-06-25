@@ -39,7 +39,7 @@ export interface VoteStats {
   outlierValues: string[];
 }
 
-export type IntegrationProvider = 'Jira' | 'AzureDevOps';
+export type IntegrationProvider = 'Jira' | 'AzureDevOps' | 'GitHub' | 'GitLab';
 
 /** An ephemeral emoji reaction broadcast to the session (#17). Never persisted. */
 export interface ReactionEvent {

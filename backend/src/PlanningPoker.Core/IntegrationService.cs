@@ -12,15 +12,19 @@ public sealed class IntegrationsOptions
 {
     public ProviderIntegrationOptions Jira { get; set; } = new();
     public ProviderIntegrationOptions Ado { get; set; } = new();
+    public ProviderIntegrationOptions GitHub { get; set; } = new();
+    public ProviderIntegrationOptions GitLab { get; set; } = new();
 
     /// <summary>True when at least one provider is enabled (the feature shows up at all).</summary>
-    public bool AnyEnabled => Jira.Enabled || Ado.Enabled;
+    public bool AnyEnabled => Jira.Enabled || Ado.Enabled || GitHub.Enabled || GitLab.Enabled;
 
     /// <summary>Whether the given provider is individually enabled.</summary>
     public bool IsEnabled(IntegrationProvider provider) => provider switch
     {
         IntegrationProvider.Jira => Jira.Enabled,
         IntegrationProvider.AzureDevOps => Ado.Enabled,
+        IntegrationProvider.GitHub => GitHub.Enabled,
+        IntegrationProvider.GitLab => GitLab.Enabled,
         _ => false,
     };
 }
