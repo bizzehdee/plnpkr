@@ -1,20 +1,36 @@
 import { Component, computed, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterOutlet, RouterLink } from '@angular/router';
 import { SignalrRealtimeClient } from './core/realtime.client';
 import { ThemeService } from './core/theme.service';
+import { I18nService, Locale } from './core/i18n.service';
+import { TranslatePipe } from './core/translate.pipe';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink],
+  imports: [RouterOutlet, RouterLink, FormsModule, TranslatePipe],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App {
   private readonly realtime = inject(SignalrRealtimeClient);
   private readonly theme = inject(ThemeService);
+  private readonly i18n = inject(I18nService);
 
   protected readonly status = this.realtime.status;
   protected readonly themePreference = this.theme.preference;
+
+  // --- Language switcher (#5) ---
+  protected readonly locales = this.i18n.available;
+  protected get locale(): Locale {
+    return this.i18n.locale();
+  }
+  protected set locale(value: Locale) {
+    this.i18n.setLocale(value);
+  }
+
+  /** Localized connection-status label for the badge. */
+  protected readonly statusLabel = computed(() => this.i18n.t(`conn.${this.status()}`));
 
   protected readonly themeIcon = computed(() => {
     switch (this.themePreference()) {

@@ -5,10 +5,11 @@ import { SignalrRealtimeClient } from '../../core/realtime.client';
 import { IdentityService } from '../../core/identity.service';
 import { DeckStorageService } from '../../core/deck-storage.service';
 import { DeckType, DECK_LABELS, SavedDeck } from '../../core/models';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-home',
-  imports: [FormsModule],
+  imports: [FormsModule, TranslatePipe],
   templateUrl: './home.page.html',
 })
 export class HomePage {

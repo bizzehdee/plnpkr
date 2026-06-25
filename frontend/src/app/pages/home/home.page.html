@@ -3,7 +3,7 @@
     <div class="col-12 col-md-8 col-lg-6">
       <div class="card shadow-sm">
         <div class="card-body">
-          <h1 class="h4 mb-3">Start a planning session</h1>
+          <h1 class="h4 mb-3">{{ 'home.title' | t }}</h1>
 
           @if (error()) {
             <div class="alert alert-danger" role="alert">{{ error() }}</div>
@@ -11,31 +11,31 @@
 
           <form (ngSubmit)="create()">
             <div class="mb-3">
-              <label class="form-label" for="sessionName">Session name</label>
+              <label class="form-label" for="sessionName">{{ 'home.sessionName' | t }}</label>
               <input
                 id="sessionName"
                 name="sessionName"
                 class="form-control"
                 [(ngModel)]="sessionName"
-                placeholder="e.g. Sprint 24 backlog"
+                [placeholder]="'home.sessionNamePlaceholder' | t"
                 autocomplete="off"
               />
             </div>
 
             <div class="mb-3">
-              <label class="form-label" for="displayName">Your name</label>
+              <label class="form-label" for="displayName">{{ 'home.yourName' | t }}</label>
               <input
                 id="displayName"
                 name="displayName"
                 class="form-control"
                 [(ngModel)]="displayName"
-                placeholder="e.g. Alice"
+                [placeholder]="'home.yourNamePlaceholder' | t"
                 autocomplete="off"
               />
             </div>
 
             <div class="mb-3">
-              <label class="form-label" for="deckType">Card deck</label>
+              <label class="form-label" for="deckType">{{ 'home.cardDeck' | t }}</label>
               <select id="deckType" name="deckType" class="form-select" [(ngModel)]="deckType">
                 @for (opt of deckOptions; track opt[0]) {
                   <option [value]="opt[0]">{{ opt[1] }}</option>
@@ -45,30 +45,30 @@
 
             @if (deckType === 'Custom') {
               <div class="mb-3">
-                <label class="form-label" for="customCards">Custom cards (comma-separated)</label>
+                <label class="form-label" for="customCards">{{ 'home.customCards' | t }}</label>
                 <input
                   id="customCards"
                   name="customCards"
                   class="form-control"
                   [(ngModel)]="customCards"
-                  placeholder="e.g. 1, 2, 3, 5, 8"
+                  [placeholder]="'home.customCardsPlaceholder' | t"
                   autocomplete="off"
                 />
               </div>
             }
 
             <div class="mb-3">
-              <label class="form-label" for="password">Password <span class="text-body-secondary">(optional)</span></label>
+              <label class="form-label" for="password">{{ 'home.password' | t }} <span class="text-body-secondary">{{ 'home.optional' | t }}</span></label>
               <input
                 id="password"
                 name="password"
                 type="password"
                 class="form-control"
                 [(ngModel)]="password"
-                placeholder="Leave blank for no password"
+                [placeholder]="'home.passwordPlaceholder' | t"
                 autocomplete="new-password"
               />
-              <div class="form-text">If set, joiners must enter this password.</div>
+              <div class="form-text">{{ 'home.passwordHelp' | t }}</div>
             </div>
 
             <div class="form-check mb-3">
@@ -80,7 +80,7 @@
                 [(ngModel)]="organise"
               />
               <label class="form-check-label" for="organise">
-                I'll organise this session
+                {{ 'home.organise' | t }}
               </label>
             </div>
 
@@ -89,7 +89,7 @@
               class="btn btn-primary w-100"
               [disabled]="busy() || !sessionName.trim() || !displayName.trim() || (deckType === 'Custom' && !customCards.trim())"
             >
-              {{ busy() ? 'Creating…' : 'Create session' }}
+              {{ busy() ? ('home.creating' | t) : ('home.create' | t) }}
             </button>
           </form>
         </div>

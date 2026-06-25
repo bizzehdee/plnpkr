@@ -2,13 +2,22 @@
   <div class="container">
     <a class="navbar-brand mb-0 h1" routerLink="/">PlnPkr</a>
     <div class="d-flex align-items-center gap-2">
-      <span class="badge {{ statusClass() }}">{{ status() }}</span>
+      <span class="badge {{ statusClass() }}">{{ statusLabel() }}</span>
+      <select
+        class="form-select form-select-sm w-auto"
+        [(ngModel)]="locale"
+        [attr.aria-label]="'app.language' | t"
+      >
+        @for (l of locales; track l.id) {
+          <option [ngValue]="l.id">{{ l.label }}</option>
+        }
+      </select>
       <button
         type="button"
         class="btn btn-sm btn-outline-secondary"
         (click)="cycleTheme()"
         [title]="'Theme: ' + themePreference() + ' (click to change)'"
-        aria-label="Toggle theme"
+        [attr.aria-label]="'app.toggleTheme' | t"
       >
         {{ themeIcon() }}
       </button>
@@ -20,12 +29,12 @@
 
 <footer class="border-top mt-auto py-3">
   <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2 small text-body-secondary">
-    <span>PlnPkr — © 2026
+    <span>{{ 'app.copyright' | t }}
       <a href="https://www.darrenhorrocks.co.uk" target="_blank" rel="noopener">Darren Horrocks</a>
     </span>
     <span class="d-flex gap-3">
-      <a href="https://ko-fi.com/bizzehdee" target="_blank" rel="noopener">Support on Ko-Fi</a>
-      <a href="https://github.com/bizzehdee/plnpkr" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://ko-fi.com/bizzehdee" target="_blank" rel="noopener">{{ 'app.support' | t }}</a>
+      <a href="https://github.com/bizzehdee/plnpkr" target="_blank" rel="noopener">{{ 'app.github' | t }}</a>
     </span>
   </div>
 </footer>

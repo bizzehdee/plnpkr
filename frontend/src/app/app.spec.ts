@@ -3,6 +3,7 @@ import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { SignalrRealtimeClient, ConnectionStatus } from './core/realtime.client';
+import { I18nService } from './core/i18n.service';
 
 class FakeRealtimeClient {
   private readonly _status = signal<ConnectionStatus>('connected');
@@ -35,5 +36,17 @@ describe('App shell', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('footer a[href="https://www.darrenhorrocks.co.uk"]')).toBeTruthy();
     expect(el.querySelector('footer a[href="https://github.com/bizzehdee/plnpkr"]')).toBeTruthy();
+  });
+
+  it('localizes the connection status when the locale is switched (#5)', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('connected');
+
+    TestBed.inject(I18nService).setLocale('es');
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('conectado');
+    localStorage.removeItem('pp.locale');
   });
 });
