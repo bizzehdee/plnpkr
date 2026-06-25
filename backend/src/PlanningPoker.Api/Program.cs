@@ -95,6 +95,7 @@ public class Program
         builder.Services.AddSingleton<IIssueTracker, JiraIssueTracker>();
         builder.Services.AddSingleton<IIssueTracker, AzureDevOpsIssueTracker>();
         builder.Services.AddSingleton<IIssueTracker, GitHubIssueTracker>(); // #13
+        builder.Services.AddSingleton<IIssueTracker, GitLabIssueTracker>(); // #14
         builder.Services.AddSingleton<IIssueTrackerFactory, IssueTrackerFactory>();
         builder.Services.AddSingleton<IIntegrationConnectionStore, InMemoryIntegrationConnectionStore>();
         builder.Services.AddSingleton<IBoardUrlParser, BoardUrlParser>();
