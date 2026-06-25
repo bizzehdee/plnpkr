@@ -562,6 +562,25 @@ export class SessionPage implements OnInit, OnDestroy {
       this.wasRevealed = revealed;
     });
 
+    // Modal focus management (#4): on open, remember the trigger and move focus into the dialog;
+    // on close, restore focus to wherever it was. Esc-to-close already lives in onEscape().
+    effect(() => {
+      const modal = this.activeModal();
+      if (modal) {
+        this.lastFocused = (document.activeElement as HTMLElement) ?? null;
+        setTimeout(() => {
+          const dialog = document.querySelector<HTMLElement>('.modal .modal-content');
+          const focusable = dialog?.querySelector<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
+          );
+          (focusable ?? dialog)?.focus();
+        });
+      } else if (this.lastFocused) {
+        this.lastFocused.focus();
+        this.lastFocused = null;
+      }
+    });
+
     // Drive the countdown: re-evaluate the timer signals twice a second against the server deadline.
     this.timerTick = setInterval(() => this.nowMs.set(Date.now()), 500);
 
@@ -732,6 +751,85 @@ export class SessionPage implements OnInit, OnDestroy {
       }
     } finally {
       this.passwordBusy.set(false);
+    }
+  }
+
+  // --- Accessibility (#4) ---
+
+  /** Roving tabindex: only the selected card (or the first, if none) is in the tab order. */
+  protected cardTabIndex(card: string, index: number): number {
+    const cards = this.session()?.cards ?? [];
+    const sel = this.selectedCard();
+    const activeIndex = sel && cards.includes(sel) ? cards.indexOf(sel) : 0;
+    return index === activeIndex ? 0 : -1;
+  }
+
+  /** Arrow/Home/End keyboard navigation across the card radiogroup; moving selects + focuses. */
+  protected onCardKeydown(event: KeyboardEvent, index: number): void {
+    const cards = this.session()?.cards ?? [];
+    if (cards.length === 0) return;
+
+    let target = index;
+    switch (event.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        target = (index + 1) % cards.length;
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        target = (index - 1 + cards.length) % cards.length;
+        break;
+      case 'Home':
+        target = 0;
+        break;
+      case 'End':
+        target = cards.length - 1;
+        break;
+      default:
+        return; // let other keys (Space/Enter activate the button natively) through
+    }
+    event.preventDefault();
+    void this.vote(cards[target]);
+    document
+      .querySelector<HTMLButtonElement>(`button.playing-card[data-card-index="${target}"]`)
+      ?.focus();
+  }
+
+  /** A concise spoken summary announced (aria-live) the moment votes are revealed. */
+  protected readonly resultsAnnouncement = computed(() => {
+    if (!this.revealed()) return '';
+    const stats = this.session()?.stats;
+    if (!stats) return 'Votes revealed.';
+    const parts = ['Votes revealed.'];
+    if (stats.average !== null) parts.push(`Average ${stats.average}.`);
+    if (stats.consensus) parts.push('Consensus reached.');
+    else if (this.outliers().length) parts.push(`Outliers to discuss: ${this.outlierSummary()}.`);
+    return parts.join(' ');
+  });
+
+  /** The element focused before a modal opened, so focus can be restored when it closes. */
+  private lastFocused: HTMLElement | null = null;
+
+  /** Keeps Tab focus inside an open modal (a lightweight focus trap). */
+  protected onModalKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Tab') return;
+    const container = event.currentTarget as HTMLElement;
+    const focusables = [
+      ...container.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ].filter((el) => el.offsetParent !== null);
+    if (focusables.length === 0) return;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement as HTMLElement;
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
     }
   }
 

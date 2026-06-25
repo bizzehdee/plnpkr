@@ -121,6 +121,54 @@ describe('SessionPage', () => {
     expect(fake.castVote).toHaveBeenCalledWith(CODE, ME, '3');
   });
 
+  // --- Accessibility (#4) ---
+  it('exposes the deck as a radiogroup with aria-checked on the selected card', () => {
+    const fake = new FakeRealtimeClient();
+    const fixture = setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('[role="radiogroup"]')).toBeTruthy();
+    const radios = [...el.querySelectorAll('button.playing-card[role="radio"]')];
+    expect(radios.length).toBeGreaterThan(0);
+    // Nothing selected yet → none checked.
+    expect(radios.every((r) => r.getAttribute('aria-checked') === 'false')).toBe(true);
+
+    // After voting for '2', that card reports aria-checked.
+    const two = radios.find((r) => (r as HTMLButtonElement).dataset['cardValue'] === '2') as HTMLButtonElement;
+    two.click();
+    fixture.detectChanges();
+    expect(two.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('supports arrow-key navigation across the card radiogroup (selects on move)', () => {
+    const fake = new FakeRealtimeClient();
+    const fixture = setup(fake); // cards: ['1','2','3','?','☕']
+    const el = fixture.nativeElement as HTMLElement;
+
+    const first = el.querySelector('button.playing-card[data-card-index="0"]') as HTMLButtonElement;
+    first.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+
+    // ArrowRight from index 0 selects index 1 ('2').
+    expect(fake.castVote).toHaveBeenCalledWith(CODE, ME, '2');
+  });
+
+  it('announces the result via an aria-live region on reveal', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(
+      snap({
+        state: 'Revealed',
+        participants: [participant({ userId: ME, hasVoted: true, vote: '5' })],
+        stats: { average: 5, consensus: true, voteCount: 1, distribution: [{ value: '5', count: 1 }], min: 5, max: 5, stdDev: 0, outlierValues: [] },
+      }),
+    );
+    const fixture = setup(fake);
+
+    const live = (fixture.nativeElement as HTMLElement).querySelector('[aria-live="polite"]');
+    expect(live?.textContent).toContain('Votes revealed');
+    expect(live?.textContent).toContain('Average 5');
+    expect(live?.textContent).toContain('Consensus');
+  });
+
   it('hides the deck and shows an observing note for observers', () => {
     const fake = new FakeRealtimeClient();
     fake.session.set(snap({ participants: [participant({ userId: ME, role: 'Observer' })] }));

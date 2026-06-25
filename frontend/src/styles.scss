@@ -1,5 +1,12 @@
 /* You can add global styles to this file, and also import other style files */
 
+/* Accessibility (#4): a consistent, visible focus ring for keyboard users across the app.
+   Mouse clicks don't trigger :focus-visible, so this stays unobtrusive for pointer users. */
+:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
 /* Sticky footer: the app shell fills the viewport height and the footer (margin-top:auto in app.html)
    is pushed to the bottom — sitting at the foot of the viewport on short pages, below content on long ones. */
 html,
