@@ -245,6 +245,46 @@ describe('SessionPage', () => {
     expect(mine!.textContent?.trim()).toBe('✓');
   });
 
+  // --- Large-group mode (#6) ---
+  it('summarises voted-of-voters and observer counts in the participants header', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(
+      snap({
+        participants: [
+          participant({ userId: ME, role: 'Voter', hasVoted: true }),
+          participant({ userId: 'bob', role: 'Voter', hasVoted: false }),
+          participant({ userId: 'obs', role: 'Observer' }),
+        ],
+      }),
+    );
+    const fixture = setup(fake);
+
+    const header = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.card-header')]
+      .find((h) => h.textContent?.includes('Participants')) as HTMLElement;
+    expect(header.textContent).toContain('1/2 voted');
+    expect(header.textContent).toContain('👁 1');
+  });
+
+  it('collapses the participant list past the threshold and expands on demand', () => {
+    const fake = new FakeRealtimeClient();
+    const many = Array.from({ length: 30 }, (_, i) =>
+      participant({ userId: 'u' + i, displayName: 'User ' + i }),
+    );
+    fake.session.set(snap({ participants: many }));
+    const fixture = setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    // Collapsed: only the head slice (25) is rendered, with a show-all button.
+    const rows = () => el.querySelectorAll('.list-group-item');
+    expect(rows().length).toBe(25);
+    const showAll = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Show all 30')) as HTMLButtonElement;
+    expect(showAll).toBeTruthy();
+
+    showAll.click();
+    fixture.detectChanges();
+    expect(rows().length).toBe(30);
+  });
+
   it('displays the current story', () => {
     const fake = new FakeRealtimeClient();
     fake.session.set(snap({ currentStory: 'PROJ-123 Login' }));

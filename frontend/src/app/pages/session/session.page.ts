@@ -204,6 +204,39 @@ export class SessionPage implements OnInit, OnDestroy {
     return this.realtime.setTimerDuration(this.shortCode, this.myUserId, this.timerSelection);
   }
 
+  // --- Large-group mode (#6): aggregate counts + a collapsible participant list ---
+  /** Above this many participants the list collapses to a head slice behind a "show all" toggle. */
+  protected readonly largeGroupThreshold = 25;
+
+  /** Voting/observer tally for the summary header (voted-of-voters, observer count). Builds on #1. */
+  protected readonly tally = computed(() => {
+    const ps = this.session()?.participants ?? [];
+    const voters = ps.filter((p) => p.role === 'Voter');
+    return {
+      voted: voters.filter((v) => v.hasVoted).length,
+      voters: voters.length,
+      observers: ps.filter((p) => p.role === 'Observer').length,
+      total: ps.length,
+    };
+  });
+
+  protected readonly isLargeGroup = computed(
+    () => (this.session()?.participants.length ?? 0) > this.largeGroupThreshold,
+  );
+  /** Whether the full list is expanded in large-group mode. */
+  protected readonly showAllParticipants = signal(false);
+
+  /** Participants to render: the full list, or a head slice when collapsed in large-group mode. */
+  protected readonly visibleParticipants = computed(() => {
+    const ps = this.session()?.participants ?? [];
+    if (!this.isLargeGroup() || this.showAllParticipants()) return ps;
+    return ps.slice(0, this.largeGroupThreshold);
+  });
+
+  protected toggleShowAllParticipants(): void {
+    this.showAllParticipants.update((v) => !v);
+  }
+
   protected readonly me = computed(() =>
     this.session()?.participants.find((p) => p.userId === this.myUserId) ?? null,
   );
