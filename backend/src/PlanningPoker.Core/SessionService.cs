@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using PlanningPoker.Core.Contracts;
 using PlanningPoker.Core.Models;
 using PlanningPoker.Core.Security;
@@ -946,7 +948,8 @@ public class SessionService
 
         session.RoundResults.Add(new RoundResult
         {
-            Id = Guid.NewGuid(),
+            // Id left default so EF treats it as a new row (store-generated key); SessionId is set by
+            // the relationship fixup from the tracked parent.
             SessionId = session.Id,
             Story = session.CurrentStory,
             Note = session.CurrentStoryNote,
@@ -1002,6 +1005,51 @@ public class SessionService
 
         return new SessionAnalytics(
             session.ShortCode, session.Name, completed, consensusRounds, consensusRate, averageVotes, rounds);
+    }
+
+    /// <summary>
+    /// Renders the session's completed-round history as CSV for export (#12). Null if the session is
+    /// unknown. Columns: RecordedAt, Story, FinalEstimate, Average, Consensus, VoteCount, Note.
+    /// </summary>
+    public async Task<string?> GetAnalyticsCsvAsync(string shortCode, CancellationToken ct = default)
+    {
+        var analytics = await GetAnalyticsAsync(shortCode, ct);
+        if (analytics is null)
+        {
+            return null;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("RecordedAt,Story,FinalEstimate,Average,Consensus,VoteCount,Note");
+        foreach (var r in analytics.Rounds)
+        {
+            sb.AppendLine(string.Join(',',
+                Csv(r.RecordedAt.ToString("o", CultureInfo.InvariantCulture)),
+                Csv(r.Story),
+                Csv(r.FinalEstimate),
+                Csv(r.Average?.ToString(CultureInfo.InvariantCulture)),
+                Csv(r.Consensus ? "true" : "false"),
+                Csv(r.VoteCount.ToString(CultureInfo.InvariantCulture)),
+                Csv(r.Note)));
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>RFC-4180 CSV field: quote when it contains a comma, quote, CR or LF; double inner quotes.</summary>
+    private static string Csv(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        if (value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) < 0)
+        {
+            return value;
+        }
+
+        return $"\"{value.Replace("\"", "\"\"")}\"";
     }
 
     /// <summary>Landing info for the /join page — exposes only whether a password is required. See #2.</summary>

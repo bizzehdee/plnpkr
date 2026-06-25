@@ -82,6 +82,18 @@ export class SessionPage implements OnInit, OnDestroy {
   protected readonly analytics = signal<SessionAnalytics | null>(null);
   protected readonly analyticsBusy = signal(false);
 
+  /** Downloads the round history as a CSV or JSON file (#12). */
+  protected downloadExport(format: 'csv' | 'json'): void {
+    const url = `${resolveApiBase()}/api/sessions/${this.shortCode}/export?format=${format}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.shortCode}-rounds.${format}`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   /** Fetches the session's velocity/throughput summary for the analytics modal. */
   protected async loadAnalytics(): Promise<void> {
     this.analyticsBusy.set(true);

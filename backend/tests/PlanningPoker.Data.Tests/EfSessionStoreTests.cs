@@ -35,6 +35,28 @@ public sealed class EfSessionStoreTests : IDisposable
         return new PlanningPokerDbContext(options);
     }
 
+    [Fact]
+    public async Task Can_persist_a_round_result()
+    {
+        var store = new EfSessionStore(NewContext());
+        var session = NewSession("rr-1");
+        await store.AddAsync(session);
+
+        session.RoundResults.Add(new RoundResult
+        {
+            Story = "S",
+            FinalEstimate = "5",
+            Average = 5,
+            Consensus = true,
+            VoteCount = 2,
+            RecordedAt = DateTimeOffset.UnixEpoch,
+        });
+        await store.UpdateAsync(session);
+
+        var reloaded = await new EfSessionStore(NewContext()).FindByShortCodeAsync("rr-1");
+        reloaded!.RoundResults.Should().ContainSingle().Which.FinalEstimate.Should().Be("5");
+    }
+
     private static Session NewSession(string shortCode, string organiserUserId = "u1", string name = "Alice") => new()
     {
         Id = Guid.NewGuid(),

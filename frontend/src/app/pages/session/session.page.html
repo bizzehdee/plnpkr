@@ -781,6 +781,11 @@
                         </tbody>
                       </table>
                     </div>
+                    <!-- Export the round history (#12) -->
+                    <div class="d-flex gap-2 mt-3">
+                      <button class="btn btn-sm btn-outline-secondary" (click)="downloadExport('csv')">Export CSV</button>
+                      <button class="btn btn-sm btn-outline-secondary" (click)="downloadExport('json')">Export JSON</button>
+                    </div>
                   }
                 } @else {
                   <p class="text-danger small mb-0">Couldn't load analytics.</p>

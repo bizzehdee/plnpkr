@@ -90,4 +90,31 @@ public class AnalyticsTests
     {
         (await _sut.GetAnalyticsAsync("no-such-code")).Should().BeNull();
     }
+
+    // --- CSV export (#12) ---
+
+    [Fact]
+    public async Task Csv_export_has_a_header_and_one_row_per_round_with_escaping()
+    {
+        await SeedAsync();
+        await _sut.SetStoryAsync(Code, Organiser, "Login, page"); // comma forces quoting
+        await _sut.CastVoteAsync(Code, Bob, "5");
+        await _sut.CastVoteAsync(Code, Carol, "5");
+        await _sut.RevealAsync(Code, Organiser);
+        await _sut.ResetRoundAsync(Code, Organiser);
+
+        var csv = (await _sut.GetAnalyticsCsvAsync(Code))!;
+        var lines = csv.TrimEnd().Split('\n');
+
+        lines[0].Trim().Should().Be("RecordedAt,Story,FinalEstimate,Average,Consensus,VoteCount,Note");
+        lines.Should().HaveCount(2); // header + one round
+        lines[1].Should().Contain("\"Login, page\"", "fields with commas are quoted");
+        lines[1].Should().Contain(",5,"); // final estimate 5
+    }
+
+    [Fact]
+    public async Task Csv_export_for_an_unknown_session_is_null()
+    {
+        (await _sut.GetAnalyticsCsvAsync("no-such-code")).Should().BeNull();
+    }
 }
