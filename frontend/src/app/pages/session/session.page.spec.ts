@@ -762,6 +762,47 @@ describe('SessionPage', () => {
     expect(text).toContain('Dave (13)');
   });
 
+  // --- Disagreement prompt (#8) ---
+  it('prompts to discuss & re-vote on a non-consensus reveal, and the action resets the round', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(
+      snap({
+        organiserUserId: ME,
+        state: 'Revealed',
+        participants: [
+          participant({ userId: ME, isOrganiser: true, role: 'Observer' }),
+          participant({ userId: 'bob', hasVoted: true, vote: '3' }),
+          participant({ userId: 'cara', hasVoted: true, vote: '13' }),
+        ],
+        stats: { average: 8, consensus: false, voteCount: 2, distribution: [], min: 3, max: 13, stdDev: 5, outlierValues: [] },
+      }),
+    );
+    const fixture = setup(fake);
+
+    const btn = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')]
+      .find((b) => b.textContent?.includes('Discuss & re-vote')) as HTMLButtonElement;
+    expect(btn).toBeTruthy();
+    btn.click();
+    expect(fake.resetRound).toHaveBeenCalledWith(CODE, ME);
+  });
+
+  it('shows no disagreement prompt when the team reached consensus', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(
+      snap({
+        state: 'Revealed',
+        participants: [
+          participant({ userId: ME, hasVoted: true, vote: '5' }),
+          participant({ userId: 'bob', hasVoted: true, vote: '5' }),
+        ],
+        stats: { average: 5, consensus: true, voteCount: 2, distribution: [{ value: '5', count: 2 }], min: 5, max: 5, stdDev: 0, outlierValues: [] },
+      }),
+    );
+    const fixture = setup(fake);
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('talk it through');
+  });
+
   it('sends an emoji reaction when a reaction button is clicked', () => {
     const fake = new FakeRealtimeClient();
     const fixture = setup(fake);

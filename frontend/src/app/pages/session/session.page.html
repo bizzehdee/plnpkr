@@ -432,6 +432,16 @@
                   ↕ <strong>Discuss outliers:</strong> {{ outlierSummary() }}
                 </div>
               }
+              <!-- Disagreement prompt (#8): on any non-consensus reveal, nudge a discussion and offer
+                   a one-click re-vote (reuses ResetRound). Visible to everyone; the action is for controllers. -->
+              @if (hasDisagreement()) {
+                <div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2 py-2 small mb-2" role="status">
+                  <span>💬 Estimates differ — talk it through, then re-vote.</span>
+                  @if (canControl() && !isClosed()) {
+                    <button class="btn btn-sm btn-warning flex-shrink-0" (click)="resetRound()">Discuss &amp; re-vote</button>
+                  }
+                </div>
+              }
               <div class="small text-body-secondary mb-1">Distribution</div>
               <ul class="list-unstyled mb-0">
                 @for (d of stats.distribution; track d.value) {

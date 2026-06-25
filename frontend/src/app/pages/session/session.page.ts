@@ -282,6 +282,15 @@ export class SessionPage implements OnInit, OnDestroy {
     (this.session()?.participants ?? []).filter((p) => p.isOutlier),
   );
 
+  /**
+   * True when the cards are revealed but the team did NOT reach consensus — the cue to discuss and
+   * re-vote (#8). Covers both statistical outliers and a plain split with no single outlier.
+   */
+  protected readonly hasDisagreement = computed(() => {
+    const stats = this.session()?.stats;
+    return this.revealed() && !!stats && !stats.consensus && stats.voteCount > 1;
+  });
+
   /** "Dave (13), Bob (2)" — for the results callout. */
   protected readonly outlierSummary = computed(() =>
     this.outliers()
