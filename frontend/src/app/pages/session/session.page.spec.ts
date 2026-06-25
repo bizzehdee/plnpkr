@@ -7,6 +7,7 @@ import { Subject } from 'rxjs';
 import { SessionPage } from './session.page';
 import { SignalrRealtimeClient } from '../../core/realtime.client';
 import { IdentityService } from '../../core/identity.service';
+import { RevealCueService } from '../../core/reveal-cue.service';
 import { ParticipantInfo, ReactionEvent, SessionSnapshot, SessionState } from '../../core/models';
 
 const CODE = 'blue-fox-42';
@@ -102,7 +103,10 @@ function setup(fake: FakeRealtimeClient) {
 }
 
 describe('SessionPage', () => {
-  afterEach(() => TestBed.resetTestingModule());
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    localStorage.removeItem('pp.sound-muted');
+  });
 
   it('shows the card deck for a voter and casts a vote on click', async () => {
     const fake = new FakeRealtimeClient();
@@ -570,6 +574,48 @@ describe('SessionPage', () => {
     const firstRow = [...rows].find((r) => r.textContent?.includes('PROJ-1')) as HTMLElement;
     firstRow.click();
     expect(fake.selectQueueItem).toHaveBeenCalledWith(CODE, ME, 'PROJ-1');
+  });
+
+  // --- Reveal cue (#2) ---
+  it('plays the reveal cue and flashes on the Voting → Revealed edge (not on first load)', () => {
+    const play = vi.spyOn(RevealCueService.prototype, 'playReveal').mockImplementation(() => {});
+    const fake = new FakeRealtimeClient();
+    fake.session.set(snap({ state: 'Voting' }));
+    const fixture = setup(fake);
+    const c = fixture.componentInstance as unknown as { revealFlash(): boolean };
+
+    // Transition to revealed.
+    fake.session.set(snap({ state: 'Revealed' }));
+    fixture.detectChanges();
+
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(c.revealFlash()).toBe(true);
+    play.mockRestore();
+  });
+
+  it('does not play the reveal cue when joining an already-revealed session', () => {
+    const play = vi.spyOn(RevealCueService.prototype, 'playReveal').mockImplementation(() => {});
+    const fake = new FakeRealtimeClient();
+    fake.session.set(snap({ state: 'Revealed' }));
+    setup(fake); // primes on the first (revealed) snapshot — silently
+
+    expect(play).not.toHaveBeenCalled();
+    play.mockRestore();
+  });
+
+  it('toggles the reveal-sound mute preference from the header button', () => {
+    const fake = new FakeRealtimeClient();
+    const fixture = setup(fake);
+    const cue = TestBed.inject(RevealCueService);
+    cue.setMuted(false);
+    fixture.detectChanges();
+
+    const btn = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')]
+      .find((b) => b.getAttribute('aria-label') === 'Mute reveal sound') as HTMLButtonElement;
+    expect(btn).toBeTruthy();
+    btn.click();
+
+    expect(cue.muted()).toBe(true);
   });
 
   it('shows the session-ended message when closed', () => {

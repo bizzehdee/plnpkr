@@ -53,6 +53,31 @@
   }
 }
 
+// ── Reveal cue (#2) ──────────────────────────────────────────────────────────
+// A brief flash applied to the "Revealed" badge and the results card the moment
+// votes are revealed. Disabled entirely under prefers-reduced-motion.
+.reveal-flash {
+  animation: reveal-pulse 0.9s ease-out;
+}
+
+@keyframes reveal-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--bs-success-rgb), 0.6);
+  }
+  40% {
+    box-shadow: 0 0 0 8px rgba(var(--bs-success-rgb), 0.25);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--bs-success-rgb), 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-flash {
+    animation: none;
+  }
+}
+
 // Small label in the top-left corner.
 .playing-card-tl {
   display: block;

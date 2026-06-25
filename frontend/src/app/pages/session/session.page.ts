@@ -11,6 +11,7 @@ import { TrackerStorageService } from '../../core/tracker-storage.service';
 import { resolveApiBase } from '../../core/app-config';
 import { DECK_LABELS, DeckType, IntegrationProvider, ParticipantInfo, ParticipantRole, REACTION_EMOJI, SavedDeck } from '../../core/models';
 import { DeckStorageService } from '../../core/deck-storage.service';
+import { RevealCueService } from '../../core/reveal-cue.service';
 
 @Component({
   selector: 'app-session',
@@ -23,6 +24,29 @@ export class SessionPage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly realtime = inject(SignalrRealtimeClient);
   private readonly identity = inject(IdentityService);
+  private readonly revealCue = inject(RevealCueService);
+
+  // --- Reveal cue (#2): sound + a brief visual flash when votes are revealed ---
+  /** Whether the reveal sound is muted (per-browser, persisted). */
+  protected readonly soundMuted = this.revealCue.muted;
+  /** Pulses true briefly when the round transitions to Revealed, driving the flash animation. */
+  protected readonly revealFlash = signal(false);
+  /** Tracks the previous session state so we can fire the cue only on the Voting → Revealed edge. */
+  private wasRevealed = false;
+  /** Set once the first snapshot is observed, so we never fire the cue on initial load. */
+  private cuePrimed = false;
+  private revealFlashTimer?: ReturnType<typeof setTimeout>;
+
+  protected toggleSoundMuted(): void {
+    this.revealCue.toggleMute();
+  }
+
+  /** Briefly raises the flash flag; the CSS animation self-disables under prefers-reduced-motion. */
+  private flashReveal(): void {
+    this.revealFlash.set(true);
+    if (this.revealFlashTimer !== undefined) clearTimeout(this.revealFlashTimer);
+    this.revealFlashTimer = setTimeout(() => this.revealFlash.set(false), 900);
+  }
 
   protected shortCode = '';
   protected readonly myUserId = this.identity.userId;
@@ -522,6 +546,22 @@ export class SessionPage implements OnInit, OnDestroy {
       }
     });
 
+    // Fire the reveal cue (sound + flash) on the Voting → Revealed edge only — not on every
+    // snapshot while already revealed, and not on first load into a revealed session. See #2.
+    effect(() => {
+      const s = this.session();
+      if (s === null) return;
+      const revealed = this.revealed();
+      if (!this.cuePrimed) {
+        // First snapshot: adopt its state silently so joining a revealed session is quiet.
+        this.cuePrimed = true;
+      } else if (revealed && !this.wasRevealed) {
+        this.revealCue.playReveal();
+        this.flashReveal();
+      }
+      this.wasRevealed = revealed;
+    });
+
     // Drive the countdown: re-evaluate the timer signals twice a second against the server deadline.
     this.timerTick = setInterval(() => this.nowMs.set(Date.now()), 500);
 
@@ -562,6 +602,9 @@ export class SessionPage implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.timerTick !== undefined) {
       clearInterval(this.timerTick);
+    }
+    if (this.revealFlashTimer !== undefined) {
+      clearTimeout(this.revealFlashTimer);
     }
   }
 

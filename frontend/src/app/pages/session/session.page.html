@@ -15,10 +15,20 @@
       </div>
       <div class="d-flex align-items-center gap-2">
         @if (revealed()) {
-          <span class="badge bg-success">Revealed</span>
+          <span class="badge bg-success" [class.reveal-flash]="revealFlash()">Revealed</span>
         } @else {
           <span class="badge bg-primary">Voting</span>
         }
+
+        <!-- Mute toggle for the reveal sound cue (per-browser, #2) -->
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          (click)="toggleSoundMuted()"
+          [attr.aria-pressed]="soundMuted()"
+          [attr.aria-label]="soundMuted() ? 'Unmute reveal sound' : 'Mute reveal sound'"
+          [title]="soundMuted() ? 'Sound off' : 'Sound on'"
+        >{{ soundMuted() ? '🔇' : '🔊' }}</button>
 
         <!-- Top-right menu (#30, #26): opens modals; items are role-aware. Hidden when there's nothing
              to offer (a closed session for a non-organiser). -->
@@ -365,7 +375,7 @@
         </div>
 
         @if (revealed() && s.stats; as stats) {
-          <div class="card shadow-sm">
+          <div class="card shadow-sm" [class.reveal-flash]="revealFlash()">
             <div class="card-header">Results</div>
             <div class="card-body">
               <div class="d-flex justify-content-between mb-2">
