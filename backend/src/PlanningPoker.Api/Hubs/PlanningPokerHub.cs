@@ -135,6 +135,16 @@ public class PlanningPokerHub : Hub
     public Task<SessionActionResult> ChangeRole(string shortCode, string userId, string targetUserId, ParticipantRole role) =>
         MutateAndBroadcast(() => _sessions.ChangeRoleAsync(shortCode, userId, targetUserId, role));
 
+    // Multiple organisers / facilitator hand-off (#7). Organiser-only; new organiser flags ride the snapshot.
+    public Task<SessionActionResult> PromoteToOrganiser(string shortCode, string userId, string targetUserId) =>
+        MutateAndBroadcast(() => _sessions.PromoteToOrganiserAsync(shortCode, userId, targetUserId));
+
+    public Task<SessionActionResult> DemoteOrganiser(string shortCode, string userId, string targetUserId) =>
+        MutateAndBroadcast(() => _sessions.DemoteOrganiserAsync(shortCode, userId, targetUserId));
+
+    public Task<SessionActionResult> TransferOrganiser(string shortCode, string userId, string targetUserId) =>
+        MutateAndBroadcast(() => _sessions.TransferOrganiserAsync(shortCode, userId, targetUserId));
+
     // --- Round timer (organiser-controlled, #14). Each delegates to the service and broadcasts the
     //     new snapshot; clients tick locally against the broadcast deadline. ---
 

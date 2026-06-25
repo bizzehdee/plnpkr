@@ -168,9 +168,10 @@ public class SessionService
 
         participant.IsConnected = true;
         participant.LastSeenAt = now;
-        // Reconcile organiser flag from the session (the organiser reclaims their role on reconnect,
-        // even if their participant row was evicted while away). See #34.
-        participant.IsOrganiser = session.OrganiserUserId == request.UserId;
+        // Preserve any organiser rights the participant already holds (so a promoted co-organiser keeps
+        // them across a reconnect, #7) and let the founding organiser reclaim theirs even if their row was
+        // evicted while away (#34). A brand-new, non-founding participant stays a regular member.
+        participant.IsOrganiser = participant.IsOrganiser || session.OrganiserUserId == request.UserId;
 
         session.LastActivityAt = now;
 
@@ -236,6 +237,9 @@ public class SessionService
 
         participant.IsConnected = false;
         participant.LastSeenAt = _clock.UtcNow;
+        // If that drop left the session with no connected organiser, hand the facilitator role to the
+        // longest-present connected participant so the room isn't stuck. See #7.
+        PromoteSuccessorIfNeeded(session);
         await _store.UpdateAsync(session, ct);
         return SessionActionResult.Ok(ToSnapshot(session));
     }
@@ -640,6 +644,89 @@ public class SessionService
         return await CommitAsync(session, ct);
     }
 
+    // --- Multiple organisers / facilitator hand-off (#7) -------------------
+
+    /// <summary>Organiser-only: grant a participant co-organiser rights.</summary>
+    public async Task<SessionActionResult> PromoteToOrganiserAsync(string shortCode, string actingUserId, string targetUserId, CancellationToken ct = default)
+    {
+        var (session, error) = await LoadForControlAsync(shortCode, actingUserId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var target = session!.Participants.FirstOrDefault(p => p.UserId == targetUserId);
+        if (target is null)
+        {
+            return SessionActionResult.TargetNotFound();
+        }
+
+        target.IsOrganiser = true;
+        return await CommitAsync(session, ct);
+    }
+
+    /// <summary>
+    /// Organiser-only: revoke a participant's organiser rights. If the founding organiser is demoted,
+    /// the founding pointer is cleared so it doesn't silently re-grant control. Demoting the last
+    /// organiser is allowed — the session simply reverts to the open "anyone controls" rule (#10).
+    /// </summary>
+    public async Task<SessionActionResult> DemoteOrganiserAsync(string shortCode, string actingUserId, string targetUserId, CancellationToken ct = default)
+    {
+        var (session, error) = await LoadForControlAsync(shortCode, actingUserId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var target = session!.Participants.FirstOrDefault(p => p.UserId == targetUserId);
+        if (target is null)
+        {
+            return SessionActionResult.TargetNotFound();
+        }
+
+        target.IsOrganiser = false;
+        if (session.OrganiserUserId == targetUserId)
+        {
+            session.OrganiserUserId = null;
+        }
+
+        return await CommitAsync(session, ct);
+    }
+
+    /// <summary>
+    /// Organiser-only: hand off facilitation — promote the target and step down in one move. The
+    /// founding pointer moves with it so the new organiser survives an eviction-reclaim. See #7.
+    /// </summary>
+    public async Task<SessionActionResult> TransferOrganiserAsync(string shortCode, string actingUserId, string targetUserId, CancellationToken ct = default)
+    {
+        var (session, error) = await LoadForControlAsync(shortCode, actingUserId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var target = session!.Participants.FirstOrDefault(p => p.UserId == targetUserId);
+        if (target is null)
+        {
+            return SessionActionResult.TargetNotFound();
+        }
+
+        if (targetUserId == actingUserId)
+        {
+            return SessionActionResult.Ok(ToSnapshot(session)); // handing off to yourself is a no-op
+        }
+
+        target.IsOrganiser = true;
+        var self = session.Participants.First(p => p.UserId == actingUserId);
+        self.IsOrganiser = false;
+        if (session.OrganiserUserId == actingUserId)
+        {
+            session.OrganiserUserId = targetUserId;
+        }
+
+        return await CommitAsync(session, ct);
+    }
+
     public async Task<SessionActionResult> SetStoryAsync(string shortCode, string userId, string? title, CancellationToken ct = default)
     {
         var (session, error) = await LoadForControlAsync(shortCode, userId, ct);
@@ -683,9 +770,57 @@ public class SessionService
         return (session, null);
     }
 
-    /// <summary>True if the user may reveal/reset: the organiser, or anyone when the session has none.</summary>
-    private static bool CanControl(Session session, string userId) =>
-        session.OrganiserUserId is null || session.OrganiserUserId == userId;
+    /// <summary>
+    /// True if the user may control the session (reveal/reset/settings). With multiple organisers (#7)
+    /// the founding organiser (<see cref="Session.OrganiserUserId"/>) and any participant flagged
+    /// <see cref="Participant.IsOrganiser"/> qualify. When the session has no organiser at all, anyone
+    /// in it may control — preserving the long-standing "no organiser ⇒ open" rule (#10).
+    /// </summary>
+    private static bool CanControl(Session session, string userId)
+    {
+        var hasOrganiser = session.OrganiserUserId is not null || session.Participants.Any(p => p.IsOrganiser);
+        if (!hasOrganiser)
+        {
+            return true;
+        }
+
+        if (session.OrganiserUserId == userId)
+        {
+            return true;
+        }
+
+        var participant = session.Participants.FirstOrDefault(p => p.UserId == userId);
+        return participant is { IsOrganiser: true };
+    }
+
+    /// <summary>
+    /// Auto-succession (#7): if a session that has organisers is left with no <em>connected</em> organiser,
+    /// promote the longest-present connected participant so the room is never stuck without a facilitator.
+    /// No-op for open (no-organiser) sessions or when an organiser is still connected.
+    /// </summary>
+    private static void PromoteSuccessorIfNeeded(Session session)
+    {
+        var hasOrganiser = session.OrganiserUserId is not null || session.Participants.Any(p => p.IsOrganiser);
+        if (!hasOrganiser)
+        {
+            return;
+        }
+
+        if (session.Participants.Any(p => p.IsOrganiser && p.IsConnected))
+        {
+            return;
+        }
+
+        // Longest-present connected participant (earliest row) inherits the facilitator role.
+        var successor = session.Participants
+            .Where(p => p.IsConnected)
+            .OrderBy(p => p.Id)
+            .FirstOrDefault();
+        if (successor is not null)
+        {
+            successor.IsOrganiser = true;
+        }
+    }
 
     /// <summary>Auto-reveal fires only while voting, when enabled, and once every voter has voted.</summary>
     private static void MaybeAutoReveal(Session session)

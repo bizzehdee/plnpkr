@@ -70,6 +70,9 @@ class FakeRealtimeClient {
   setReactionsEnabled = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   setAllowRoleChange = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   changeRole = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
+  promoteToOrganiser = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
+  demoteOrganiser = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
+  transferOrganiser = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   setTimerDuration = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   startTimer = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   pauseTimer = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
@@ -1022,6 +1025,66 @@ describe('SessionPage', () => {
     btn.click();
 
     expect(fake.changeRole).toHaveBeenCalledWith(CODE, ME, 'bob', 'Observer');
+  });
+
+  // --- Multiple organisers / hand-off (#7) ---
+  it('lets an organiser promote another participant to co-organiser', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(
+      snap({
+        organiserUserId: ME,
+        participants: [
+          participant({ userId: ME, isOrganiser: true, role: 'Observer' }),
+          participant({ userId: 'bob', displayName: 'Bob', isOrganiser: false }),
+        ],
+      }),
+    );
+    const fixture = setup(fake);
+
+    const btn = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button[title]')]
+      .find((b) => b.getAttribute('title') === 'Make organiser') as HTMLButtonElement;
+    expect(btn).toBeTruthy();
+    btn.click();
+
+    expect(fake.promoteToOrganiser).toHaveBeenCalledWith(CODE, ME, 'bob');
+  });
+
+  it('lets an organiser demote a co-organiser', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(
+      snap({
+        organiserUserId: ME,
+        participants: [
+          participant({ userId: ME, isOrganiser: true, role: 'Observer' }),
+          participant({ userId: 'bob', displayName: 'Bob', isOrganiser: true }),
+        ],
+      }),
+    );
+    const fixture = setup(fake);
+
+    const btn = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button[title]')]
+      .find((b) => b.getAttribute('title') === 'Remove organiser') as HTMLButtonElement;
+    expect(btn).toBeTruthy();
+    btn.click();
+
+    expect(fake.demoteOrganiser).toHaveBeenCalledWith(CODE, ME, 'bob');
+  });
+
+  it('treats a promoted co-organiser as able to control even when not the founding organiser', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(
+      snap({
+        organiserUserId: 'someone-else',
+        participants: [
+          participant({ userId: ME, isOrganiser: true }),
+          participant({ userId: 'someone-else', isOrganiser: true }),
+        ],
+      }),
+    );
+    const fixture = setup(fake);
+
+    // canControl is true for a co-organiser → organiser controls are visible.
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Organiser controls');
   });
 
   it('lets the organiser toggle allow-role-change in settings', () => {

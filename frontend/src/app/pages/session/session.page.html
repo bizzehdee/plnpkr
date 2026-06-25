@@ -383,6 +383,14 @@
                     >
                       {{ p.role === 'Voter' ? '👁' : '🎴' }}
                     </button>
+                    <!-- Promote / demote co-organiser (#7) -->
+                    <button
+                      class="btn btn-sm btn-outline-secondary py-0 px-1"
+                      [title]="p.isOrganiser ? 'Remove organiser' : 'Make organiser'"
+                      (click)="p.isOrganiser ? demote(p.userId) : promote(p.userId)"
+                    >
+                      {{ p.isOrganiser ? '☆' : '★' }}
+                    </button>
                   }
                 </span>
               </li>

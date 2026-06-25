@@ -71,6 +71,9 @@ export interface IRealtimeClient {
   // Mid-session role changes (#21).
   setAllowRoleChange(shortCode: string, userId: string, enabled: boolean): Promise<SessionActionResult>;
   changeRole(shortCode: string, userId: string, targetUserId: string, role: ParticipantRole): Promise<SessionActionResult>;
+  promoteToOrganiser(shortCode: string, userId: string, targetUserId: string): Promise<SessionActionResult>;
+  demoteOrganiser(shortCode: string, userId: string, targetUserId: string): Promise<SessionActionResult>;
+  transferOrganiser(shortCode: string, userId: string, targetUserId: string): Promise<SessionActionResult>;
   // Round timer (#14), organiser-controlled.
   setTimerDuration(shortCode: string, userId: string, seconds: number | null): Promise<SessionActionResult>;
   startTimer(shortCode: string, userId: string, seconds: number | null): Promise<SessionActionResult>;
@@ -280,6 +283,18 @@ export class SignalrRealtimeClient implements IRealtimeClient {
 
   changeRole(shortCode: string, userId: string, targetUserId: string, role: ParticipantRole): Promise<SessionActionResult> {
     return this.action('ChangeRole', shortCode, userId, targetUserId, role);
+  }
+
+  promoteToOrganiser(shortCode: string, userId: string, targetUserId: string): Promise<SessionActionResult> {
+    return this.action('PromoteToOrganiser', shortCode, userId, targetUserId);
+  }
+
+  demoteOrganiser(shortCode: string, userId: string, targetUserId: string): Promise<SessionActionResult> {
+    return this.action('DemoteOrganiser', shortCode, userId, targetUserId);
+  }
+
+  transferOrganiser(shortCode: string, userId: string, targetUserId: string): Promise<SessionActionResult> {
+    return this.action('TransferOrganiser', shortCode, userId, targetUserId);
   }
 
   setTimerDuration(shortCode: string, userId: string, seconds: number | null): Promise<SessionActionResult> {

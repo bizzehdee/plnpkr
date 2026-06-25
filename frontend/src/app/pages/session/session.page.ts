@@ -243,11 +243,30 @@ export class SessionPage implements OnInit, OnDestroy {
   protected readonly isObserver = computed(() => this.me()?.role === 'Observer');
   protected readonly revealed = computed(() => this.session()?.state === 'Revealed');
 
-  /** Reveal/reset controls: the organiser, or anyone when the session has no organiser. */
+  /**
+   * Reveal/reset controls: any organiser (founding or promoted co-organiser, #7), or anyone when the
+   * session has no organiser at all (the "open session" rule, #10).
+   */
   protected readonly canControl = computed(() => {
     const s = this.session();
-    return !!this.me() && (s?.organiserUserId == null || s.organiserUserId === this.myUserId);
+    const me = this.me();
+    if (!s || !me) return false;
+    const hasOrganiser = s.organiserUserId != null || s.participants.some((p) => p.isOrganiser);
+    return !hasOrganiser || me.isOrganiser || s.organiserUserId === this.myUserId;
   });
+
+  // --- Multiple organisers / hand-off (#7) ---
+  protected promote(targetUserId: string): Promise<unknown> {
+    return this.realtime.promoteToOrganiser(this.shortCode, this.myUserId, targetUserId);
+  }
+
+  protected demote(targetUserId: string): Promise<unknown> {
+    return this.realtime.demoteOrganiser(this.shortCode, this.myUserId, targetUserId);
+  }
+
+  protected transferOrganiser(targetUserId: string): Promise<unknown> {
+    return this.realtime.transferOrganiser(this.shortCode, this.myUserId, targetUserId);
+  }
 
   protected readonly deckLabel = computed(() => {
     const s = this.session();
