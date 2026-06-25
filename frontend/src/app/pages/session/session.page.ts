@@ -698,6 +698,13 @@ export class SessionPage implements OnInit, OnDestroy {
     return p.hasVoted ? '✓' : '…';
   }
 
+  /** Screen-reader label for a participant's vote pill — announces voted/waiting without leaking the value (#1). */
+  protected voteAriaLabel(p: ParticipantInfo): string {
+    if (p.role === 'Observer') return `${p.displayName} is observing`;
+    if (this.revealed()) return `${p.displayName} voted ${p.vote ?? 'nothing'}`;
+    return p.hasVoted ? `${p.displayName} has voted` : `${p.displayName} has not voted yet`;
+  }
+
   protected async copyInvite(): Promise<void> {
     try {
       await navigator.clipboard.writeText(this.inviteLink());

@@ -169,6 +169,30 @@ describe('SessionPage', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('away');
   });
 
+  it('shows an anonymous voted/waiting indicator per voter while voting (no value leaked)', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(
+      snap({
+        participants: [
+          participant({ userId: ME, displayName: 'Me', hasVoted: true }),
+          participant({ userId: 'bob', displayName: 'Bob', hasVoted: false }),
+        ],
+      }),
+    );
+    const fixture = setup(fake);
+
+    const pills = [...(fixture.nativeElement as HTMLElement).querySelectorAll('span.badge[role="status"]')];
+    const mine = pills.find((p) => p.getAttribute('aria-label') === 'Me has voted');
+    const bobs = pills.find((p) => p.getAttribute('aria-label') === 'Bob has not voted yet');
+    expect(mine).toBeTruthy();
+    expect(bobs).toBeTruthy();
+    // The voter who voted gets the green pill; the one waiting does not.
+    expect(mine!.classList.contains('bg-success')).toBe(true);
+    expect(bobs!.classList.contains('bg-success')).toBe(false);
+    // The value itself is never present while voting.
+    expect(mine!.textContent?.trim()).toBe('✓');
+  });
+
   it('displays the current story', () => {
     const fake = new FakeRealtimeClient();
     fake.session.set(snap({ currentStory: 'PROJ-123 Login' }));

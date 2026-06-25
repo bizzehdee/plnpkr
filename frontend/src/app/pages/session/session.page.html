@@ -325,13 +325,18 @@
                   }
                 </span>
                 <span class="d-flex align-items-center gap-2">
+                  <!-- Vote pill. During voting it shows an anonymous "voted ✓ / waiting …" status
+                       (never the value); on reveal it shows the chosen card (#1). A voter who has
+                       voted gets a green pill so the room can see who we're waiting on at a glance. -->
                   <span
                     class="badge rounded-pill"
-                    [class.bg-success]="revealed() && p.role !== 'Observer'"
-                    [class.bg-light]="!revealed() || p.role === 'Observer'"
-                    [class.text-dark]="!revealed() || p.role === 'Observer'"
-                    [class.border]="!revealed() || p.role === 'Observer'"
+                    [class.bg-success]="p.role !== 'Observer' && (revealed() || p.hasVoted)"
+                    [class.bg-light]="p.role === 'Observer' || (!revealed() && !p.hasVoted)"
+                    [class.text-dark]="p.role === 'Observer' || (!revealed() && !p.hasVoted)"
+                    [class.border]="p.role === 'Observer' || (!revealed() && !p.hasVoted)"
                     style="min-width: 2.2rem;"
+                    role="status"
+                    [attr.aria-label]="voteAriaLabel(p)"
                   >
                     {{ voteDisplay(p) }}
                   </span>
