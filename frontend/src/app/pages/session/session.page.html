@@ -155,6 +155,34 @@
             }
           </div>
         }
+
+        <!-- Story note (#10): collaborative free-text justification; any participant may edit. -->
+        <div class="mt-2 pt-2 border-top">
+          @if (editingNote()) {
+            <textarea
+              class="form-control form-control-sm"
+              rows="2"
+              [(ngModel)]="noteDraft"
+              placeholder="Add a note — context, assumptions, why this estimate…"
+              (keyup.escape)="editingNote.set(false)"
+            ></textarea>
+            <div class="mt-1">
+              <button class="btn btn-sm btn-primary" (click)="saveNote()">Save note</button>
+              <button class="btn btn-sm btn-outline-secondary ms-1" (click)="editingNote.set(false)">Cancel</button>
+            </div>
+          } @else {
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <span class="small" [class.text-body-secondary]="!storyNote()" style="white-space: pre-wrap;">
+                <span class="me-1" aria-hidden="true">📝</span>{{ storyNote() || 'No note' }}
+              </span>
+              @if (!isClosed()) {
+                <button class="btn btn-sm btn-link flex-shrink-0 p-0" (click)="startEditNote()">
+                  {{ storyNote() ? 'Edit note' : 'Add note' }}
+                </button>
+              }
+            </div>
+          }
+        </div>
       </div>
     </div>
 

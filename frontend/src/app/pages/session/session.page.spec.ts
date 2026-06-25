@@ -42,6 +42,7 @@ function snap(over: Partial<SessionSnapshot> = {}): SessionSnapshot {
     allowRoleChange: true,
     isClosed: false,
     currentStory: null,
+    currentStoryNote: null,
     participants: [participant({ userId: ME, displayName: 'Me' })],
     stats: null,
     integration: null,
@@ -63,6 +64,7 @@ class FakeRealtimeClient {
   resetVote = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   setAutoReveal = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   setStory = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
+  setStoryNote = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   setDeck = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   closeSession = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   deleteSession = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
@@ -296,6 +298,30 @@ describe('SessionPage', () => {
     const fixture = setup(fake);
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('PROJ-123 Login');
+  });
+
+  it('lets a participant add a story note (#10)', async () => {
+    const fake = new FakeRealtimeClient();
+    const fixture = setup(fake);
+    const ci = fixture.componentInstance as unknown as {
+      startEditNote(): void;
+      noteDraft: string;
+      saveNote(): Promise<void>;
+    };
+
+    ci.startEditNote();
+    ci.noteDraft = 'Depends on the auth spike';
+    await ci.saveNote();
+
+    expect(fake.setStoryNote).toHaveBeenCalledWith(CODE, ME, 'Depends on the auth spike');
+  });
+
+  it('renders an existing story note', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(snap({ currentStoryNote: 'Spike needed first' }));
+    const fixture = setup(fake);
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Spike needed first');
   });
 
   it('shows the linked issue (title + key) to everyone', () => {

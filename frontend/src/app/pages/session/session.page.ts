@@ -756,6 +756,22 @@ export class SessionPage implements OnInit, OnDestroy {
     this.editingStory.set(false);
   }
 
+  // --- Story note (#10) — collaborative free-text justification ---
+  protected noteDraft = '';
+  protected readonly editingNote = signal(false);
+  /** The current note from the snapshot. */
+  protected readonly storyNote = computed(() => this.session()?.currentStoryNote ?? null);
+
+  protected startEditNote(): void {
+    this.noteDraft = this.session()?.currentStoryNote ?? '';
+    this.editingNote.set(true);
+  }
+
+  protected async saveNote(): Promise<void> {
+    await this.realtime.setStoryNote(this.shortCode, this.myUserId, this.noteDraft.trim() || null);
+    this.editingNote.set(false);
+  }
+
   // --- Mid-session deck switch (organiser only, #11) ---
   private readonly deckStorage = inject(DeckStorageService);
   protected readonly deckOptions = Object.entries(DECK_LABELS) as [DeckType, string][];

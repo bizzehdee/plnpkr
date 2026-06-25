@@ -104,6 +104,10 @@ namespace PlanningPoker.Data.PostgreSql.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("CurrentStoryNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<string>("CustomCards")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");

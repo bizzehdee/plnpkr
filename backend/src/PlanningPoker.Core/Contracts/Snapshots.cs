@@ -21,6 +21,7 @@ public record SessionSnapshot(
     bool AllowRoleChange,
     bool IsClosed,
     string? CurrentStory,
+    string? CurrentStoryNote,
     IReadOnlyList<ParticipantInfo> Participants,
     VoteStats? Stats,
     IntegrationInfo? Integration,

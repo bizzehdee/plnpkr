@@ -105,6 +105,10 @@ public class PlanningPokerHub : Hub
     public Task<SessionActionResult> SetStory(string shortCode, string userId, string? title) =>
         MutateAndBroadcast(() => _sessions.SetStoryAsync(shortCode, userId, title));
 
+    // Collaborative free-text note for the current story (#10); any participant may edit it.
+    public Task<SessionActionResult> SetStoryNote(string shortCode, string userId, string? note) =>
+        MutateAndBroadcast(() => _sessions.SetStoryNoteAsync(shortCode, userId, note));
+
     // Organiser sets/changes/clears the join password. Plaintext stays on this WSS call; only the
     // (password-free) snapshot is broadcast — the hash never leaves the server. See #2.
     public Task<SessionActionResult> SetPassword(string shortCode, string userId, string? password) =>

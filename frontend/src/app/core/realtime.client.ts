@@ -62,6 +62,7 @@ export interface IRealtimeClient {
   resetVote(shortCode: string, userId: string, targetUserId: string): Promise<SessionActionResult>;
   setAutoReveal(shortCode: string, userId: string, enabled: boolean): Promise<SessionActionResult>;
   setStory(shortCode: string, userId: string, title: string | null): Promise<SessionActionResult>;
+  setStoryNote(shortCode: string, userId: string, note: string | null): Promise<SessionActionResult>;
   setDeck(shortCode: string, userId: string, deckType: DeckType, customCards: string | null): Promise<SessionActionResult>;
   // Session lifecycle (#26), organiser-only.
   closeSession(shortCode: string, userId: string): Promise<SessionActionResult>;
@@ -256,6 +257,10 @@ export class SignalrRealtimeClient implements IRealtimeClient {
 
   setStory(shortCode: string, userId: string, title: string | null): Promise<SessionActionResult> {
     return this.action('SetStory', shortCode, userId, title);
+  }
+
+  setStoryNote(shortCode: string, userId: string, note: string | null): Promise<SessionActionResult> {
+    return this.action('SetStoryNote', shortCode, userId, note);
   }
 
   setPassword(shortCode: string, userId: string, password: string | null): Promise<SessionActionResult> {

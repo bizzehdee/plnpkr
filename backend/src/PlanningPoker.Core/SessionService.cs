@@ -787,7 +787,39 @@ public class SessionService
             return error;
         }
 
-        session!.CurrentStory = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+        var newStory = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+        // A different story starts with a fresh (empty) note — the old note belonged to the old story (#10).
+        if (!string.Equals(session!.CurrentStory, newStory, StringComparison.Ordinal))
+        {
+            session.CurrentStoryNote = null;
+        }
+        session.CurrentStory = newStory;
+        return await CommitAsync(session, ct);
+    }
+
+    /// <summary>
+    /// Set or clear the free-text note for the current story (#10). Collaborative: any participant may
+    /// edit it (not organiser-gated), as long as the session isn't closed.
+    /// </summary>
+    public async Task<SessionActionResult> SetStoryNoteAsync(string shortCode, string userId, string? note, CancellationToken ct = default)
+    {
+        var session = await _store.FindByShortCodeAsync(shortCode, ct);
+        if (session is null)
+        {
+            return SessionActionResult.NotFound();
+        }
+
+        if (session.Participants.All(p => p.UserId != userId))
+        {
+            return SessionActionResult.NotParticipant();
+        }
+
+        if (session.ClosedAt is not null)
+        {
+            return SessionActionResult.SessionClosed();
+        }
+
+        session.CurrentStoryNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
         return await CommitAsync(session, ct);
     }
 
@@ -968,6 +1000,7 @@ public class SessionService
             session.AllowRoleChange,
             session.ClosedAt is not null,
             session.CurrentStory,
+            session.CurrentStoryNote,
             session.Participants
                 .OrderBy(p => p.Id)
                 .Select(p => ToInfo(p, revealed, outliers))

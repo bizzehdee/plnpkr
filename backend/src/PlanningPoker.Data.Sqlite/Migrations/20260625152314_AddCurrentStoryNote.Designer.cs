@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PlanningPoker.Data;
 
@@ -10,9 +11,11 @@ using PlanningPoker.Data;
 namespace PlanningPoker.Data.Sqlite.Migrations
 {
     [DbContext(typeof(PlanningPokerDbContext))]
-    partial class PlanningPokerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260625152314_AddCurrentStoryNote")]
+    partial class AddCurrentStoryNote
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");

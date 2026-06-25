@@ -28,6 +28,7 @@ public class PlanningPokerDbContext : DbContext
             e.Property(s => s.State).HasConversion<string>();
             e.Property(s => s.CustomCards).HasMaxLength(1000);
             e.Property(s => s.CurrentStory).HasMaxLength(500);
+            e.Property(s => s.CurrentStoryNote).HasMaxLength(2000); // story note (#10)
             // Optional join password, stored as an encoded KDF hash (never plaintext). See #2.
             e.Property(s => s.PasswordHash).HasMaxLength(256);
 

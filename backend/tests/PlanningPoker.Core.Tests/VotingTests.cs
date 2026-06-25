@@ -298,4 +298,69 @@ public class VotingTests
 
         result.Status.Should().Be(SessionActionStatus.NotOrganiser);
     }
+
+    // --- Story note (#10) ---
+
+    [Fact]
+    public async Task Any_participant_can_set_the_story_note()
+    {
+        await SeedAsync();
+
+        var result = await _sut.SetStoryNoteAsync(Code, Bob, "  depends on the spike  ");
+
+        result.Status.Should().Be(SessionActionStatus.Ok);
+        result.Session!.CurrentStoryNote.Should().Be("depends on the spike");
+    }
+
+    [Fact]
+    public async Task A_non_participant_cannot_set_the_story_note()
+    {
+        await SeedAsync();
+
+        var result = await _sut.SetStoryNoteAsync(Code, "stranger", "hi");
+
+        result.Status.Should().Be(SessionActionStatus.NotParticipant);
+    }
+
+    [Fact]
+    public async Task Setting_a_note_on_an_unknown_session_returns_not_found()
+    {
+        var result = await _sut.SetStoryNoteAsync("no-such-code", Bob, "x");
+
+        result.Status.Should().Be(SessionActionStatus.SessionNotFound);
+    }
+
+    [Fact]
+    public async Task Setting_a_note_on_a_closed_session_is_rejected()
+    {
+        await SeedAsync();
+        await _sut.CloseSessionAsync(Code, Organiser);
+
+        var result = await _sut.SetStoryNoteAsync(Code, Bob, "x");
+
+        result.Status.Should().Be(SessionActionStatus.SessionClosed);
+    }
+
+    [Fact]
+    public async Task Clearing_a_note_with_blank_text_stores_null()
+    {
+        await SeedAsync();
+        await _sut.SetStoryNoteAsync(Code, Bob, "something");
+
+        var result = await _sut.SetStoryNoteAsync(Code, Bob, "   ");
+
+        result.Session!.CurrentStoryNote.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Changing_the_story_clears_the_note()
+    {
+        await SeedAsync();
+        await _sut.SetStoryNoteAsync(Code, Bob, "note for story A");
+
+        var result = await _sut.SetStoryAsync(Code, Organiser, "Story B");
+
+        result.Session!.CurrentStory.Should().Be("Story B");
+        result.Session.CurrentStoryNote.Should().BeNull("a new story starts with a fresh note");
+    }
 }

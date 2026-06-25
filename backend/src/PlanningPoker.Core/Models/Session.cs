@@ -57,6 +57,9 @@ public class Session
     /// <summary>Optional current story/title being estimated.</summary>
     public string? CurrentStory { get; set; }
 
+    /// <summary>Optional free-text note/justification for the current story (collaborative). See #10.</summary>
+    public string? CurrentStoryNote { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset LastActivityAt { get; set; }

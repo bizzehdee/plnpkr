@@ -20,6 +20,7 @@ function snapshot(shortCode: string): SessionSnapshot {
     allowRoleChange: true,
     isClosed: false,
     currentStory: null,
+    currentStoryNote: null,
     participants: [],
     stats: null,
     integration: null,

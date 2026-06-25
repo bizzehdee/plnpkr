@@ -87,6 +87,7 @@ export interface SessionSnapshot {
   allowRoleChange: boolean;
   isClosed: boolean;
   currentStory: string | null;
+  currentStoryNote: string | null;
   participants: ParticipantInfo[];
   stats: VoteStats | null;
   integration: IntegrationInfo | null;

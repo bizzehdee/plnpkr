@@ -104,6 +104,10 @@ namespace PlanningPoker.Data.SqlServer.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("CurrentStoryNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<string>("CustomCards")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
