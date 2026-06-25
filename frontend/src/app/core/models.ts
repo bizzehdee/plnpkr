@@ -8,7 +8,7 @@ export type DeckType =
   | 'PowersOfTwo'
   | 'Custom';
 
-export type SessionState = 'Voting' | 'Revealed';
+export type SessionState = 'Voting' | 'Revealed' | 'Discussion';
 export type ParticipantRole = 'Voter' | 'Observer';
 
 export interface ParticipantInfo {

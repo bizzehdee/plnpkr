@@ -16,7 +16,9 @@
         </span>
       </div>
       <div class="d-flex align-items-center gap-2">
-        @if (revealed()) {
+        @if (inDiscussion()) {
+          <span class="badge bg-warning text-dark">Discussion</span>
+        } @else if (revealed()) {
           <span class="badge bg-success" [class.reveal-flash]="revealFlash()">Revealed</span>
         } @else {
           <span class="badge bg-primary">Voting</span>
@@ -216,7 +218,7 @@
       <div class="col-12 col-lg-7">
         <!-- The deck is for voters only; observers get a notice in the participants column (#8, #30).
              Hidden on a closed (read-only) session (#26). -->
-        @if (!isObserver() && !isClosed()) {
+        @if (!isObserver() && !isClosed() && !inDiscussion()) {
           <div class="card shadow-sm mb-4">
             <div class="card-body">
               <h2 class="h6 mb-3" id="deck-label">Your card</h2>
@@ -254,6 +256,13 @@
             <div class="card-body d-flex flex-wrap align-items-center gap-3">
               @if (!revealed()) {
                 <button class="btn btn-success" (click)="reveal()">Reveal cards</button>
+              }
+              <!-- Timed discussion phase (#9): start from a reveal, end into a fresh re-vote. -->
+              @if (revealed() && !inDiscussion()) {
+                <button class="btn btn-outline-warning" (click)="startDiscussion()">Start discussion</button>
+              }
+              @if (inDiscussion()) {
+                <button class="btn btn-warning" (click)="endDiscussion()">End &amp; re-vote</button>
               }
               <button class="btn btn-outline-secondary" (click)="resetRound()">Reset all</button>
               <span class="ms-auto small text-body-secondary">More options in ☰ Menu → Settings</span>

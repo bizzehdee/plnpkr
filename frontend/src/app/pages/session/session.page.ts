@@ -241,7 +241,21 @@ export class SessionPage implements OnInit, OnDestroy {
     this.session()?.participants.find((p) => p.userId === this.myUserId) ?? null,
   );
   protected readonly isObserver = computed(() => this.me()?.role === 'Observer');
-  protected readonly revealed = computed(() => this.session()?.state === 'Revealed');
+  /** True whenever the cards are on screen — the Revealed state and the post-reveal Discussion phase (#9). */
+  protected readonly revealed = computed(() => {
+    const s = this.session()?.state;
+    return s === 'Revealed' || s === 'Discussion';
+  });
+  /** The timed talk-it-through phase (#9): cards stay visible, the deck is hidden until the re-vote. */
+  protected readonly inDiscussion = computed(() => this.session()?.state === 'Discussion');
+
+  protected startDiscussion(): Promise<unknown> {
+    return this.realtime.startDiscussion(this.shortCode, this.myUserId, this.timerSelection);
+  }
+
+  protected endDiscussion(): Promise<unknown> {
+    return this.realtime.endDiscussion(this.shortCode, this.myUserId);
+  }
 
   /**
    * Reveal/reset controls: any organiser (founding or promoted co-organiser, #7), or anyone when the

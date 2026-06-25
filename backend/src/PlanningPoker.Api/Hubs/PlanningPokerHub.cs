@@ -94,6 +94,14 @@ public class PlanningPokerHub : Hub
     public Task<SessionActionResult> SetAutoReveal(string shortCode, string userId, bool enabled) =>
         MutateAndBroadcast(() => _sessions.SetAutoRevealAsync(shortCode, userId, enabled));
 
+    // Timed discussion phase (#9): organiser starts a talk-it-through phase (optionally timed) and ends
+    // it into a fresh re-vote. New state + countdown ride the broadcast snapshot.
+    public Task<SessionActionResult> StartDiscussion(string shortCode, string userId, int? seconds) =>
+        MutateAndBroadcast(() => _sessions.StartDiscussionAsync(shortCode, userId, seconds));
+
+    public Task<SessionActionResult> EndDiscussion(string shortCode, string userId) =>
+        MutateAndBroadcast(() => _sessions.EndDiscussionAsync(shortCode, userId));
+
     public Task<SessionActionResult> SetStory(string shortCode, string userId, string? title) =>
         MutateAndBroadcast(() => _sessions.SetStoryAsync(shortCode, userId, title));
 

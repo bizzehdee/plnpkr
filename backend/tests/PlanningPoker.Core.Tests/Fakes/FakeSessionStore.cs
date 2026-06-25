@@ -71,7 +71,7 @@ public sealed class FakeSessionStore : ISessionStore
     public Task<IReadOnlyList<Session>> GetSessionsWithExpiredTimerAsync(DateTimeOffset asOf, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<Session>>(_byId.Values
             .Where(s => s.DeletedAt == null
-                && s.State == SessionState.Voting
+                && (s.State == SessionState.Voting || s.State == SessionState.Discussion)
                 && s.TimerDeadline is { } deadline && deadline <= asOf)
             .ToList());
 

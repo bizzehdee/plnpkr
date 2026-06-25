@@ -11,11 +11,15 @@ public enum DeckType
     Custom,
 }
 
-/// <summary>Whether votes are hidden or shown. Revealed is NOT a lock — votes can still change. See #23.</summary>
+/// <summary>
+/// The round's phase. Voting hides cards; Revealed shows them (not a lock — votes can still change, #23);
+/// Discussion is a distinct timed talk-it-through phase between a reveal and a re-vote (#9).
+/// </summary>
 public enum SessionState
 {
     Voting,
     Revealed,
+    Discussion,
 }
 
 /// <summary>A participant either estimates (Voter) or watches (Observer). See #8.</summary>

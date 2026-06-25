@@ -70,6 +70,8 @@ class FakeRealtimeClient {
   setReactionsEnabled = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   setAllowRoleChange = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   changeRole = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
+  startDiscussion = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
+  endDiscussion = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   promoteToOrganiser = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   demoteOrganiser = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   transferOrganiser = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
@@ -760,6 +762,50 @@ describe('SessionPage', () => {
     expect(text).toContain('outlier');
     expect(text).toContain('Discuss outliers');
     expect(text).toContain('Dave (13)');
+  });
+
+  // --- Timed discussion phase (#9) ---
+  it('lets the organiser start a discussion from a reveal', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(
+      snap({
+        organiserUserId: ME,
+        state: 'Revealed',
+        timerDurationSeconds: 60,
+        participants: [participant({ userId: ME, isOrganiser: true, role: 'Observer' })],
+        stats: { average: 5, consensus: false, voteCount: 2, distribution: [], min: 3, max: 8, stdDev: 2, outlierValues: [] },
+      }),
+    );
+    const fixture = setup(fake);
+
+    const btn = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Start discussion') as HTMLButtonElement;
+    expect(btn).toBeTruthy();
+    btn.click();
+    expect(fake.startDiscussion).toHaveBeenCalledWith(CODE, ME, 60);
+  });
+
+  it('shows the Discussion badge and hides the deck, with an end-and-re-vote control', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(
+      snap({
+        organiserUserId: ME,
+        state: 'Discussion',
+        participants: [participant({ userId: ME, isOrganiser: true, role: 'Voter' })],
+        stats: { average: 5, consensus: false, voteCount: 2, distribution: [], min: 3, max: 8, stdDev: 2, outlierValues: [] },
+      }),
+    );
+    const fixture = setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).toContain('Discussion');
+    // Deck hidden during discussion (even for a voter).
+    expect(el.querySelectorAll('button.playing-card').length).toBe(0);
+
+    const endBtn = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('End & re-vote')) as HTMLButtonElement;
+    expect(endBtn).toBeTruthy();
+    endBtn.click();
+    expect(fake.endDiscussion).toHaveBeenCalledWith(CODE, ME);
   });
 
   // --- Disagreement prompt (#8) ---

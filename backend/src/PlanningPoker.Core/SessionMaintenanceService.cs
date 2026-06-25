@@ -72,9 +72,25 @@ public class SessionMaintenanceService
         // The store returns only Voting sessions whose deadline has passed — no full-table scan per tick.
         foreach (var session in await _store.GetSessionsWithExpiredTimerAsync(now, ct))
         {
-            // Timebox is up: force the reveal regardless of who has voted, and clear the timer so it
-            // fires exactly once. See #14.
-            session.State = SessionState.Revealed;
+            // Timebox is up. A voting round force-reveals regardless of who has voted (#14); a
+            // discussion phase auto-advances to a fresh re-vote, clearing votes (#9). Either way the
+            // timer is cleared so it fires exactly once.
+            if (session.State == SessionState.Discussion)
+            {
+                foreach (var p in session.Participants)
+                {
+                    p.Vote = null;
+                    p.HasVoted = false;
+                    p.ChangedAfterReveal = false;
+                }
+
+                session.State = SessionState.Voting;
+            }
+            else
+            {
+                session.State = SessionState.Revealed;
+            }
+
             session.TimerDeadline = null;
             session.TimerPausedRemainingSeconds = null;
             session.LastActivityAt = now;

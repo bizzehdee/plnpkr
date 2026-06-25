@@ -55,7 +55,8 @@ public class EfSessionStore : ISessionStore
     {
         var running = await _db.Sessions
             .Include(s => s.Participants)
-            .Where(s => s.State == SessionState.Voting && s.TimerDeadline != null)
+            // Voting (auto-reveal on expiry) and Discussion (auto re-vote on expiry) both run a countdown. #14/#9.
+            .Where(s => (s.State == SessionState.Voting || s.State == SessionState.Discussion) && s.TimerDeadline != null)
             .ToListAsync(cancellationToken);
 
         return running.Where(s => s.TimerDeadline <= asOf).ToList();

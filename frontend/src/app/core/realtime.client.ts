@@ -71,6 +71,8 @@ export interface IRealtimeClient {
   // Mid-session role changes (#21).
   setAllowRoleChange(shortCode: string, userId: string, enabled: boolean): Promise<SessionActionResult>;
   changeRole(shortCode: string, userId: string, targetUserId: string, role: ParticipantRole): Promise<SessionActionResult>;
+  startDiscussion(shortCode: string, userId: string, seconds: number | null): Promise<SessionActionResult>;
+  endDiscussion(shortCode: string, userId: string): Promise<SessionActionResult>;
   promoteToOrganiser(shortCode: string, userId: string, targetUserId: string): Promise<SessionActionResult>;
   demoteOrganiser(shortCode: string, userId: string, targetUserId: string): Promise<SessionActionResult>;
   transferOrganiser(shortCode: string, userId: string, targetUserId: string): Promise<SessionActionResult>;
@@ -283,6 +285,14 @@ export class SignalrRealtimeClient implements IRealtimeClient {
 
   changeRole(shortCode: string, userId: string, targetUserId: string, role: ParticipantRole): Promise<SessionActionResult> {
     return this.action('ChangeRole', shortCode, userId, targetUserId, role);
+  }
+
+  startDiscussion(shortCode: string, userId: string, seconds: number | null): Promise<SessionActionResult> {
+    return this.action('StartDiscussion', shortCode, userId, seconds);
+  }
+
+  endDiscussion(shortCode: string, userId: string): Promise<SessionActionResult> {
+    return this.action('EndDiscussion', shortCode, userId);
   }
 
   promoteToOrganiser(shortCode: string, userId: string, targetUserId: string): Promise<SessionActionResult> {

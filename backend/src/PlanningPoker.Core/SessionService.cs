@@ -343,6 +343,58 @@ public class SessionService
         return await CommitAsync(session, ct);
     }
 
+    /// <summary>
+    /// Organiser-only: enter the timed discussion phase (#9), typically after a non-consensus reveal.
+    /// Optionally starts a countdown (<paramref name="seconds"/> or the configured duration) that, on
+    /// expiry, auto-advances to a fresh re-vote. Votes are left intact so the cards stay on screen.
+    /// </summary>
+    public async Task<SessionActionResult> StartDiscussionAsync(string shortCode, string userId, int? seconds = null, CancellationToken ct = default)
+    {
+        var (session, error) = await LoadForControlAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        session!.State = SessionState.Discussion;
+
+        var duration = NormalizeTimerDuration(seconds) ?? session.TimerDurationSeconds;
+        if (duration is not null)
+        {
+            session.TimerDurationSeconds = duration;
+            session.TimerPausedRemainingSeconds = null;
+            session.TimerDeadline = _clock.UtcNow.AddSeconds(duration.Value);
+        }
+
+        return await CommitAsync(session, ct);
+    }
+
+    /// <summary>
+    /// Organiser-only: end the discussion phase and start a fresh re-vote (Discussion → Voting),
+    /// clearing every vote and stopping the countdown. No-op (Ok) if not currently discussing. See #9.
+    /// </summary>
+    public async Task<SessionActionResult> EndDiscussionAsync(string shortCode, string userId, CancellationToken ct = default)
+    {
+        var (session, error) = await LoadForControlAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        if (session!.State == SessionState.Discussion)
+        {
+            foreach (var p in session.Participants)
+            {
+                ClearVote(p);
+            }
+
+            session.State = SessionState.Voting;
+            StopRunningTimer(session);
+        }
+
+        return await CommitAsync(session, ct);
+    }
+
     public async Task<SessionActionResult> SetAutoRevealAsync(string shortCode, string userId, bool enabled, CancellationToken ct = default)
     {
         var (session, error) = await LoadForControlAsync(shortCode, userId, ct);
@@ -898,7 +950,8 @@ public class SessionService
 
     public static SessionSnapshot ToSnapshot(Session session)
     {
-        var revealed = session.State == SessionState.Revealed;
+        // Cards/stats stay visible through the discussion phase too — it's a post-reveal phase (#9).
+        var revealed = session.State is SessionState.Revealed or SessionState.Discussion;
         var stats = revealed ? StatsCalculator.Compute(session.Participants) : null;
         var outliers = stats?.OutlierValues ?? Array.Empty<string>();
 
