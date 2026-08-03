@@ -37,7 +37,7 @@
             <div class="mb-3">
               <label class="form-label" for="deckType">{{ 'home.cardDeck' | t }}</label>
               <select id="deckType" name="deckType" class="form-select" [(ngModel)]="deckType">
-                @for (opt of deckOptions; track opt[0]) {
+                @for (opt of deckOptions(); track opt[0]) {
                   <option [value]="opt[0]">{{ opt[1] }}</option>
                 }
               </select>

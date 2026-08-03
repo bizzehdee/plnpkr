@@ -84,4 +84,36 @@ describe('HomePage', () => {
     expect(fake.createSession).toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith(['/session', 'blue-fox-42']);
   });
+
+  it('shows a translated message for a rate-limited create, not the raw server text', async () => {
+    fake.createSession.mockResolvedValue({
+      status: 'RateLimited',
+      session: null,
+      error: "You're doing that too often — please wait a moment and try again.",
+    });
+    const fixture = TestBed.createComponent(HomePage);
+    const cmp = fixture.componentInstance as unknown as {
+      sessionName: string;
+      displayName: string;
+      create(): Promise<void>;
+    };
+    cmp.sessionName = 'Sprint 24';
+    cmp.displayName = 'Alice';
+
+    await cmp.create();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('doing that too often');
+  });
+
+  it('renders translated deck option labels', () => {
+    const fixture = TestBed.createComponent(HomePage);
+    fixture.detectChanges();
+    const options = [...(fixture.nativeElement as HTMLElement).querySelectorAll('#deckType option')].map(
+      (o) => o.textContent?.trim(),
+    );
+    expect(options).toContain('Fibonacci');
+    expect(options).toContain('T-shirt sizes');
+    expect(options).toContain('Custom…');
+  });
 });

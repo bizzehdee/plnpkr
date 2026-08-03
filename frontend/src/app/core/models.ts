@@ -107,7 +107,8 @@ export type IntegrationStatus =
   | 'NotConnected'
   | 'AuthFailed'
   | 'IssueNotFound'
-  | 'ProviderError';
+  | 'ProviderError'
+  | 'SessionClosed';
 
 export interface IntegrationResult {
   status: IntegrationStatus;
@@ -201,11 +202,12 @@ export interface SessionAnalytics {
   rounds: RoundResultInfo[];
 }
 
-export const DECK_LABELS: Record<DeckType, string> = {
-  Sequential: 'Sequential (0–10)',
-  Fibonacci: 'Fibonacci',
-  ModifiedFibonacci: 'Modified Fibonacci',
-  TShirt: 'T-shirt sizes',
-  PowersOfTwo: 'Powers of two',
-  Custom: 'Custom…',
+/** i18n catalog key for each deck's display label (translated at render time — see `deck.*` keys). */
+export const DECK_LABEL_KEYS: Record<DeckType, string> = {
+  Sequential: 'deck.sequential',
+  Fibonacci: 'deck.fibonacci',
+  ModifiedFibonacci: 'deck.modifiedFibonacci',
+  TShirt: 'deck.tshirt',
+  PowersOfTwo: 'deck.powersOfTwo',
+  Custom: 'deck.custom',
 };

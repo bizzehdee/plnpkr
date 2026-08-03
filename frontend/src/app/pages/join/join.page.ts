@@ -78,24 +78,33 @@ export class JoinPage implements OnInit {
           await this.router.navigate(['/session', this.shortCode]);
           break;
         case 'NameTaken':
-          this.error.set(result.error ?? 'That name is already taken — please pick another.');
+          this.error.set(this.i18n.t('err.join.nameTaken'));
           break;
         case 'PasswordRequired':
           this.requiresPassword.set(true);
-          this.error.set('This session requires a password.');
+          this.error.set(this.i18n.t('err.join.passwordRequired'));
           break;
         case 'WrongPassword':
           this.requiresPassword.set(true);
-          this.error.set(result.error ?? 'Incorrect password — please try again.');
+          this.error.set(this.i18n.t('err.join.wrongPassword'));
           break;
         case 'SessionNotFound':
           this.notFound.set(true);
+          break;
+        case 'SessionClosed':
+          this.error.set(this.i18n.t('err.join.sessionClosed'));
+          break;
+        case 'SessionFull':
+          this.error.set(this.i18n.t('err.join.sessionFull'));
+          break;
+        case 'RateLimited':
+          this.error.set(this.i18n.t('err.rateLimited'));
           break;
         default:
           this.error.set(result.error ?? this.i18n.t('join.errorGeneric'));
       }
     } catch {
-      this.error.set(this.i18n.t('join.errorUnreachable'));
+      this.error.set(this.i18n.t('common.errorUnreachable'));
     } finally {
       this.busy.set(false);
     }

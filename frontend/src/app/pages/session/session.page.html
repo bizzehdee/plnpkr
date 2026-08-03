@@ -671,7 +671,7 @@
                       <div class="alert alert-danger py-1 px-2 small">{{ deckError() }}</div>
                     }
                     <select class="form-select form-select-sm mb-2" [(ngModel)]="deckDraftType">
-                      @for (opt of deckOptions; track opt[0]) {
+                      @for (opt of deckOptions(); track opt[0]) {
                         <option [value]="opt[0]">{{ opt[1] }}</option>
                       }
                     </select>

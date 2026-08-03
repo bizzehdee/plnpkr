@@ -13,9 +13,25 @@ import { TranslatePipe } from '../../core/translate.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { PluralPipe } from '../../core/plural.pipe';
 import { resolveApiBase } from '../../core/app-config';
-import { DECK_LABELS, DeckType, IntegrationProvider, ParticipantInfo, ParticipantRole, REACTION_EMOJI, SavedDeck, SessionAnalytics } from '../../core/models';
+import { DECK_LABEL_KEYS, DeckType, IntegrationProvider, IntegrationStatus, ParticipantInfo, ParticipantRole, REACTION_EMOJI, SavedDeck, SessionAnalytics } from '../../core/models';
 import { DeckStorageService } from '../../core/deck-storage.service';
 import { RevealCueService } from '../../core/reveal-cue.service';
+
+/**
+ * Translation keys for the `IntegrationStatus` values whose message is always the same fixed text
+ * server-side (see `IntegrationResult.Fail`/dedicated factories in the backend) — safe to replace
+ * with a translated string regardless of locale. `AuthFailed`/`IssueNotFound`/`ProviderError` are
+ * NOT here: those carry provider-specific diagnostic text from the external tracker API that can't
+ * be mapped to a fixed key, so callers keep showing the server's message for those.
+ */
+const INTEGRATION_ERROR_KEYS: Partial<Record<IntegrationStatus, string>> = {
+  Disabled: 'err.integration.disabled',
+  SessionNotFound: 'err.integration.sessionNotFound',
+  NotParticipant: 'err.integration.notParticipant',
+  NotOrganiser: 'err.integration.notOrganiser',
+  NotConnected: 'err.integration.notConnected',
+  SessionClosed: 'err.integration.sessionClosed',
+};
 
 @Component({
   selector: 'app-session',
@@ -325,7 +341,7 @@ export class SessionPage implements OnInit, OnDestroy {
 
   protected readonly deckLabel = computed(() => {
     const s = this.session();
-    return s ? DECK_LABELS[s.deckType] : '';
+    return s ? this.i18n.t(DECK_LABEL_KEYS[s.deckType]) : '';
   });
 
   protected readonly inviteLink = computed(
@@ -489,6 +505,16 @@ export class SessionPage implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * The message to show for a failed integration action: a translated, locale-correct string for
+   * the fixed-text statuses (see {@link INTEGRATION_ERROR_KEYS}); otherwise the server's own message
+   * (dynamic, provider-specific — can't be pre-translated), falling back to a generic translated key.
+   */
+  private integrationErrorMessage(status: IntegrationStatus, error: string | null, fallbackKey: string): string {
+    const key = INTEGRATION_ERROR_KEYS[status];
+    return key ? this.i18n.t(key) : (error ?? this.i18n.t(fallbackKey));
+  }
+
   // --- Tickets (#38) ---
   /** One input for everything: a board/query URL, or one or more ticket IDs. */
   protected async addTickets(): Promise<void> {
@@ -506,7 +532,7 @@ export class SessionPage implements OnInit, OnDestroy {
             value.split(/[\s,]+/).filter((k) => k.length > 0),
           );
       if (r.status === 'Ok') this.ticketInput = '';
-      else this.integrationError.set(r.error ?? 'Could not load tickets.');
+      else this.integrationError.set(this.integrationErrorMessage(r.status, r.error, 'session.errorLoadTickets'));
     } finally {
       this.integrationBusy.set(false);
     }
@@ -534,7 +560,7 @@ export class SessionPage implements OnInit, OnDestroy {
     this.submitSuccess.set(null);
     const value = this.pointsToSubmit();
     if (value === null || Number.isNaN(value)) {
-      this.integrationError.set('Enter a numeric value to submit.');
+      this.integrationError.set(this.i18n.t('session.errorEnterNumeric'));
       return;
     }
     this.integrationBusy.set(true);
@@ -543,7 +569,7 @@ export class SessionPage implements OnInit, OnDestroy {
       if (result.status === 'Ok') {
         this.submitSuccess.set(`✓ ${value} saved to ${this.linkedIssue()?.key}`);
       } else {
-        this.integrationError.set(result.error ?? 'Could not submit story points.');
+        this.integrationError.set(this.integrationErrorMessage(result.status, result.error, 'session.errorSubmitPoints'));
       }
     } finally {
       this.integrationBusy.set(false);
@@ -553,7 +579,7 @@ export class SessionPage implements OnInit, OnDestroy {
   protected async connectTracker(): Promise<void> {
     this.integrationError.set(null);
     if (!this.trackerBaseUrl.trim() || !this.trackerToken.trim()) {
-      this.integrationError.set('Base URL and token are required.');
+      this.integrationError.set(this.i18n.t('session.errorBaseUrlTokenRequired'));
       return;
     }
     this.integrationBusy.set(true);
@@ -584,7 +610,7 @@ export class SessionPage implements OnInit, OnDestroy {
         this.trackerToken = '';
         this.showConnectPanel = false;
       } else {
-        this.integrationError.set(result.error ?? 'Could not connect.');
+        this.integrationError.set(this.integrationErrorMessage(result.status, result.error, 'session.errorConnect'));
       }
     } finally {
       this.integrationBusy.set(false);
@@ -611,7 +637,7 @@ export class SessionPage implements OnInit, OnDestroy {
         window.removeEventListener('message', onMessage);
         popup?.close();
       } else if (data.type === 'pp-tracker-error') {
-        this.integrationError.set(data.error ?? 'Login failed.');
+        this.integrationError.set(data.error ?? this.i18n.t('session.errorLoginFailed'));
         window.removeEventListener('message', onMessage);
       }
     };
@@ -877,7 +903,9 @@ export class SessionPage implements OnInit, OnDestroy {
 
   // --- Mid-session deck switch (organiser only, #11) ---
   private readonly deckStorage = inject(DeckStorageService);
-  protected readonly deckOptions = Object.entries(DECK_LABELS) as [DeckType, string][];
+  protected readonly deckOptions = computed(() =>
+    (Object.keys(DECK_LABEL_KEYS) as DeckType[]).map((id) => [id, this.i18n.t(DECK_LABEL_KEYS[id])] as [DeckType, string]),
+  );
   protected readonly savedDecks = signal<SavedDeck[]>([]);
   protected readonly editingDeck = signal(false);
   protected readonly deckError = signal<string | null>(null);

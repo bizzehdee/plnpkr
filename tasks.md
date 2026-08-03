@@ -61,10 +61,10 @@ before its dependents** (dependency wins over pure ease). Effort is a rough T-sh
 ## 5. i18n / localization  `M`
 **Do before later UI features so their strings are translatable.**
 - [x] Choose + wire i18n library (runtime-switchable preferred); add `en` base catalog.
-- [x] Migrate existing `home`/`join`/`session` templates to translation keys. *(join + session fully migrated; home still has a few hard-coded strings — deck/timer option labels, client-side validation errors)*
+- [x] Migrate existing `home`/`join`/`session` templates to translation keys, incl. deck labels (`DECK_LABEL_KEYS`) shared by home + session.
 - [x] Language switcher persisted in `localStorage`.
 - [x] Locale-aware number/plural formatting. `I18nService.formatNumber` (`Intl.NumberFormat`) + `LocaleNumberPipe` (`ln`) replace the fixed-`LOCALE_ID` `DecimalPipe`; `I18nService.plural` (`Intl.PluralRules`) + `PluralPipe` (`plural`) select the right CLDR category per locale (Polish: one/few/many/other), applied to the participant-count string.
-- [ ] Map backend tracker/error messages to client keys *(server-originated `SessionActionResult`/`JoinResult` error strings are still shown verbatim in English)*.
+- [x] Map backend tracker/error messages to client keys. `err.*` keys cover every fixed-text `JoinStatus`/`IntegrationStatus` (`INTEGRATION_ERROR_KEYS` map for the latter); statuses whose message is inherently dynamic (`AuthFailed`/`IssueNotFound`/`ProviderError`, carrying live text from the external tracker API) intentionally keep showing the server's own message — there's nothing static to translate there.
 - [x] Tests: switching locale swaps strings.
 
 ## 6. Spectator count / large-group mode  `M`  — depends on #1

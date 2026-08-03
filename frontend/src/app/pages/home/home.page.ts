@@ -1,10 +1,11 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SignalrRealtimeClient } from '../../core/realtime.client';
 import { IdentityService } from '../../core/identity.service';
 import { DeckStorageService } from '../../core/deck-storage.service';
-import { DeckType, DECK_LABELS, SavedDeck } from '../../core/models';
+import { DeckType, DECK_LABEL_KEYS, SavedDeck } from '../../core/models';
+import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
@@ -17,8 +18,11 @@ export class HomePage {
   private readonly identity = inject(IdentityService);
   private readonly router = inject(Router);
   private readonly deckStorage = inject(DeckStorageService);
+  private readonly i18n = inject(I18nService);
 
-  protected readonly deckOptions = Object.entries(DECK_LABELS) as [DeckType, string][];
+  protected readonly deckOptions = computed(() =>
+    (Object.keys(DECK_LABEL_KEYS) as DeckType[]).map((id) => [id, this.i18n.t(DECK_LABEL_KEYS[id])] as [DeckType, string]),
+  );
 
   protected sessionName = '';
   protected displayName = this.identity.displayName;
@@ -65,11 +69,11 @@ export class HomePage {
     this.error.set(null);
 
     if (!this.sessionName.trim()) {
-      this.error.set('Please give the session a name.');
+      this.error.set(this.i18n.t('home.errorNameRequired'));
       return;
     }
     if (!this.displayName.trim()) {
-      this.error.set('Please enter your name.');
+      this.error.set(this.i18n.t('home.errorYourNameRequired'));
       return;
     }
 
@@ -92,11 +96,13 @@ export class HomePage {
 
       if (result.status === 'Ok' && result.session) {
         await this.router.navigate(['/session', result.session.shortCode]);
+      } else if (result.status === 'RateLimited') {
+        this.error.set(this.i18n.t('err.rateLimited'));
       } else {
-        this.error.set(result.error ?? 'Could not create the session.');
+        this.error.set(result.error ?? this.i18n.t('home.errorGeneric'));
       }
     } catch {
-      this.error.set('Could not reach the server. Is the API running?');
+      this.error.set(this.i18n.t('common.errorUnreachable'));
     } finally {
       this.busy.set(false);
     }

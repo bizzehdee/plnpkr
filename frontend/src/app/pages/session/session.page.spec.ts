@@ -589,6 +589,47 @@ describe('SessionPage', () => {
     });
   });
 
+  describe('integration error mapping', () => {
+    it('shows a translated message for a fixed-text status, ignoring the raw server text', async () => {
+      const fake = new FakeRealtimeClient();
+      fake.session.set(snap({ organiserUserId: ME, participants: [participant({ userId: ME, isOrganiser: true })] }));
+      fake.connectTracker.mockResolvedValue({
+        status: 'NotOrganiser',
+        session: null,
+        accountName: null,
+        error: 'SOME RAW SERVER TEXT THAT SHOULD NOT APPEAR',
+      });
+      const fixture = setup(fake);
+      const c = fixture.componentInstance as any;
+      c.trackerBaseUrl = 'https://x.atlassian.net';
+      c.trackerToken = 'tok';
+
+      await c.connectTracker();
+
+      expect(c.integrationError()).toContain('organiser');
+      expect(c.integrationError()).not.toContain('SOME RAW SERVER TEXT');
+    });
+
+    it('falls back to the server message for a dynamic-text status (provider error)', async () => {
+      const fake = new FakeRealtimeClient();
+      fake.session.set(snap({ organiserUserId: ME, participants: [participant({ userId: ME, isOrganiser: true })] }));
+      fake.connectTracker.mockResolvedValue({
+        status: 'ProviderError',
+        session: null,
+        accountName: null,
+        error: 'Jira said: rate limit exceeded, retry after 30s',
+      });
+      const fixture = setup(fake);
+      const c = fixture.componentInstance as any;
+      c.trackerBaseUrl = 'https://x.atlassian.net';
+      c.trackerToken = 'tok';
+
+      await c.connectTracker();
+
+      expect(c.integrationError()).toBe('Jira said: rate limit exceeded, retry after 30s');
+    });
+  });
+
   it('uses the consensus value as the submit suggestion when unanimous', () => {
     const fake = new FakeRealtimeClient();
     fake.session.set(revealedWithLinkedTicket(ME)); // consensus true, average 5
