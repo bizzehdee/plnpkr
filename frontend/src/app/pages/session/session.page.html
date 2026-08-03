@@ -1,8 +1,8 @@
 @if (closed()) {
   <main class="container py-5 text-center">
-    <h1 class="h4 mb-2">This session has ended</h1>
-    <p class="text-body-secondary">It was closed after a period of inactivity.</p>
-    <a class="btn btn-primary" routerLink="/">Start a new session</a>
+    <h1 class="h4 mb-2">{{ 'session.endedTitle' | t }}</h1>
+    <p class="text-body-secondary">{{ 'session.endedBody' | t }}</p>
+    <a class="btn btn-primary" routerLink="/">{{ 'session.startNew' | t }}</a>
   </main>
 } @else if (session(); as s) {
   <!-- Screen-reader announcement of the result the moment votes are revealed (#4). -->
@@ -12,16 +12,16 @@
       <div>
         <h1 class="h4 mb-1">{{ s.name }}</h1>
         <span class="text-body-secondary small">
-          {{ deckLabel() }} · code <code>{{ s.shortCode }}</code>
+          {{ deckLabel() }} · {{ 'session.codeLabel' | t }} <code>{{ s.shortCode }}</code>
         </span>
       </div>
       <div class="d-flex align-items-center gap-2">
         @if (inDiscussion()) {
-          <span class="badge bg-warning text-dark">Discussion</span>
+          <span class="badge bg-warning text-dark">{{ 'session.stateDiscussion' | t }}</span>
         } @else if (revealed()) {
-          <span class="badge bg-success" [class.reveal-flash]="revealFlash()">Revealed</span>
+          <span class="badge bg-success" [class.reveal-flash]="revealFlash()">{{ 'session.stateRevealed' | t }}</span>
         } @else {
-          <span class="badge bg-primary">Voting</span>
+          <span class="badge bg-primary">{{ 'session.stateVoting' | t }}</span>
         }
 
         <!-- Mute toggle for the reveal sound cue (per-browser, #2) -->
@@ -30,8 +30,8 @@
           class="btn btn-outline-secondary btn-sm"
           (click)="toggleSoundMuted()"
           [attr.aria-pressed]="soundMuted()"
-          [attr.aria-label]="soundMuted() ? 'Unmute reveal sound' : 'Mute reveal sound'"
-          [title]="soundMuted() ? 'Sound off' : 'Sound on'"
+          [attr.aria-label]="(soundMuted() ? 'session.unmuteSound' : 'session.muteSound') | t"
+          [title]="(soundMuted() ? 'session.soundOff' : 'session.soundOn') | t"
         >{{ soundMuted() ? '🔇' : '🔊' }}</button>
 
         <!-- Top-right menu (#30, #26): opens modals; items are role-aware. Hidden when there's nothing
@@ -44,31 +44,31 @@
               (click)="toggleMenu()"
               aria-haspopup="menu"
               [attr.aria-expanded]="menuOpen()"
-              aria-label="Session menu"
-            >☰ Menu</button>
+              [attr.aria-label]="'session.menuAriaLabel' | t"
+            >☰ {{ 'session.menu' | t }}</button>
             @if (menuOpen()) {
               <!-- click-away backdrop -->
               <div (click)="menuOpen.set(false)" style="position: fixed; inset: 0; z-index: 1050;" aria-hidden="true"></div>
               <ul class="dropdown-menu dropdown-menu-end show" style="position: absolute; right: 0; z-index: 1056;" role="menu">
                 @if (!isClosed()) {
-                  <li><button type="button" class="dropdown-item" (click)="openModal('invite')">Invite others</button></li>
+                  <li><button type="button" class="dropdown-item" (click)="openModal('invite')">{{ 'session.menuInvite' | t }}</button></li>
                 }
-                <li><button type="button" class="dropdown-item" (click)="openModal('analytics')">Analytics</button></li>
+                <li><button type="button" class="dropdown-item" (click)="openModal('analytics')">{{ 'session.menuAnalytics' | t }}</button></li>
                 @if (canControl() && integrationsEnabled() && !isClosed()) {
-                  <li><button type="button" class="dropdown-item" (click)="openModal('tracker')">Issue tracker</button></li>
+                  <li><button type="button" class="dropdown-item" (click)="openModal('tracker')">{{ 'session.menuTracker' | t }}</button></li>
                 }
                 @if (canControl() && !isClosed()) {
-                  <li><button type="button" class="dropdown-item" (click)="openModal('settings')">Settings</button></li>
+                  <li><button type="button" class="dropdown-item" (click)="openModal('settings')">{{ 'session.menuSettings' | t }}</button></li>
                 }
                 @if (canControl()) {
-                  <li><button type="button" class="dropdown-item text-danger" (click)="openModal('danger')">Close or delete…</button></li>
+                  <li><button type="button" class="dropdown-item text-danger" (click)="openModal('danger')">{{ 'session.menuCloseDelete' | t }}</button></li>
                 }
               </ul>
             }
           </div>
         }
 
-        <button class="btn btn-outline-secondary btn-sm" (click)="leave()">Leave</button>
+        <button class="btn btn-outline-secondary btn-sm" (click)="leave()">{{ 'session.leave' | t }}</button>
       </div>
     </div>
 
@@ -76,19 +76,19 @@
     @if (isClosed()) {
       <div class="alert alert-secondary d-flex align-items-center gap-2" role="status">
         <span aria-hidden="true">🔒</span>
-        <span>This session is <strong>closed</strong> — it's read-only now.</span>
+        <span>{{ 'session.closedBannerPrefix' | t }} <strong>{{ 'session.closedBannerBold' | t }}</strong> {{ 'session.closedBannerSuffix' | t }}</span>
       </div>
     }
 
     <!-- Emoji reactions — everyone can send; ephemeral, never stored. Hidden when the organiser has
          turned reactions off for the session (#17). -->
     @if (reactionsEnabled() && !isClosed()) {
-      <div class="d-flex flex-wrap gap-1 mb-3" aria-label="Send a reaction">
+      <div class="d-flex flex-wrap gap-1 mb-3" [attr.aria-label]="'session.sendReaction' | t">
         @for (e of reactionEmoji; track e) {
           <button
             type="button"
             class="btn btn-outline-secondary btn-sm reaction-btn"
-            [attr.aria-label]="'React with ' + e"
+            [attr.aria-label]="'session.reactWith' | t:{ emoji: e }"
             (click)="sendReaction(e)"
           >{{ e }}</button>
         }
@@ -114,9 +114,9 @@
         <span aria-hidden="true" style="font-size: 1.4rem">⏱️</span>
         <span class="fs-4 fw-bold font-monospace">{{ timerDisplay() }}</span>
         @if (timerPaused()) {
-          <span class="badge bg-warning text-dark">Paused</span>
+          <span class="badge bg-warning text-dark">{{ 'session.timerPaused' | t }}</span>
         } @else if (timerExpired()) {
-          <span class="badge bg-danger">Time's up</span>
+          <span class="badge bg-danger">{{ 'session.timerUp' | t }}</span>
         }
       </div>
     }
@@ -129,29 +129,29 @@
             <input
               class="form-control"
               [(ngModel)]="storyDraft"
-              placeholder="What are we estimating? e.g. PROJ-123 Login page"
+              [placeholder]="'session.storyPlaceholder' | t"
               (keyup.enter)="saveStory()"
               autocomplete="off"
             />
-            <button class="btn btn-primary" (click)="saveStory()">Save</button>
-            <button class="btn btn-outline-secondary" (click)="editingStory.set(false)">Cancel</button>
+            <button class="btn btn-primary" (click)="saveStory()">{{ 'common.save' | t }}</button>
+            <button class="btn btn-outline-secondary" (click)="editingStory.set(false)">{{ 'common.cancel' | t }}</button>
           </div>
         } @else {
           <div class="d-flex justify-content-between align-items-center gap-2">
             <span [class.text-body-secondary]="!storyTitle()">
-              <span class="me-2">📌</span>{{ storyTitle() || 'No story set' }}
+              <span class="me-2">📌</span>{{ storyTitle() || ('session.noStorySet' | t) }}
               @if (linkedIssue(); as issue) {
                 <a [href]="issue.url" target="_blank" rel="noopener" class="ms-2 small text-decoration-none">
                   🔗 {{ issue.key }}
                 </a>
                 @if (issue.storyPoints !== null) {
-                  <span class="badge bg-secondary ms-1">{{ issue.storyPoints }} pts</span>
+                  <span class="badge bg-secondary ms-1">{{ issue.storyPoints }} {{ 'session.pts' | t }}</span>
                 }
               }
             </span>
             @if (canControl() && !isClosed()) {
               <button class="btn btn-sm btn-outline-secondary flex-shrink-0" (click)="startEditStory()">
-                {{ storyTitle() ? 'Edit' : 'Set story' }}
+                {{ storyTitle() ? ('common.edit' | t) : ('session.setStory' | t) }}
               </button>
             }
           </div>
@@ -164,21 +164,21 @@
               class="form-control form-control-sm"
               rows="2"
               [(ngModel)]="noteDraft"
-              placeholder="Add a note — context, assumptions, why this estimate…"
+              [placeholder]="'session.notePlaceholder' | t"
               (keyup.escape)="editingNote.set(false)"
             ></textarea>
             <div class="mt-1">
-              <button class="btn btn-sm btn-primary" (click)="saveNote()">Save note</button>
-              <button class="btn btn-sm btn-outline-secondary ms-1" (click)="editingNote.set(false)">Cancel</button>
+              <button class="btn btn-sm btn-primary" (click)="saveNote()">{{ 'session.saveNote' | t }}</button>
+              <button class="btn btn-sm btn-outline-secondary ms-1" (click)="editingNote.set(false)">{{ 'common.cancel' | t }}</button>
             </div>
           } @else {
             <div class="d-flex justify-content-between align-items-start gap-2">
               <span class="small" [class.text-body-secondary]="!storyNote()" style="white-space: pre-wrap;">
-                <span class="me-1" aria-hidden="true">📝</span>{{ storyNote() || 'No note' }}
+                <span class="me-1" aria-hidden="true">📝</span>{{ storyNote() || ('session.noNote' | t) }}
               </span>
               @if (!isClosed()) {
                 <button class="btn btn-sm btn-link flex-shrink-0 p-0" (click)="startEditNote()">
-                  {{ storyNote() ? 'Edit note' : 'Add note' }}
+                  {{ storyNote() ? ('session.editNote' | t) : ('session.addNote' | t) }}
                 </button>
               }
             </div>
@@ -207,12 +207,12 @@
           <div class="col-12 col-lg-4">
             <div class="card shadow-sm h-100 d-flex flex-column">
               <div class="card-header d-flex justify-content-between align-items-center flex-shrink-0">
-                <span>Tickets <span class="badge bg-secondary">{{ queue().length }}</span></span>
+                <span>{{ 'session.tickets' | t }} <span class="badge bg-secondary">{{ queue().length }}</span></span>
                 @if (canControl()) {
                   <span class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-secondary" title="Previous" (click)="stepQueue(-1)">‹</button>
-                    <button class="btn btn-outline-secondary" title="Next" (click)="stepQueue(1)">›</button>
-                    <button class="btn btn-outline-secondary" (click)="clearQueue()">Clear</button>
+                    <button class="btn btn-outline-secondary" [title]="'common.previous' | t" (click)="stepQueue(-1)">‹</button>
+                    <button class="btn btn-outline-secondary" [title]="'common.next' | t" (click)="stepQueue(1)">›</button>
+                    <button class="btn btn-outline-secondary" (click)="clearQueue()">{{ 'common.clear' | t }}</button>
                   </span>
                 }
               </div>
@@ -249,8 +249,8 @@
              Hidden on a closed (read-only) session (#26). -->
         @if (!isObserver() && !isClosed() && !inDiscussion()) {
           <div class="card shadow-sm mb-4">
+            <div class="card-header" id="deck-label">{{ 'session.yourCard' | t }}</div>
             <div class="card-body">
-              <h2 class="h6 mb-3" id="deck-label">Your card</h2>
               <div class="d-flex flex-wrap gap-2" role="radiogroup" aria-labelledby="deck-label">
                 @for (card of s.cards; track card; let i = $index) {
                   <button
@@ -259,7 +259,7 @@
                     role="radio"
                     [class.selected]="selectedCard() === card"
                     [attr.aria-checked]="selectedCard() === card"
-                    [attr.aria-label]="'Estimate ' + card"
+                    [attr.aria-label]="'session.estimateCard' | t:{ card: card }"
                     [attr.tabindex]="cardTabIndex(card, i)"
                     [attr.data-card-value]="card"
                     [attr.data-card-index]="i"
@@ -273,7 +273,7 @@
                 }
               </div>
               @if (canChangeOwnRole()) {
-                <button class="btn btn-link btn-sm px-0 mt-2" (click)="setMyRole('Observer')">Switch to observer</button>
+                <button class="btn btn-link btn-sm px-0 mt-2" (click)="setMyRole('Observer')">{{ 'session.switchToObserver' | t }}</button>
               }
             </div>
           </div>
@@ -281,52 +281,52 @@
 
         @if (canControl() && !isClosed()) {
           <div class="card shadow-sm">
-            <div class="card-header">Organiser controls</div>
+            <div class="card-header">{{ 'session.organiserControls' | t }}</div>
             <div class="card-body d-flex flex-wrap align-items-center gap-3">
               @if (!revealed()) {
-                <button class="btn btn-success" (click)="reveal()">Reveal cards</button>
+                <button class="btn btn-success" (click)="reveal()">{{ 'session.revealCards' | t }}</button>
               }
               <!-- Timed discussion phase (#9): start from a reveal, end into a fresh re-vote. -->
               @if (revealed() && !inDiscussion()) {
-                <button class="btn btn-outline-warning" (click)="startDiscussion()">Start discussion</button>
+                <button class="btn btn-outline-warning" (click)="startDiscussion()">{{ 'session.startDiscussion' | t }}</button>
               }
               @if (inDiscussion()) {
-                <button class="btn btn-warning" (click)="endDiscussion()">End &amp; re-vote</button>
+                <button class="btn btn-warning" (click)="endDiscussion()">{{ 'session.endRevote' | t }}</button>
               }
-              <button class="btn btn-outline-secondary" (click)="resetRound()">Reset all</button>
-              <span class="ms-auto small text-body-secondary">More options in ☰ Menu → Settings</span>
+              <button class="btn btn-outline-secondary" (click)="resetRound()">{{ 'session.resetAll' | t }}</button>
+              <span class="ms-auto small text-body-secondary">{{ 'session.moreOptionsHint' | t }}</span>
             </div>
           </div>
 
           <!-- Round timer (organiser only, #14) -->
           <div class="card shadow-sm mt-4">
-            <div class="card-header">Round timer</div>
+            <div class="card-header">{{ 'session.roundTimer' | t }}</div>
             <div class="card-body d-flex flex-wrap align-items-center gap-2">
               <select
                 class="form-select form-select-sm"
                 style="width: auto"
                 [(ngModel)]="timerSelection"
                 (change)="onTimerDurationChange()"
-                aria-label="Timer duration"
+                [attr.aria-label]="'session.timerDurationAria' | t"
               >
                 @for (opt of timerOptions; track opt.value) {
                   <option [ngValue]="opt.value">{{ opt.label }}</option>
                 }
               </select>
               @if (!timerActive()) {
-                <button class="btn btn-success btn-sm" (click)="startTimer()">Start</button>
+                <button class="btn btn-success btn-sm" (click)="startTimer()">{{ 'common.start' | t }}</button>
               } @else {
-                <button class="btn btn-outline-primary btn-sm" (click)="startTimer()">Restart</button>
+                <button class="btn btn-outline-primary btn-sm" (click)="startTimer()">{{ 'session.restart' | t }}</button>
                 @if (timerRunning()) {
-                  <button class="btn btn-outline-secondary btn-sm" (click)="pauseTimer()">Pause</button>
+                  <button class="btn btn-outline-secondary btn-sm" (click)="pauseTimer()">{{ 'common.pause' | t }}</button>
                 } @else {
-                  <button class="btn btn-outline-secondary btn-sm" (click)="resumeTimer()">Resume</button>
+                  <button class="btn btn-outline-secondary btn-sm" (click)="resumeTimer()">{{ 'common.resume' | t }}</button>
                 }
-                <button class="btn btn-outline-danger btn-sm" (click)="stopTimer()">Stop</button>
+                <button class="btn btn-outline-danger btn-sm" (click)="stopTimer()">{{ 'common.stop' | t }}</button>
                 <span class="ms-auto fs-5 fw-bold font-monospace">{{ timerDisplay() }}</span>
               }
             </div>
-            <div class="card-footer small text-body-secondary">When time's up the cards reveal automatically.</div>
+            <div class="card-footer small text-body-secondary">{{ 'session.timerAutoRevealHint' | t }}</div>
           </div>
         }
 
@@ -337,25 +337,25 @@
         <!-- Observing notice (#8): above the participants box, in this column -->
         @if (isObserver()) {
           <div class="alert alert-info py-2 small mb-3 d-flex justify-content-between align-items-center gap-2" role="status">
-            <span>👁 You're observing this session — you can watch the votes but not estimate.</span>
+            <span>{{ 'session.observerNotice' | t }}</span>
             @if (canChangeOwnRole() && !isClosed()) {
-              <button class="btn btn-sm btn-outline-primary flex-shrink-0" (click)="setMyRole('Voter')">Join as voter</button>
+              <button class="btn btn-sm btn-outline-primary flex-shrink-0" (click)="setMyRole('Voter')">{{ 'session.joinAsVoter' | t }}</button>
             }
           </div>
         }
 
         <div class="card shadow-sm mb-4">
           <div class="card-header d-flex justify-content-between align-items-center gap-2">
-            <span>Participants</span>
+            <span>{{ 'session.participants' | t }}</span>
             <!-- Aggregate summary scales to large rooms: voted-of-voters + observer count (#6). -->
             <span class="d-flex align-items-center gap-1">
-              <span class="badge bg-success" [title]="tally().voted + ' of ' + tally().voters + ' voters have voted'">
-                {{ tally().voted }}/{{ tally().voters }} voted
+              <span class="badge bg-success" [title]="'session.votedOfVotersTitle' | t:{ voted: tally().voted, voters: tally().voters }">
+                {{ tally().voted }}/{{ tally().voters }} {{ 'session.votedSuffix' | t }}
               </span>
               @if (tally().observers > 0) {
-                <span class="badge bg-info text-dark" title="Observers / spectators">👁 {{ tally().observers }}</span>
+                <span class="badge bg-info text-dark" [title]="'session.observersTitle' | t">👁 {{ tally().observers }}</span>
               }
-              <span class="badge bg-secondary" title="Total participants">{{ tally().total }}</span>
+              <span class="badge bg-secondary" [title]="'session.totalParticipantsTitle' | t">{{ tally().total }}</span>
             </span>
           </div>
           <ul class="list-group list-group-flush">
@@ -370,22 +370,22 @@
                 <span>
                   {{ p.displayName }}
                   @if (p.userId === myUserId) {
-                    <span class="text-body-secondary small">(you)</span>
+                    <span class="text-body-secondary small">{{ 'session.you' | t }}</span>
                   }
                   @if (!p.isConnected) {
-                    <span class="badge bg-secondary ms-1" title="Disconnected">away</span>
+                    <span class="badge bg-secondary ms-1" [title]="'session.disconnectedTitle' | t">{{ 'session.away' | t }}</span>
                   }
                   @if (p.isOutlier) {
-                    <span class="badge bg-warning text-dark ms-1" title="Diverges from the average">↕ outlier</span>
+                    <span class="badge bg-warning text-dark ms-1" [title]="'session.divergesTitle' | t">{{ 'session.outlierBadge' | t }}</span>
                   }
                   @if (p.isOrganiser) {
-                    <span class="badge bg-warning text-dark ms-1" title="Organiser">★</span>
+                    <span class="badge bg-warning text-dark ms-1" [title]="'session.organiserTitle' | t">★</span>
                   }
                   @if (p.role === 'Observer') {
                     <span class="badge bg-info text-dark ms-1">👁</span>
                   }
                   @if (revealed() && p.changedAfterReveal) {
-                    <span class="badge bg-secondary ms-1" title="Changed after reveal">✎ edited</span>
+                    <span class="badge bg-secondary ms-1" [title]="'session.changedAfterRevealTitle' | t">{{ 'session.editedBadge' | t }}</span>
                   }
                 </span>
                 <span class="d-flex align-items-center gap-2">
@@ -407,7 +407,7 @@
                   @if (canControl() && p.hasVoted && !isClosed()) {
                     <button
                       class="btn btn-sm btn-outline-secondary py-0 px-1"
-                      title="Clear this vote"
+                      [title]="'session.clearVoteTitle' | t"
                       (click)="resetVote(p.userId)"
                     >
                       ✕
@@ -416,7 +416,7 @@
                   @if (canControl() && p.userId !== myUserId && !isClosed()) {
                     <button
                       class="btn btn-sm btn-outline-secondary py-0 px-1"
-                      [title]="p.role === 'Voter' ? 'Make observer' : 'Make voter'"
+                      [title]="(p.role === 'Voter' ? 'session.makeObserver' : 'session.makeVoter') | t"
                       (click)="toggleParticipantRole(p)"
                     >
                       {{ p.role === 'Voter' ? '👁' : '🎴' }}
@@ -424,7 +424,7 @@
                     <!-- Promote / demote co-organiser (#7) -->
                     <button
                       class="btn btn-sm btn-outline-secondary py-0 px-1"
-                      [title]="p.isOrganiser ? 'Remove organiser' : 'Make organiser'"
+                      [title]="(p.isOrganiser ? 'session.removeOrganiser' : 'session.makeOrganiser') | t"
                       (click)="p.isOrganiser ? demote(p.userId) : promote(p.userId)"
                     >
                       {{ p.isOrganiser ? '☆' : '★' }}
@@ -439,9 +439,9 @@
             <div class="card-footer text-center py-1">
               <button class="btn btn-sm btn-link" (click)="toggleShowAllParticipants()">
                 @if (showAllParticipants()) {
-                  Show fewer
+                  {{ 'session.showFewer' | t }}
                 } @else {
-                  Show all {{ tally().total }} participants
+                  {{ 'session.showAllParticipants' | t:{ count: tally().total } }}
                 }
               </button>
             </div>
@@ -450,37 +450,37 @@
 
         @if (revealed() && s.stats; as stats) {
           <div class="card shadow-sm" [class.reveal-flash]="revealFlash()">
-            <div class="card-header">Results</div>
+            <div class="card-header">{{ 'session.results' | t }}</div>
             <div class="card-body">
               <div class="d-flex justify-content-between mb-2">
-                <span class="text-body-secondary">Average</span>
+                <span class="text-body-secondary">{{ 'session.average' | t }}</span>
                 <strong>{{ stats.average !== null ? (stats.average | number: '1.0-2') : '—' }}</strong>
               </div>
               @if (stats.min !== null && stats.max !== null) {
                 <div class="d-flex justify-content-between mb-2">
-                  <span class="text-body-secondary">Range</span>
+                  <span class="text-body-secondary">{{ 'session.range' | t }}</span>
                   <span>{{ stats.min }} – {{ stats.max }}</span>
                 </div>
               }
               @if (stats.consensus) {
-                <div class="alert alert-success py-1 px-2 small mb-2">🎉 Consensus!</div>
+                <div class="alert alert-success py-1 px-2 small mb-2">{{ 'session.consensusBanner' | t }}</div>
               }
               @if (outliers().length) {
                 <div class="alert alert-warning py-1 px-2 small mb-2">
-                  ↕ <strong>Discuss outliers:</strong> {{ outlierSummary() }}
+                  ↕ <strong>{{ 'session.discussOutliers' | t }}</strong> {{ outlierSummary() }}
                 </div>
               }
               <!-- Disagreement prompt (#8): on any non-consensus reveal, nudge a discussion and offer
                    a one-click re-vote (reuses ResetRound). Visible to everyone; the action is for controllers. -->
               @if (hasDisagreement()) {
                 <div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2 py-2 small mb-2" role="status">
-                  <span>💬 Estimates differ — talk it through, then re-vote.</span>
+                  <span>{{ 'session.disagreementNotice' | t }}</span>
                   @if (canControl() && !isClosed()) {
-                    <button class="btn btn-sm btn-warning flex-shrink-0" (click)="resetRound()">Discuss &amp; re-vote</button>
+                    <button class="btn btn-sm btn-warning flex-shrink-0" (click)="resetRound()">{{ 'session.discussRevote' | t }}</button>
                   }
                 </div>
               }
-              <div class="small text-body-secondary mb-1">Distribution</div>
+              <div class="small text-body-secondary mb-1">{{ 'session.distribution' | t }}</div>
               <ul class="list-unstyled mb-0">
                 @for (d of stats.distribution; track d.value) {
                   <li class="d-flex justify-content-between">
@@ -492,7 +492,7 @@
 
               @if (canSubmitPoints()) {
                 <hr />
-                <label class="form-label small mb-1">Submit to {{ linkedIssue()!.key }}</label>
+                <label class="form-label small mb-1">{{ 'session.submitTo' | t:{ key: linkedIssue()!.key } }}</label>
                 <div class="input-group input-group-sm">
                   <input
                     type="number"
@@ -502,7 +502,7 @@
                     step="0.5"
                   />
                   <button class="btn btn-success" [disabled]="integrationBusy()" (click)="submitStoryPoints()">
-                    {{ integrationBusy() ? 'Saving…' : 'Submit points' }}
+                    {{ integrationBusy() ? ('common.saving' | t) : ('session.submitPoints' | t) }}
                   </button>
                 </div>
                 @if (submitSuccess()) {
@@ -528,25 +528,25 @@
           <div class="modal-header">
             <h2 class="modal-title h5">
               @switch (modal) {
-                @case ('invite') { Invite others }
-                @case ('tracker') { Issue tracker }
-                @case ('settings') { Settings }
-                @case ('danger') { Close or delete session }
-                @case ('analytics') { Session analytics }
+                @case ('invite') { {{ 'session.modalInvite' | t }} }
+                @case ('tracker') { {{ 'session.modalTracker' | t }} }
+                @case ('settings') { {{ 'session.modalSettings' | t }} }
+                @case ('danger') { {{ 'session.modalDanger' | t }} }
+                @case ('analytics') { {{ 'session.modalAnalytics' | t }} }
               }
             </h2>
-            <button type="button" class="btn-close" aria-label="Close" (click)="closeModal()"></button>
+            <button type="button" class="btn-close" [attr.aria-label]="'common.close' | t" (click)="closeModal()"></button>
           </div>
           <div class="modal-body">
             @switch (modal) {
 
               <!-- Invite modal (everyone) -->
               @case ('invite') {
-                <label class="form-label small text-body-secondary">Share this link to invite others</label>
+                <label class="form-label small text-body-secondary">{{ 'session.shareInviteLabel' | t }}</label>
                 <div class="input-group">
                   <input class="form-control" [value]="inviteLink()" readonly />
                   <button class="btn btn-outline-primary" (click)="copyInvite()">
-                    {{ copied() ? 'Copied!' : 'Copy invite link' }}
+                    {{ copied() ? ('session.copied' | t) : ('session.copyInviteLink' | t) }}
                   </button>
                 </div>
               }
@@ -560,41 +560,41 @@
                   <div class="alert alert-danger py-1 px-2 small">{{ integrationError() }}</div>
                 }
                 @if (connectedAccount(); as account) {
-                  <p class="small mb-2">Connected as <strong>{{ account }}</strong>
-                    <button class="btn btn-sm btn-link p-0 ms-1" (click)="disconnectTracker()">Disconnect</button>
+                  <p class="small mb-2">{{ 'session.connectedAs' | t:{ account: account } }}
+                    <button class="btn btn-sm btn-link p-0 ms-1" (click)="disconnectTracker()">{{ 'session.disconnect' | t }}</button>
                   </p>
                   <!-- One input: a ticket ID, several IDs, or a board/query URL (#38) -->
-                  <label class="form-label small">Add tickets</label>
+                  <label class="form-label small">{{ 'session.addTickets' | t }}</label>
                   <div class="input-group">
                     <input class="form-control" [(ngModel)]="ticketInput"
-                      placeholder="Ticket ID(s) e.g. PROJ-1, PROJ-2 — or a board/query URL"
+                      [placeholder]="'session.ticketInputPlaceholder' | t"
                       (keyup.enter)="addTickets()" autocomplete="off" />
                     <button class="btn btn-primary" [disabled]="integrationBusy() || !ticketInput.trim()" (click)="addTickets()">
-                      Add
+                      {{ 'common.add' | t }}
                     </button>
                   </div>
                 } @else if (savedConnection() && !showConnectPanel) {
                   <p class="small text-body-secondary mb-2">
-                    Saved connection to {{ savedConnection()!.provider }} on this device.
+                    {{ 'session.savedConnectionNote' | t:{ provider: savedConnection()!.provider } }}
                   </p>
                   @if (autoReconnecting()) {
                     <p class="small text-body-secondary mb-2">
                       <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                      Reconnecting…
+                      {{ 'session.reconnecting' | t }}
                     </p>
                   }
                   <div class="d-flex gap-2">
                     <button class="btn btn-primary btn-sm" [disabled]="integrationBusy() || autoReconnecting()" (click)="reconnectSaved()">
-                      {{ integrationBusy() ? 'Connecting…' : 'Reconnect (saved)' }}
+                      {{ integrationBusy() ? ('common.connecting' | t) : ('session.reconnectSaved' | t) }}
                     </button>
-                    <button class="btn btn-outline-secondary btn-sm" (click)="forgetSaved()">Forget</button>
-                    <button class="btn btn-link btn-sm" (click)="showConnectPanel = true">Use a different connection</button>
+                    <button class="btn btn-outline-secondary btn-sm" (click)="forgetSaved()">{{ 'session.forget' | t }}</button>
+                    <button class="btn btn-link btn-sm" (click)="showConnectPanel = true">{{ 'session.useDifferentConnection' | t }}</button>
                   </div>
                 } @else if (showConnectPanel) {
                   <!-- Only enabled providers are listed (#43); when just one is enabled this is fixed. -->
                   @if (enabledProviders().length > 1) {
                     <div class="mb-2">
-                      <label class="form-label small">Provider</label>
+                      <label class="form-label small">{{ 'session.providerFieldLabel' | t }}</label>
                       <select class="form-select form-select-sm" [(ngModel)]="trackerProvider">
                         @for (p of enabledProviders(); track p.id) {
                           <option [value]="p.id">{{ providerLabel(p.id) }}</option>
@@ -604,16 +604,16 @@
                   }
                   @if (selectedProviderHasOAuth()) {
                     <button class="btn btn-primary btn-sm w-100 mb-2" (click)="loginWithProvider(trackerProvider)">
-                      Log in to {{ providerLabel(trackerProvider) }}
+                      {{ 'session.logInTo' | t:{ provider: providerLabel(trackerProvider) } }}
                     </button>
-                    <div class="text-center text-body-secondary small mb-2">or use a token</div>
+                    <div class="text-center text-body-secondary small mb-2">{{ 'session.orUseToken' | t }}</div>
                   }
                   <input class="form-control form-control-sm mb-2" [(ngModel)]="trackerBaseUrl"
                     [placeholder]="baseUrlPlaceholder(trackerProvider)"
                     autocomplete="off" />
                   @if (trackerProvider === 'Jira') {
                     <input class="form-control form-control-sm mb-2" [(ngModel)]="trackerEmail"
-                      placeholder="Account email" autocomplete="off" />
+                      [placeholder]="'session.accountEmailPlaceholder' | t" autocomplete="off" />
                   }
                   <input class="form-control form-control-sm mb-2" [(ngModel)]="trackerToken" type="password"
                     [placeholder]="tokenPlaceholder(trackerProvider)" autocomplete="off" />
@@ -621,20 +621,20 @@
                     [placeholder]="storyPointsPlaceholder(trackerProvider)"
                     autocomplete="off" />
                   <div class="form-text small mb-2">
-                    Leave blank to auto-detect. Set a field id or name if auto-detect can't find Story Points.
+                    {{ 'session.storyPointsFieldHint' | t }}
                   </div>
                   <div class="form-check mb-2">
                     <input id="rememberTracker" class="form-check-input" type="checkbox" [(ngModel)]="rememberTracker" />
-                    <label class="form-check-label small" for="rememberTracker">Remember on this device</label>
+                    <label class="form-check-label small" for="rememberTracker">{{ 'session.rememberDevice' | t }}</label>
                   </div>
                   <button class="btn btn-primary btn-sm" [disabled]="integrationBusy()" (click)="connectTracker()">
-                    {{ integrationBusy() ? 'Connecting…' : 'Connect' }}
+                    {{ integrationBusy() ? ('common.connecting' | t) : ('session.connect' | t) }}
                   </button>
                 } @else {
                   <p class="small text-body-secondary mb-2">
-                    Link a Jira ticket to pull its title/description and submit story points.
+                    {{ 'session.linkTicketHint' | t }}
                   </p>
-                  <button class="btn btn-outline-primary btn-sm" (click)="showConnectPanel = true">Connect a tracker</button>
+                  <button class="btn btn-outline-primary btn-sm" (click)="showConnectPanel = true">{{ 'session.connectATracker' | t }}</button>
                 }
               }
 
@@ -644,26 +644,26 @@
                   <div class="form-check form-switch">
                     <input id="autoReveal" class="form-check-input" type="checkbox"
                       [checked]="s.autoReveal" (change)="toggleAutoReveal()" />
-                    <label class="form-check-label" for="autoReveal">Auto-reveal when everyone has voted</label>
+                    <label class="form-check-label" for="autoReveal">{{ 'session.autoRevealLabel' | t }}</label>
                   </div>
                   <div class="form-check form-switch">
                     <input id="reactionsEnabled" class="form-check-input" type="checkbox"
                       [checked]="s.reactionsEnabled" (change)="toggleReactions()" />
-                    <label class="form-check-label" for="reactionsEnabled">Allow emoji reactions</label>
+                    <label class="form-check-label" for="reactionsEnabled">{{ 'session.allowReactionsLabel' | t }}</label>
                   </div>
                   <div class="form-check form-switch">
                     <input id="allowRoleChange" class="form-check-input" type="checkbox"
                       [checked]="s.allowRoleChange" (change)="toggleAllowRoleChange()" />
-                    <label class="form-check-label" for="allowRoleChange">Let participants change their own role</label>
+                    <label class="form-check-label" for="allowRoleChange">{{ 'session.allowRoleChangeLabel' | t }}</label>
                   </div>
                 </div>
 
                 <!-- Card deck (#11) — changing the deck resets the round -->
-                <h3 class="h6">Card deck</h3>
+                <h3 class="h6">{{ 'session.cardDeckHeading' | t }}</h3>
                 @if (!editingDeck()) {
                   <div class="d-flex justify-content-between align-items-center mb-3">
                     <span>{{ deckLabel() }}</span>
-                    <button class="btn btn-sm btn-outline-secondary" (click)="startEditDeck()">Change deck</button>
+                    <button class="btn btn-sm btn-outline-secondary" (click)="startEditDeck()">{{ 'session.changeDeck' | t }}</button>
                   </div>
                 } @else {
                   <div class="mb-3">
@@ -677,7 +677,7 @@
                     </select>
                     @if (deckDraftType === 'Custom') {
                       <input class="form-control form-control-sm mb-2" [(ngModel)]="deckDraftCustom"
-                        placeholder="Custom cards, comma-separated e.g. 1, 2, 3, 5, 8" autocomplete="off" />
+                        [placeholder]="'session.customCardsPlaceholder' | t" autocomplete="off" />
                       @if (savedDecks().length) {
                         <div class="d-flex flex-wrap gap-1 mb-2">
                           @for (d of savedDecks(); track d.name) {
@@ -687,14 +687,14 @@
                         </div>
                       }
                     }
-                    <div class="form-text small mb-2">Changing the deck clears the current round's votes.</div>
-                    <button class="btn btn-primary btn-sm" (click)="changeDeck()">Change deck</button>
-                    <button class="btn btn-outline-secondary btn-sm ms-1" (click)="editingDeck.set(false)">Cancel</button>
+                    <div class="form-text small mb-2">{{ 'session.changeDeckHint' | t }}</div>
+                    <button class="btn btn-primary btn-sm" (click)="changeDeck()">{{ 'session.changeDeck' | t }}</button>
+                    <button class="btn btn-outline-secondary btn-sm ms-1" (click)="editingDeck.set(false)">{{ 'common.cancel' | t }}</button>
                   </div>
                 }
 
                 <!-- Session password (#2) -->
-                <h3 class="h6">Session password</h3>
+                <h3 class="h6">{{ 'session.sessionPasswordHeading' | t }}</h3>
                 @if (passwordNote(); as note) {
                   <div class="text-success small mb-2">{{ note }}</div>
                 }
@@ -703,50 +703,49 @@
                     class="form-control"
                     type="password"
                     [(ngModel)]="passwordDraft"
-                    placeholder="Set or change password"
+                    [placeholder]="'session.setChangePasswordPlaceholder' | t"
                     autocomplete="new-password"
                   />
                   <button class="btn btn-primary" [disabled]="passwordBusy() || !passwordDraft.trim()" (click)="savePassword()">
-                    Save
+                    {{ 'common.save' | t }}
                   </button>
-                  <button class="btn btn-outline-secondary" [disabled]="passwordBusy()" (click)="clearPassword()" title="Remove the password">
-                    Remove
+                  <button class="btn btn-outline-secondary" [disabled]="passwordBusy()" (click)="clearPassword()" [title]="'session.removePasswordTitle' | t">
+                    {{ 'common.remove' | t }}
                   </button>
                 </div>
-                <div class="form-text small">Leave joiners unprotected by removing the password.</div>
+                <div class="form-text small">{{ 'session.removePasswordHint' | t }}</div>
               }
 
               <!-- Close / delete the session (organiser, #26) -->
               @case ('danger') {
                 @if (!isClosed()) {
                   <p class="small">
-                    <strong>Close</strong> makes the session read-only — everyone can still view it, but
-                    nothing can be changed.
+                    <strong>{{ 'session.closeExplainBold' | t }}</strong> {{ 'session.closeExplainRest' | t }}
                   </p>
                   @if (!confirmingClose()) {
-                    <button class="btn btn-warning" (click)="confirmingClose.set(true)">Close session (read-only)</button>
+                    <button class="btn btn-warning" (click)="confirmingClose.set(true)">{{ 'session.closeSessionButton' | t }}</button>
                   } @else {
                     <div class="d-flex align-items-center flex-wrap gap-2">
-                      <span class="small">Make this session read-only?</span>
-                      <button class="btn btn-warning btn-sm" (click)="closeSession()">Yes, close</button>
-                      <button class="btn btn-outline-secondary btn-sm" (click)="confirmingClose.set(false)">Cancel</button>
+                      <span class="small">{{ 'session.confirmCloseQuestion' | t }}</span>
+                      <button class="btn btn-warning btn-sm" (click)="closeSession()">{{ 'session.yesClose' | t }}</button>
+                      <button class="btn btn-outline-secondary btn-sm" (click)="confirmingClose.set(false)">{{ 'common.cancel' | t }}</button>
                     </div>
                   }
                   <hr />
                 } @else {
-                  <p class="small text-body-secondary">This session is closed (read-only).</p>
+                  <p class="small text-body-secondary">{{ 'session.alreadyClosedNote' | t }}</p>
                 }
 
                 <p class="small">
-                  <strong>Delete</strong> removes the session for everyone — it can no longer be viewed or joined.
+                  <strong>{{ 'session.deleteExplainBold' | t }}</strong> {{ 'session.deleteExplainRest' | t }}
                 </p>
                 @if (!confirmingDelete()) {
-                  <button class="btn btn-danger" (click)="confirmingDelete.set(true)">Delete session</button>
+                  <button class="btn btn-danger" (click)="confirmingDelete.set(true)">{{ 'session.deleteSessionButton' | t }}</button>
                 } @else {
                   <div class="d-flex align-items-center flex-wrap gap-2">
-                    <span class="small">Permanently delete this session?</span>
-                    <button class="btn btn-danger btn-sm" (click)="deleteSession()">Yes, delete</button>
-                    <button class="btn btn-outline-secondary btn-sm" (click)="confirmingDelete.set(false)">Cancel</button>
+                    <span class="small">{{ 'session.confirmDeleteQuestion' | t }}</span>
+                    <button class="btn btn-danger btn-sm" (click)="deleteSession()">{{ 'session.yesDelete' | t }}</button>
+                    <button class="btn btn-outline-secondary btn-sm" (click)="confirmingDelete.set(false)">{{ 'common.cancel' | t }}</button>
                   </div>
                 }
               }
@@ -754,20 +753,20 @@
               <!-- Velocity / throughput analytics (#11) -->
               @case ('analytics') {
                 @if (analyticsBusy()) {
-                  <p class="text-body-secondary small mb-0">Loading…</p>
+                  <p class="text-body-secondary small mb-0">{{ 'common.loading' | t }}</p>
                 } @else if (analytics(); as a) {
                   @if (a.roundsCompleted === 0) {
-                    <p class="text-body-secondary small mb-0">No rounds completed yet — estimates appear here once you reveal and move on.</p>
+                    <p class="text-body-secondary small mb-0">{{ 'session.noRoundsYet' | t }}</p>
                   } @else {
                     <div class="d-flex flex-wrap gap-3 mb-3">
-                      <div><div class="h4 mb-0">{{ a.roundsCompleted }}</div><div class="small text-body-secondary">Rounds</div></div>
-                      <div><div class="h4 mb-0">{{ (a.consensusRate * 100) | number: '1.0-0' }}%</div><div class="small text-body-secondary">Consensus</div></div>
-                      <div><div class="h4 mb-0">{{ a.averageVotesPerRound !== null ? (a.averageVotesPerRound | number: '1.0-1') : '—' }}</div><div class="small text-body-secondary">Avg voters</div></div>
+                      <div><div class="h4 mb-0">{{ a.roundsCompleted }}</div><div class="small text-body-secondary">{{ 'session.roundsLabel' | t }}</div></div>
+                      <div><div class="h4 mb-0">{{ (a.consensusRate * 100) | number: '1.0-0' }}%</div><div class="small text-body-secondary">{{ 'session.consensusLabel' | t }}</div></div>
+                      <div><div class="h4 mb-0">{{ a.averageVotesPerRound !== null ? (a.averageVotesPerRound | number: '1.0-1') : '—' }}</div><div class="small text-body-secondary">{{ 'session.avgVotersLabel' | t }}</div></div>
                     </div>
                     <div class="table-responsive">
                       <table class="table table-sm small mb-0">
                         <thead>
-                          <tr><th>Story</th><th class="text-end">Final</th><th class="text-end">Avg</th><th class="text-center">Consensus</th></tr>
+                          <tr><th>{{ 'session.thStory' | t }}</th><th class="text-end">{{ 'session.thFinal' | t }}</th><th class="text-end">{{ 'session.thAvg' | t }}</th><th class="text-center">{{ 'session.thConsensus' | t }}</th></tr>
                         </thead>
                         <tbody>
                           @for (r of a.rounds; track $index) {
@@ -783,18 +782,18 @@
                     </div>
                     <!-- Export the round history (#12) -->
                     <div class="d-flex gap-2 mt-3">
-                      <button class="btn btn-sm btn-outline-secondary" (click)="downloadExport('csv')">Export CSV</button>
-                      <button class="btn btn-sm btn-outline-secondary" (click)="downloadExport('json')">Export JSON</button>
+                      <button class="btn btn-sm btn-outline-secondary" (click)="downloadExport('csv')">{{ 'session.exportCsv' | t }}</button>
+                      <button class="btn btn-sm btn-outline-secondary" (click)="downloadExport('json')">{{ 'session.exportJson' | t }}</button>
                     </div>
                   }
                 } @else {
-                  <p class="text-danger small mb-0">Couldn't load analytics.</p>
+                  <p class="text-danger small mb-0">{{ 'session.analyticsError' | t }}</p>
                 }
               }
             }
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" (click)="closeModal()">Close</button>
+            <button type="button" class="btn btn-secondary" (click)="closeModal()">{{ 'common.close' | t }}</button>
           </div>
         </div>
       </div>
@@ -802,6 +801,6 @@
   }
 } @else {
   <main class="container py-5 text-center text-body-secondary">
-    <p>Connecting to the session…</p>
+    <p>{{ 'session.connectingToSession' | t }}</p>
   </main>
 }

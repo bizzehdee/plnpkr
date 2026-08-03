@@ -1,12 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 import { vi } from 'vitest';
 import { Subject } from 'rxjs';
 import { SessionPage } from './session.page';
 import { SignalrRealtimeClient } from '../../core/realtime.client';
 import { IdentityService } from '../../core/identity.service';
+import { SessionMembershipService } from '../../core/session-membership.service';
 import { RevealCueService } from '../../core/reveal-cue.service';
 import { ParticipantInfo, ReactionEvent, SessionSnapshot, SessionState } from '../../core/models';
 
@@ -89,21 +90,27 @@ class FakeRealtimeClient {
   selectQueueItem = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   clearQueue = vi.fn().mockResolvedValue({ status: 'Ok', session: null });
   leaveSession = vi.fn().mockResolvedValue(undefined);
+  connect = vi.fn().mockResolvedValue(undefined);
+  joinSession = vi.fn().mockResolvedValue({ status: 'Ok', session: snap() });
 }
 
-function setup(fake: FakeRealtimeClient) {
+function configure(fake: FakeRealtimeClient, identity: { userId: string; displayName: string } = { userId: ME, displayName: 'Me' }) {
   TestBed.configureTestingModule({
     imports: [SessionPage],
     providers: [
       provideRouter([]),
       { provide: SignalrRealtimeClient, useValue: fake },
-      { provide: IdentityService, useValue: { userId: ME, displayName: 'Me' } },
+      { provide: IdentityService, useValue: identity },
       {
         provide: ActivatedRoute,
         useValue: { snapshot: { paramMap: { get: () => CODE } } },
       },
     ],
   });
+}
+
+function setup(fake: FakeRealtimeClient) {
+  configure(fake);
   const fixture = TestBed.createComponent(SessionPage);
   fixture.detectChanges();
   return fixture;
@@ -1272,5 +1279,80 @@ describe('SessionPage', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('This session has ended');
+  });
+
+  describe('silent rejoin after a page reload (F5)', () => {
+    const membershipKey = 'pp.joinedSessions';
+    afterEach(() => localStorage.removeItem(membershipKey));
+
+    /** A fresh page load: no in-memory session yet (mirrors what a full reload leaves behind). */
+    function freshLoadFixture(fake: FakeRealtimeClient) {
+      configure(fake);
+      return TestBed.createComponent(SessionPage);
+    }
+
+    it('reconnects silently instead of redirecting to /join when this session was joined before', async () => {
+      new SessionMembershipService().remember(CODE, 'Voter');
+      const fake = new FakeRealtimeClient();
+      fake.session.set(null); // nothing in memory, as after an F5
+      const fixture = freshLoadFixture(fake);
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigate');
+
+      await fixture.componentInstance.ngOnInit();
+
+      expect(fake.connect).toHaveBeenCalled();
+      expect(fake.joinSession).toHaveBeenCalledWith(CODE, ME, 'Me', 'Voter');
+      expect(navigateSpy).not.toHaveBeenCalledWith(['/join', CODE]);
+    });
+
+    it('rejoins with the previously-known role (e.g. Observer), not a hard-coded default', async () => {
+      new SessionMembershipService().remember(CODE, 'Observer');
+      const fake = new FakeRealtimeClient();
+      fake.session.set(null);
+      const fixture = freshLoadFixture(fake);
+
+      await fixture.componentInstance.ngOnInit();
+
+      expect(fake.joinSession).toHaveBeenCalledWith(CODE, ME, 'Me', 'Observer');
+    });
+
+    it('falls back to the join screen when this session was never joined in this browser', async () => {
+      const fake = new FakeRealtimeClient();
+      fake.session.set(null);
+      const fixture = freshLoadFixture(fake);
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      await fixture.componentInstance.ngOnInit();
+
+      expect(fake.joinSession).not.toHaveBeenCalled();
+      expect(navigateSpy).toHaveBeenCalledWith(['/join', CODE]);
+    });
+
+    it('forgets the session and falls back to the join screen when the rejoin reports it gone', async () => {
+      new SessionMembershipService().remember(CODE, 'Voter');
+      const fake = new FakeRealtimeClient();
+      fake.session.set(null);
+      fake.joinSession.mockResolvedValue({ status: 'SessionNotFound', session: null });
+      const fixture = freshLoadFixture(fake);
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      await fixture.componentInstance.ngOnInit();
+
+      expect(navigateSpy).toHaveBeenCalledWith(['/join', CODE]);
+      expect(new SessionMembershipService().get(CODE)).toBeNull();
+    });
+
+    it('forgets the session on an explicit leave', async () => {
+      new SessionMembershipService().remember(CODE, 'Voter');
+      const fake = new FakeRealtimeClient();
+      const fixture = setup(fake);
+
+      await (fixture.componentInstance as unknown as { leave(): Promise<void> }).leave();
+
+      expect(new SessionMembershipService().get(CODE)).toBeNull();
+    });
   });
 });

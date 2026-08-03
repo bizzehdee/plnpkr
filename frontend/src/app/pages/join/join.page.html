@@ -4,16 +4,15 @@
       <div class="card shadow-sm">
         <div class="card-body">
           @if (loading()) {
-            <p class="text-body-secondary mb-0">Checking invite…</p>
+            <p class="text-body-secondary mb-0">{{ 'join.checking' | t }}</p>
           } @else if (notFound()) {
-            <h1 class="h4 mb-3">Session not found</h1>
+            <h1 class="h4 mb-3">{{ 'join.notFoundTitle' | t }}</h1>
             <p class="text-body-secondary">
-              The code <code>{{ shortCode }}</code> doesn't match an active session. Check the link
-              or start a new one.
+              {{ 'join.notFoundPrefix' | t }} <code>{{ shortCode }}</code> {{ 'join.notFoundSuffix' | t }}
             </p>
           } @else {
-            <h1 class="h5 mb-1">Join “{{ sessionName() }}”</h1>
-            <p class="text-body-secondary small mb-3">Code: <code>{{ shortCode }}</code></p>
+            <h1 class="h5 mb-1">{{ 'join.title' | t:{ name: sessionName() ?? '' } }}</h1>
+            <p class="text-body-secondary small mb-3">{{ 'join.codeLabel' | t }} <code>{{ shortCode }}</code></p>
 
             @if (error()) {
               <div class="alert alert-danger" role="alert">{{ error() }}</div>
@@ -21,34 +20,34 @@
 
             <form (ngSubmit)="join()">
               <div class="mb-3">
-                <label class="form-label" for="displayName">Your name</label>
+                <label class="form-label" for="displayName">{{ 'join.yourName' | t }}</label>
                 <input
                   id="displayName"
                   name="displayName"
                   class="form-control"
                   [(ngModel)]="displayName"
-                  placeholder="e.g. Bob"
+                  [placeholder]="'join.yourNamePlaceholder' | t"
                   autocomplete="off"
                 />
               </div>
 
               @if (requiresPassword()) {
                 <div class="mb-3">
-                  <label class="form-label" for="joinPassword">Password</label>
+                  <label class="form-label" for="joinPassword">{{ 'join.password' | t }}</label>
                   <input
                     id="joinPassword"
                     name="joinPassword"
                     type="password"
                     class="form-control"
                     [(ngModel)]="password"
-                    placeholder="Session password"
+                    [placeholder]="'join.passwordPlaceholder' | t"
                     autocomplete="off"
                   />
                 </div>
               }
 
               <div class="mb-3">
-                <span class="form-label d-block">Join as</span>
+                <span class="form-label d-block">{{ 'join.joinAs' | t }}</span>
                 <div class="btn-group" role="group">
                   <input
                     type="radio"
@@ -58,7 +57,7 @@
                     [value]="'Voter'"
                     [(ngModel)]="role"
                   />
-                  <label class="btn btn-outline-primary" for="roleVoter">Voter</label>
+                  <label class="btn btn-outline-primary" for="roleVoter">{{ 'join.roleVoter' | t }}</label>
 
                   <input
                     type="radio"
@@ -68,12 +67,12 @@
                     [value]="'Observer'"
                     [(ngModel)]="role"
                   />
-                  <label class="btn btn-outline-primary" for="roleObserver">Observer 👁</label>
+                  <label class="btn btn-outline-primary" for="roleObserver">{{ 'join.roleObserver' | t }} 👁</label>
                 </div>
               </div>
 
               <button type="submit" class="btn btn-primary w-100" [disabled]="busy() || !displayName.trim()">
-                {{ busy() ? 'Joining…' : 'Join session' }}
+                {{ busy() ? ('join.joining' | t) : ('join.join' | t) }}
               </button>
             </form>
           }

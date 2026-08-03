@@ -5,12 +5,15 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { SignalrRealtimeClient } from '../../core/realtime.client';
 import { IdentityService } from '../../core/identity.service';
+import { SessionMembershipService } from '../../core/session-membership.service';
+import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 import { resolveApiBase } from '../../core/app-config';
 import { ParticipantRole, SessionLanding } from '../../core/models';
 
 @Component({
   selector: 'app-join',
-  imports: [FormsModule],
+  imports: [FormsModule, TranslatePipe],
   templateUrl: './join.page.html',
 })
 export class JoinPage implements OnInit {
@@ -19,6 +22,8 @@ export class JoinPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly realtime = inject(SignalrRealtimeClient);
   private readonly identity = inject(IdentityService);
+  private readonly membership = inject(SessionMembershipService);
+  private readonly i18n = inject(I18nService);
 
   protected shortCode = '';
   protected displayName = this.identity.displayName;
@@ -50,7 +55,7 @@ export class JoinPage implements OnInit {
   protected async join(): Promise<void> {
     this.error.set(null);
     if (!this.displayName.trim()) {
-      this.error.set('Please enter your name.');
+      this.error.set(this.i18n.t('join.errorNameRequired'));
       return;
     }
 
@@ -69,6 +74,7 @@ export class JoinPage implements OnInit {
 
       switch (result.status) {
         case 'Ok':
+          this.membership.remember(this.shortCode, this.role);
           await this.router.navigate(['/session', this.shortCode]);
           break;
         case 'NameTaken':
@@ -86,10 +92,10 @@ export class JoinPage implements OnInit {
           this.notFound.set(true);
           break;
         default:
-          this.error.set(result.error ?? 'Could not join the session.');
+          this.error.set(result.error ?? this.i18n.t('join.errorGeneric'));
       }
     } catch {
-      this.error.set('Could not reach the server. Is the API running?');
+      this.error.set(this.i18n.t('join.errorUnreachable'));
     } finally {
       this.busy.set(false);
     }

@@ -19,14 +19,22 @@ describe('I18nService', () => {
     expect(svc.t('Hello {name}!', { name: 'Ada' })).toBe('Hello Ada!');
   });
 
-  it('switches locale, persists it, and falls back to English for missing keys', () => {
+  it('switches locale, persists it, and falls back to the raw key when a locale has no entry', () => {
     const svc = new I18nService();
     svc.setLocale('es');
     expect(svc.t('home.create')).toBe('Crear sesión'); // present in es
-    expect(svc.t('home.yourName')).toBe('Your name'); // missing in es → English fallback
+    expect(svc.t('home.yourName')).toBe('Tu nombre'); // fully translated
+    expect(svc.t('nope.missing')).toBe('nope.missing'); // not in es or en → raw key
     expect(localStorage.getItem('pp.locale')).toBe('es');
 
     // A fresh instance reads the stored locale back.
     expect(new I18nService().locale()).toBe('es');
+  });
+
+  it('has a complete Portuguese catalog matching every English key', () => {
+    const svc = new I18nService();
+    svc.setLocale('pt');
+    expect(svc.t('home.create')).toBe('Criar sessão');
+    expect(svc.t('home.yourName')).toBe('Seu nome');
   });
 });

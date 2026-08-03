@@ -7,7 +7,10 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { SignalrRealtimeClient } from '../../core/realtime.client';
 import { IdentityService } from '../../core/identity.service';
+import { SessionMembershipService } from '../../core/session-membership.service';
 import { TrackerStorageService } from '../../core/tracker-storage.service';
+import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 import { resolveApiBase } from '../../core/app-config';
 import { DECK_LABELS, DeckType, IntegrationProvider, ParticipantInfo, ParticipantRole, REACTION_EMOJI, SavedDeck, SessionAnalytics } from '../../core/models';
 import { DeckStorageService } from '../../core/deck-storage.service';
@@ -15,7 +18,7 @@ import { RevealCueService } from '../../core/reveal-cue.service';
 
 @Component({
   selector: 'app-session',
-  imports: [DecimalPipe, RouterLink, FormsModule],
+  imports: [DecimalPipe, RouterLink, FormsModule, TranslatePipe],
   templateUrl: './session.page.html',
   styleUrl: './session.page.scss',
 })
@@ -24,6 +27,8 @@ export class SessionPage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly realtime = inject(SignalrRealtimeClient);
   private readonly identity = inject(IdentityService);
+  private readonly membership = inject(SessionMembershipService);
+  private readonly i18n = inject(I18nService);
   private readonly revealCue = inject(RevealCueService);
 
   // --- Reveal cue (#2): sound + a brief visual flash when votes are revealed ---
@@ -371,25 +376,25 @@ export class SessionPage implements OnInit, OnDestroy {
   /** Placeholder for the base-URL field, tailored per provider. */
   protected baseUrlPlaceholder(p: IntegrationProvider): string {
     switch (p) {
-      case 'Jira': return 'Site URL e.g. https://acme.atlassian.net';
-      case 'AzureDevOps': return 'Org URL e.g. https://dev.azure.com/acme';
-      case 'GitHub': return 'Repo URL e.g. https://github.com/owner/repo';
-      case 'GitLab': return 'Project URL e.g. https://gitlab.com/group/project';
+      case 'Jira': return this.i18n.t('session.baseUrlPlaceholderJira');
+      case 'AzureDevOps': return this.i18n.t('session.baseUrlPlaceholderAzureDevOps');
+      case 'GitHub': return this.i18n.t('session.baseUrlPlaceholderGitHub');
+      case 'GitLab': return this.i18n.t('session.baseUrlPlaceholderGitLab');
     }
   }
 
   /** Placeholder for the token field, tailored per provider. */
   protected tokenPlaceholder(p: IntegrationProvider): string {
-    return p === 'Jira' ? 'API token' : 'Personal access token';
+    return this.i18n.t(p === 'Jira' ? 'session.tokenPlaceholderJira' : 'session.tokenPlaceholderOther');
   }
 
   /** Placeholder for the optional story-points field, tailored per provider. */
   protected storyPointsPlaceholder(p: IntegrationProvider): string {
     switch (p) {
-      case 'Jira': return 'Story points field (optional) e.g. customfield_10016';
-      case 'AzureDevOps': return 'Story points field (optional) e.g. Custom.StoryPoints';
+      case 'Jira': return this.i18n.t('session.storyPointsPlaceholderJira');
+      case 'AzureDevOps': return this.i18n.t('session.storyPointsPlaceholderAzureDevOps');
       case 'GitHub':
-      case 'GitLab': return 'Points label prefix (optional) e.g. points:';
+      case 'GitLab': return this.i18n.t('session.storyPointsPlaceholderLabel');
     }
   }
 
@@ -674,6 +679,15 @@ export class SessionPage implements OnInit, OnDestroy {
   }
 
   constructor() {
+    // Remember (shortCode -> role) so a later full page reload can silently rejoin instead of
+    // bouncing back to the join screen (F5 shouldn't kick you out). Kept fresh across role changes.
+    effect(() => {
+      const me = this.me();
+      if (me && this.shortCode) {
+        this.membership.remember(this.shortCode, me.role);
+      }
+    });
+
     // Keep the local highlight in sync: clear it when my vote is cleared/reset, and adopt the
     // server value once revealed.
     effect(() => {
@@ -746,16 +760,39 @@ export class SessionPage implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     this.shortCode = this.route.snapshot.paramMap.get('shortCode') ?? '';
     const current = this.session();
     if (!current || current.shortCode !== this.shortCode) {
-      this.router.navigate(['/join', this.shortCode]);
-      return;
+      // A full page reload (F5) drops the in-memory connection/snapshot even though the server still
+      // holds our seat. If we've joined this session before in this browser, silently reconnect
+      // instead of sending the user back through the join form.
+      const rejoined = await this.tryRejoin();
+      if (!rejoined) {
+        await this.router.navigate(['/join', this.shortCode]);
+        return;
+      }
     }
     // Seed the organiser's duration picker from the session's configured value (default 1:00).
     this.timerSelection = this.session()?.timerDurationSeconds ?? 60;
     void this.loadIntegrationOptions();
+  }
+
+  /** Attempts a silent rejoin using the remembered identity + role. See ngOnInit. */
+  private async tryRejoin(): Promise<boolean> {
+    const role = this.membership.get(this.shortCode);
+    const displayName = this.identity.displayName;
+    if (!role || !displayName) return false;
+    try {
+      await this.realtime.connect();
+      const result = await this.realtime.joinSession(this.shortCode, this.myUserId, displayName, role);
+      if (result.status === 'SessionNotFound') {
+        this.membership.forget(this.shortCode); // gone for good — stop trying to silently rejoin it
+      }
+      return result.status === 'Ok';
+    } catch {
+      return false;
+    }
   }
 
   ngOnDestroy(): void {
@@ -955,11 +992,11 @@ export class SessionPage implements OnInit, OnDestroy {
   protected readonly resultsAnnouncement = computed(() => {
     if (!this.revealed()) return '';
     const stats = this.session()?.stats;
-    if (!stats) return 'Votes revealed.';
-    const parts = ['Votes revealed.'];
-    if (stats.average !== null) parts.push(`Average ${stats.average}.`);
-    if (stats.consensus) parts.push('Consensus reached.');
-    else if (this.outliers().length) parts.push(`Outliers to discuss: ${this.outlierSummary()}.`);
+    if (!stats) return this.i18n.t('session.announceVotesRevealed');
+    const parts = [this.i18n.t('session.announceVotesRevealed')];
+    if (stats.average !== null) parts.push(this.i18n.t('session.announceAverage', { avg: stats.average }));
+    if (stats.consensus) parts.push(this.i18n.t('session.announceConsensus'));
+    else if (this.outliers().length) parts.push(this.i18n.t('session.announceOutliers', { names: this.outlierSummary() }));
     return parts.join(' ');
   });
 
@@ -997,9 +1034,11 @@ export class SessionPage implements OnInit, OnDestroy {
 
   /** Screen-reader label for a participant's vote pill — announces voted/waiting without leaking the value (#1). */
   protected voteAriaLabel(p: ParticipantInfo): string {
-    if (p.role === 'Observer') return `${p.displayName} is observing`;
-    if (this.revealed()) return `${p.displayName} voted ${p.vote ?? 'nothing'}`;
-    return p.hasVoted ? `${p.displayName} has voted` : `${p.displayName} has not voted yet`;
+    if (p.role === 'Observer') return this.i18n.t('session.ariaObserving', { name: p.displayName });
+    if (this.revealed()) {
+      return this.i18n.t('session.ariaVotedValue', { name: p.displayName, vote: p.vote ?? this.i18n.t('session.nothing') });
+    }
+    return this.i18n.t(p.hasVoted ? 'session.ariaHasVoted' : 'session.ariaNotVoted', { name: p.displayName });
   }
 
   protected async copyInvite(): Promise<void> {
@@ -1014,6 +1053,7 @@ export class SessionPage implements OnInit, OnDestroy {
 
   protected async leave(): Promise<void> {
     await this.realtime.leaveSession(this.shortCode, this.myUserId);
+    this.membership.forget(this.shortCode);
     await this.router.navigate(['/']);
   }
 }
