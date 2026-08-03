@@ -235,6 +235,42 @@ established by #13.
 **Approach.** Implement `IIssueTracker` against the GitLab API. Map story points to the
 native issue **weight** field (clean fit), or a label fallback.
 
+## 15. Session retention policy
+
+**What.** A long-term data-lifecycle policy layered on the existing `ClosedAt`/
+`DeletedAt` fields (#26): a **closed** (read-only) session is retained 12 months from
+`ClosedAt`, then soft-deleted; a **soft-deleted** session is hard-deleted 30 days from
+`DeletedAt`; a session that is **neither** closed nor soft-deleted is soft-deleted 30
+days from `LastActivityAt`. Replaces the current 60-minute empty/idle hard-delete in
+`SessionMaintenanceService`.
+
+**Why.** #26 introduced close/soft-delete but no automatic expiry, so closed/idle
+sessions (and their `RoundResult` export/analytics history) would otherwise accumulate
+indefinitely. These windows keep history around long enough to be useful without
+unbounded growth.
+
+**Touch points.** `SessionMaintenanceService.PurgeAsync` (Core) — replace the
+empty/idle-60-min hard-delete branch; `SessionEvictionService` (Api) scheduler, same
+1-minute tick; `ISessionStore`/`EfSessionStore` — new query to find soft-deleted
+sessions past the hard-delete threshold (must `IgnoreQueryFilters()`, since `DeletedAt`
+sits behind a global query filter, `PlanningPokerDbContext.cs:71`); `IClock` for
+testable dates.
+
+**Approach.** Keep the 2-minute disconnect-grace participant eviction as-is. On each
+pass, for every non-hard-deleted session: soft-deleted past 30 days → hard delete
+(cascades `RoundResult`s); closed (not yet soft-deleted) past 12 months → soft delete;
+neither, idle past 30 days → soft delete. Broadcast the existing `SessionClosed` event
+on hard delete; broadcast an updated snapshot on a soft-delete transition so any
+still-connected client learns the session is now read-only/hidden. No new persisted
+fields or migration required. Retention windows configurable in `appsettings.json`.
+Surface the same windows in the "Close or delete session" modal
+(`session.page.html:719-750`, the `danger` modal) so the organiser knows what each
+action leads to: next to **Close**, note it will be auto-deleted N months after
+closing; next to **Delete**, note it will be permanently removed N days after
+deletion. The frontend reads the configured windows rather than hard-coding them
+(mirror onto `core/models.ts` / an app-config endpoint, whichever the existing
+`appsettings.json`-driven frontend config pattern uses).
+
 ---
 
 ## Cross-cutting notes

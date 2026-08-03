@@ -128,3 +128,13 @@ before its dependents** (dependency wins over pure ease). Effort is a rough T-sh
 - [ ] Register in factory + host policy + feature flag; reuse #13 OAuth/config patterns.
 - [ ] Queue from project/group/search.
 - [ ] Tests: adapter ops; factory resolution.
+
+## 15. Session retention policy  `S–M`
+**Builds on the `ClosedAt`/`DeletedAt` fields from #26; no new persistence.**
+- [ ] `ISessionStore.GetSoftDeletedPastRetentionAsync` (EF: `IgnoreQueryFilters()` past the `DeletedAt` global filter) + in-memory test store equivalent.
+- [ ] Replace the empty/idle-60-min hard-delete branch in `SessionMaintenanceService.PurgeAsync` with: soft-deleted 30d → hard delete; closed 12mo (not yet soft-deleted) → soft delete; neither, idle 30d → soft delete.
+- [ ] `SessionEvictionService`: broadcast `SessionUpdated` on soft-delete transitions, keep existing `SessionClosed` on hard delete.
+- [ ] Retention windows configurable in `appsettings.json`.
+- [ ] Expose the configured windows to the frontend (new lightweight config read, or fold into an existing config surface — no dedicated endpoint exists yet).
+- [ ] Show the windows in the "Close or delete session" modal (`session.page.html:719-750`): next to **Close**, note it auto-deletes N months after closing; next to **Delete**, note it's permanently removed N days after deletion.
+- [ ] Tests: all three transition rules; just-under-threshold untouched; hard delete removes `RoundResult`s; old 60-min/empty-room immediate delete no longer fires; modal renders the configured windows.
