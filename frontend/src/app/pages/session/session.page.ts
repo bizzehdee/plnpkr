@@ -1,6 +1,5 @@
 import { Component, computed, effect, inject, signal, HostListener, OnInit, OnDestroy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -11,6 +10,8 @@ import { SessionMembershipService } from '../../core/session-membership.service'
 import { TrackerStorageService } from '../../core/tracker-storage.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { LocaleNumberPipe } from '../../core/locale-number.pipe';
+import { PluralPipe } from '../../core/plural.pipe';
 import { resolveApiBase } from '../../core/app-config';
 import { DECK_LABELS, DeckType, IntegrationProvider, ParticipantInfo, ParticipantRole, REACTION_EMOJI, SavedDeck, SessionAnalytics } from '../../core/models';
 import { DeckStorageService } from '../../core/deck-storage.service';
@@ -18,7 +19,7 @@ import { RevealCueService } from '../../core/reveal-cue.service';
 
 @Component({
   selector: 'app-session',
-  imports: [DecimalPipe, RouterLink, FormsModule, TranslatePipe],
+  imports: [RouterLink, FormsModule, TranslatePipe, LocaleNumberPipe, PluralPipe],
   templateUrl: './session.page.html',
   styleUrl: './session.page.scss',
 })

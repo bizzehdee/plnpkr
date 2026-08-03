@@ -441,7 +441,7 @@
                 @if (showAllParticipants()) {
                   {{ 'session.showFewer' | t }}
                 } @else {
-                  {{ 'session.showAllParticipants' | t:{ count: tally().total } }}
+                  {{ 'session.showAllParticipants' | plural: tally().total }}
                 }
               </button>
             </div>
@@ -454,7 +454,7 @@
             <div class="card-body">
               <div class="d-flex justify-content-between mb-2">
                 <span class="text-body-secondary">{{ 'session.average' | t }}</span>
-                <strong>{{ stats.average !== null ? (stats.average | number: '1.0-2') : '—' }}</strong>
+                <strong>{{ stats.average !== null ? (stats.average | ln:{ maximumFractionDigits: 2 }) : '—' }}</strong>
               </div>
               @if (stats.min !== null && stats.max !== null) {
                 <div class="d-flex justify-content-between mb-2">
@@ -760,8 +760,8 @@
                   } @else {
                     <div class="d-flex flex-wrap gap-3 mb-3">
                       <div><div class="h4 mb-0">{{ a.roundsCompleted }}</div><div class="small text-body-secondary">{{ 'session.roundsLabel' | t }}</div></div>
-                      <div><div class="h4 mb-0">{{ (a.consensusRate * 100) | number: '1.0-0' }}%</div><div class="small text-body-secondary">{{ 'session.consensusLabel' | t }}</div></div>
-                      <div><div class="h4 mb-0">{{ a.averageVotesPerRound !== null ? (a.averageVotesPerRound | number: '1.0-1') : '—' }}</div><div class="small text-body-secondary">{{ 'session.avgVotersLabel' | t }}</div></div>
+                      <div><div class="h4 mb-0">{{ (a.consensusRate * 100) | ln:{ maximumFractionDigits: 0 } }}%</div><div class="small text-body-secondary">{{ 'session.consensusLabel' | t }}</div></div>
+                      <div><div class="h4 mb-0">{{ a.averageVotesPerRound !== null ? (a.averageVotesPerRound | ln:{ maximumFractionDigits: 1 }) : '—' }}</div><div class="small text-body-secondary">{{ 'session.avgVotersLabel' | t }}</div></div>
                     </div>
                     <div class="table-responsive">
                       <table class="table table-sm small mb-0">
@@ -773,7 +773,7 @@
                             <tr>
                               <td>{{ r.story || '—' }}</td>
                               <td class="text-end">{{ r.finalEstimate || '—' }}</td>
-                              <td class="text-end">{{ r.average !== null ? (r.average | number: '1.0-2') : '—' }}</td>
+                              <td class="text-end">{{ r.average !== null ? (r.average | ln:{ maximumFractionDigits: 2 }) : '—' }}</td>
                               <td class="text-center">{{ r.consensus ? '✓' : '' }}</td>
                             </tr>
                           }

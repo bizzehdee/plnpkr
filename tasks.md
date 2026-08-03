@@ -33,101 +33,102 @@ before its dependents** (dependency wins over pure ease). Effort is a rough T-sh
 
 ## 1. Who has voted  `S`
 **Foundation for #4, #6, #8.**
-- [ ] Confirm `Participant.HasVoted` is in the participant snapshot (`Core/Contracts/Snapshots.cs`) during Voting — value never included.
-- [ ] Render per-seat "voted / waiting" badge in `pages/session/session.page.html`.
-- [ ] Mirror any snapshot field in `core/models.ts`.
-- [ ] Tests: snapshot omits vote value pre-reveal; FE renders badge.
+- [x] Confirm `Participant.HasVoted` is in the participant snapshot (`Core/Contracts/Snapshots.cs`) during Voting — value never included.
+- [x] Render per-seat "voted / waiting" badge in `pages/session/session.page.html`.
+- [x] Mirror any snapshot field in `core/models.ts`.
+- [x] Tests: snapshot omits vote value pre-reveal; FE renders badge.
 
 ## 2. Sound / visual cue on reveal  `S`
-- [ ] Add `core/sound.service.ts` + a small audio asset in `frontend/public`.
-- [ ] Detect `Voting → Revealed` transition in `session.page.ts`; play cue + reveal animation.
-- [ ] Per-browser mute toggle in `localStorage`; respect `prefers-reduced-motion`.
-- [ ] Tests: transition triggers cue; mute suppresses it.
+- [x] Add `core/sound.service.ts` + a small audio asset in `frontend/public`. *(shipped as `core/reveal-cue.service.ts`, CSS-driven flourish — no audio asset)*
+- [x] Detect `Voting → Revealed` transition in `session.page.ts`; play cue + reveal animation.
+- [x] Per-browser mute toggle in `localStorage`; respect `prefers-reduced-motion`.
+- [x] Tests: transition triggers cue; mute suppresses it.
 
 ## 3. Rate limiting / abuse protection  `S–M`
-- [ ] Token-bucket per connection/IP for `CreateSession`/`JoinSession` in `Hubs/PlanningPokerHub.cs` (reuse `Hubs/ReactionRateLimiter.cs` pattern).
-- [ ] Max-participants guard in `SessionService`; friendly `SessionActionResult` failures.
-- [ ] ASP.NET Core rate-limiting middleware for REST endpoints in `Program.cs`.
-- [ ] Limits configurable in `appsettings.json`.
-- [ ] Tests: exceeding the bucket is rejected; under-limit passes.
+- [x] Token-bucket per connection/IP for `CreateSession`/`JoinSession` in `Hubs/PlanningPokerHub.cs` (reuse `Hubs/ReactionRateLimiter.cs` pattern).
+- [x] Max-participants guard in `SessionService`; friendly `SessionActionResult` failures.
+- [x] ASP.NET Core rate-limiting middleware for REST endpoints in `Program.cs`.
+- [x] Limits configurable in `appsettings.json`.
+- [x] Tests: exceeding the bucket is rejected; under-limit passes.
 
 ## 4. Accessibility baseline  `M`  — depends on #1
-- [ ] Cards → buttons in a roving-tabindex radiogroup; full keyboard voting.
-- [ ] `aria-live` region announcing results/vote-status on reveal (uses #1).
-- [ ] Focus trap + restore in all modals; visible focus rings.
-- [ ] Color-contrast audit in light + dark themes.
-- [ ] Tests: keyboard cast vote; aria attributes present.
+- [x] Cards → buttons in a roving-tabindex radiogroup; full keyboard voting.
+- [x] `aria-live` region announcing results/vote-status on reveal (uses #1).
+- [x] Focus trap + restore in all modals; visible focus rings.
+- [x] Color-contrast audit in light + dark themes.
+- [x] Tests: keyboard cast vote; aria attributes present.
 
 ## 5. i18n / localization  `M`
 **Do before later UI features so their strings are translatable.**
-- [ ] Choose + wire i18n library (runtime-switchable preferred); add `en` base catalog.
-- [ ] Migrate existing `home`/`join`/`session` templates to translation keys.
-- [ ] Language switcher persisted in `localStorage`; locale-aware number/plural formatting.
-- [ ] Map backend tracker/error messages to client keys.
-- [ ] Tests: switching locale swaps strings.
+- [x] Choose + wire i18n library (runtime-switchable preferred); add `en` base catalog.
+- [x] Migrate existing `home`/`join`/`session` templates to translation keys. *(join + session fully migrated; home still has a few hard-coded strings — deck/timer option labels, client-side validation errors)*
+- [x] Language switcher persisted in `localStorage`.
+- [x] Locale-aware number/plural formatting. `I18nService.formatNumber` (`Intl.NumberFormat`) + `LocaleNumberPipe` (`ln`) replace the fixed-`LOCALE_ID` `DecimalPipe`; `I18nService.plural` (`Intl.PluralRules`) + `PluralPipe` (`plural`) select the right CLDR category per locale (Polish: one/few/many/other), applied to the participant-count string.
+- [ ] Map backend tracker/error messages to client keys *(server-originated `SessionActionResult`/`JoinResult` error strings are still shown verbatim in English)*.
+- [x] Tests: switching locale swaps strings.
 
 ## 6. Spectator count / large-group mode  `M`  — depends on #1
-- [ ] Summary header: "N voted of M", observer/spectator count badge.
-- [ ] Virtualized/collapsed participant list above a threshold.
-- [ ] Verify `SessionUpdated` payload size for large rooms; trim snapshot in `SessionService` if needed.
-- [ ] Tests: summary counts correct; large list virtualizes.
+- [x] Summary header: "N voted of M", observer/spectator count badge.
+- [x] Virtualized/collapsed participant list above a threshold.
+- [x] Verify `SessionUpdated` payload size for large rooms; trim snapshot in `SessionService` if needed.
+- [x] Tests: summary counts correct; large list virtualizes.
 
 ## 7. Facilitator hand-off / multiple organisers  `M`  — needed by #9
-- [ ] Model: single `Session.OrganiserUserId` → multiple (set, or `Participant.IsOrganiser`). EF migration (all 3 providers).
-- [ ] Replace single-organiser authz in `SessionService` with set membership.
-- [ ] Hub methods: `PromoteToOrganiser`, `DemoteOrganiser`, `TransferOrganiser`.
-- [ ] Auto-succession when all organisers disconnect (longest-connected wins).
-- [ ] Snapshot + FE controls; mirror in `core/models.ts`.
-- [ ] Tests: promote/demote/transfer authz; succession.
+- [x] Model: single `Session.OrganiserUserId` → multiple (set, or `Participant.IsOrganiser`). EF migration (all 3 providers).
+- [x] Replace single-organiser authz in `SessionService` with set membership.
+- [x] Hub methods: `PromoteToOrganiser`, `DemoteOrganiser`, `TransferOrganiser`.
+- [x] Auto-succession when all organisers disconnect (longest-connected wins).
+- [x] Snapshot + FE controls; mirror in `core/models.ts`.
+- [x] Tests: promote/demote/transfer authz; succession.
 
 ## 8. Discussion / re-vote prompt on disagreement  `M`  — depends on #1
-- [ ] On `Revealed` with `!consensus`, render discussion banner highlighting outlier seats (outliers already in reveal snapshot via `StatsCalculator`).
-- [ ] "Discuss & re-vote" action reusing existing `ResetRound`.
-- [ ] Tests: banner shows only on disagreement; action resets round.
+- [x] On `Revealed` with `!consensus`, render discussion banner highlighting outlier seats (outliers already in reveal snapshot via `StatsCalculator`).
+- [x] "Discuss & re-vote" action reusing existing `ResetRound`.
+- [x] Tests: banner shows only on disagreement; action resets round.
 
 ## 9. Timed discussion phase  `M–L`  — depends on #7, #8
-- [ ] Add `SessionState.Discussion` (`Core/Models/Enums.cs`) + transitions `Revealed → Discussion → Voting` in `SessionService`.
-- [ ] Hub methods `StartDiscussion`/`EndDiscussion`, organiser-gated (respects #7).
-- [ ] Reuse `RoundTimerService` deadline broadcast for the discussion countdown.
-- [ ] Entry can be auto-triggered by the #8 prompt.
-- [ ] Snapshot + FE state; mirror in `core/models.ts`. EF migration if state persisted.
-- [ ] Tests: state machine transitions; timer expiry behavior.
+- [x] Add `SessionState.Discussion` (`Core/Models/Enums.cs`) + transitions `Revealed → Discussion → Voting` in `SessionService`.
+- [x] Hub methods `StartDiscussion`/`EndDiscussion`, organiser-gated (respects #7).
+- [x] Reuse `RoundTimerService` deadline broadcast for the discussion countdown.
+- [x] Entry can be auto-triggered by the #8 prompt.
+- [x] Snapshot + FE state; mirror in `core/models.ts`. EF migration if state persisted. *(no migration needed — `State` was already a persisted enum column)*
+- [x] Tests: state machine transitions; timer expiry behavior.
 
 ## 10. Notes / comments per story  `M`  — foundation for #11, #12
-- [ ] Persisted per-round note field/entity; EF migration (all 3 providers).
-- [ ] Hub method `SetStoryNote`; configurable who may edit (organiser vs anyone).
-- [ ] Broadcast in snapshot; FE editor in `session.page.html`; mirror in `core/models.ts`.
-- [ ] Lay groundwork for a round-history record (#11 extends it).
-- [ ] Tests: note persists + broadcasts; edit authz.
+- [x] Persisted per-round note field/entity; EF migration (all 3 providers).
+- [x] Hub method `SetStoryNote`; configurable who may edit (organiser vs anyone).
+- [x] Broadcast in snapshot; FE editor in `session.page.html`; mirror in `core/models.ts`.
+- [x] Lay groundwork for a round-history record (#11 extends it).
+- [x] Tests: note persists + broadcasts; edit authz.
 
 ## 11. Velocity / throughput analytics  `L`  — depends on #10
-- [ ] New `RoundResult` entity `{ story, finalEstimate, stats, startedAt, endedAt }` + EF migration (all 3 providers).
-- [ ] Capture "agreed estimate" on round completion; persist round record in `SessionService`.
-- [ ] Server-side aggregates: items estimated, totals, time-per-story, consensus rate.
-- [ ] Expose via `SessionsController` endpoint or snapshot section; FE summary view.
-- [ ] Tests: round recorded on completion; aggregates correct.
+- [x] New `RoundResult` entity `{ story, finalEstimate, stats, startedAt, endedAt }` + EF migration (all 3 providers).
+- [x] Capture "agreed estimate" on round completion; persist round record in `SessionService`.
+- [x] Server-side aggregates: items estimated, totals, time-per-story, consensus rate.
+- [x] Expose via `SessionsController` endpoint or snapshot section; FE summary view.
+- [x] Tests: round recorded on completion; aggregates correct.
 
 ## 12. Export  `M`  — depends on #10, #11
-- [ ] `GET /api/sessions/{shortCode}/export?format=csv|json` on `SessionsController`.
-- [ ] Serialize round history (#11) + notes (#10) + final estimates; correct content-type/streaming.
-- [ ] Guard with session existence (+ password if set).
-- [ ] FE download button + post-session summary view.
-- [ ] Tests: CSV + JSON shape; auth guard.
+- [x] `GET /api/sessions/{shortCode}/export?format=csv|json` on `SessionsController`.
+- [x] Serialize round history (#11) + notes (#10) + final estimates; correct content-type/streaming.
+- [x] Guard with session existence (+ password if set).
+- [x] FE download button + post-session summary view.
+- [x] Tests: CSV + JSON shape; auth guard.
 
 ## 13. GitHub Issues support  `L`
 **Establishes multi-provider patterns reused by #14.**
-- [ ] `IntegrationProvider.GitHub` in `Core/Integrations/IssueTracking.cs`.
-- [ ] `PlanningPoker.Integrations/GitHubIssueTracker.cs` implementing `IIssueTracker` (Validate/GetIssue/SetStoryPoints/Search).
-- [ ] Map story points → label or Projects v2 field (configurable).
-- [ ] Register in `IssueTrackerFactory`; OAuth/PAT config; host allowlist (`TrackerHostPolicy`); feature flag in `appsettings.json`.
-- [ ] Tests: adapter ops against a fake HTTP handler; factory resolution.
+- [x] `IntegrationProvider.GitHub` in `Core/Integrations/IssueTracking.cs`.
+- [x] `PlanningPoker.Integrations/GitHubIssueTracker.cs` implementing `IIssueTracker` (Validate/GetIssue/SetStoryPoints/Search).
+- [x] Map story points → label or Projects v2 field (configurable).
+- [x] Register in `IssueTrackerFactory`; OAuth/PAT config; host allowlist (`TrackerHostPolicy`); feature flag in `appsettings.json`.
+- [x] Tests: adapter ops against a fake HTTP handler; factory resolution.
 
 ## 14. GitLab support  `L`  — depends on #13
-- [ ] `IntegrationProvider.GitLab`; `GitLabIssueTracker.cs` implementing `IIssueTracker`.
-- [ ] Map story points → native issue **weight** (label fallback).
-- [ ] Register in factory + host policy + feature flag; reuse #13 OAuth/config patterns.
-- [ ] Queue from project/group/search.
-- [ ] Tests: adapter ops; factory resolution.
+- [x] `IntegrationProvider.GitLab`; `GitLabIssueTracker.cs` implementing `IIssueTracker`.
+- [x] Map story points → native issue **weight** (label fallback).
+- [x] Register in factory + host policy + feature flag; reuse #13 OAuth/config patterns.
+- [x] Queue from project/group/search.
+- [x] Tests: adapter ops; factory resolution.
 
 ## 15. Session retention policy  `S–M`
 **Builds on the `ClosedAt`/`DeletedAt` fields from #26; no new persistence.**

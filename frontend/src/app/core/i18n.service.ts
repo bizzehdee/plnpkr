@@ -152,7 +152,6 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.removeOrganiser': 'Remove organiser',
     'session.makeOrganiser': 'Make organiser',
     'session.showFewer': 'Show fewer',
-    'session.showAllParticipants': 'Show all {count} participants',
     'session.results': 'Results',
     'session.average': 'Average',
     'session.range': 'Range',
@@ -378,7 +377,6 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.removeOrganiser': 'Quitar como organizador',
     'session.makeOrganiser': 'Convertir en organizador',
     'session.showFewer': 'Mostrar menos',
-    'session.showAllParticipants': 'Mostrar los {count} participantes',
     'session.results': 'Resultados',
     'session.average': 'Promedio',
     'session.range': 'Rango',
@@ -604,7 +602,6 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.removeOrganiser': 'Remover como organizador',
     'session.makeOrganiser': 'Tornar organizador',
     'session.showFewer': 'Mostrar menos',
-    'session.showAllParticipants': 'Mostrar os {count} participantes',
     'session.results': 'Resultados',
     'session.average': 'Média',
     'session.range': 'Intervalo',
@@ -830,7 +827,6 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.removeOrganiser': 'Odbierz rolę organizatora',
     'session.makeOrganiser': 'Ustaw jako organizatora',
     'session.showFewer': 'Pokaż mniej',
-    'session.showAllParticipants': 'Pokaż wszystkich {count} uczestników',
     'session.results': 'Wyniki',
     'session.average': 'Średnia',
     'session.range': 'Zakres',
@@ -925,6 +921,40 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
   },
 };
 
+/** BCP-47 tag per locale, used for `Intl.NumberFormat`/`Intl.PluralRules` (actual locale-aware formatting). */
+const LOCALE_TAGS: Record<Locale, string> = {
+  en: 'en-US',
+  es: 'es-ES',
+  pt: 'pt-BR',
+  pl: 'pl-PL',
+};
+
+/**
+ * Pluralizable strings, keyed by translation key then by CLDR plural category
+ * (`Intl.PluralRules(locale).select(count)`): "one", "few", "many", "other", ... Only English/Spanish/
+ * Portuguese need "one"/"other"; Polish also distinguishes "few" (2–4) and "many" (5+, and most
+ * numbers ending 0 or 5–9/11–14). `{count}` interpolates the number itself.
+ */
+const PLURALS: Record<Locale, Record<string, Partial<Record<Intl.LDMLPluralRule, string>>>> = {
+  en: {
+    'session.showAllParticipants': { one: 'Show all {count} participant', other: 'Show all {count} participants' },
+  },
+  es: {
+    'session.showAllParticipants': { one: 'Mostrar el {count} participante', other: 'Mostrar los {count} participantes' },
+  },
+  pt: {
+    'session.showAllParticipants': { one: 'Mostrar o {count} participante', other: 'Mostrar os {count} participantes' },
+  },
+  pl: {
+    'session.showAllParticipants': {
+      one: 'Pokaż {count} uczestnika',
+      few: 'Pokaż {count} uczestników',
+      many: 'Pokaż wszystkich {count} uczestników',
+      other: 'Pokaż {count} uczestnika',
+    },
+  },
+};
+
 /**
  * Runtime, signal-based i18n (#5). No build-per-locale step — the locale is a signal so switching
  * re-renders the app instantly. Persists the choice in localStorage. New UI strings should be added
@@ -960,6 +990,27 @@ export class I18nService {
     return template.replace(/\{(\w+)\}/g, (_, name: string) =>
       name in params ? String(params[name]) : `{${name}}`,
     );
+  }
+
+  /** Locale-aware number formatting (decimal separators, grouping, etc.) via `Intl.NumberFormat`. */
+  formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
+    return new Intl.NumberFormat(LOCALE_TAGS[this._locale()], options).format(value);
+  }
+
+  /**
+   * Translate a pluralizable key for `count`, using the CLDR plural category `Intl.PluralRules`
+   * selects for the active locale (not just a singular/plural split — Polish has four categories).
+   * Falls back to English, then to whichever form the key does have, then to the raw key.
+   */
+  plural(key: string, count: number, params?: Record<string, string | number>): string {
+    const locale = this._locale();
+    const category = new Intl.PluralRules(LOCALE_TAGS[locale]).select(count);
+    const forms = PLURALS[locale][key] ?? PLURALS.en[key];
+    const template = forms?.[category] ?? forms?.other ?? key;
+    return template.replace(/\{(\w+)\}/g, (_, name: string) => {
+      if (name === 'count') return String(count);
+      return params && name in params ? String(params[name]) : `{${name}}`;
+    });
   }
 
   private readStored(): Locale {

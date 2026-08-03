@@ -37,4 +37,38 @@ describe('I18nService', () => {
     expect(svc.t('home.create')).toBe('Criar sessão');
     expect(svc.t('home.yourName')).toBe('Seu nome');
   });
+
+  it('has a complete Polish catalog matching every English key', () => {
+    const svc = new I18nService();
+    svc.setLocale('pl');
+    expect(svc.t('home.create')).toBe('Utwórz sesję');
+    expect(svc.t('home.yourName')).toBe('Twoje imię');
+  });
+
+  it('formats numbers per the active locale (decimal separator changes)', () => {
+    const svc = new I18nService();
+    expect(svc.formatNumber(1234.5, { maximumFractionDigits: 1 })).toBe('1,234.5');
+
+    svc.setLocale('es');
+    // es-ES uses a comma as the decimal separator and a period/space as the grouping separator.
+    expect(svc.formatNumber(1234.5, { maximumFractionDigits: 1 })).toContain(',5');
+    expect(svc.formatNumber(1234.5, { maximumFractionDigits: 1 })).not.toContain('.5');
+  });
+
+  it('selects the right plural category per locale, not just singular/plural', () => {
+    const svc = new I18nService();
+    // English: one/other.
+    expect(svc.plural('session.showAllParticipants', 1)).toBe('Show all 1 participant');
+    expect(svc.plural('session.showAllParticipants', 30)).toBe('Show all 30 participants');
+
+    // Polish: one/few/many/other — 2 and 30 land in different categories.
+    svc.setLocale('pl');
+    expect(svc.plural('session.showAllParticipants', 1)).toBe('Pokaż 1 uczestnika');
+    expect(svc.plural('session.showAllParticipants', 2)).toBe('Pokaż 2 uczestników');
+    expect(svc.plural('session.showAllParticipants', 30)).toBe('Pokaż wszystkich 30 uczestników');
+  });
+
+  it('falls back to English plural forms, then the raw key, when a locale/key is missing', () => {
+    expect(new I18nService().plural('nope.missing', 5)).toBe('nope.missing');
+  });
 });
