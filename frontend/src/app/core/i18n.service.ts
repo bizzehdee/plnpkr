@@ -255,6 +255,13 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.storyPointsPlaceholderAzureDevOps': 'Story points field (optional) e.g. Custom.StoryPoints',
     'session.storyPointsPlaceholderLabel': 'Points label prefix (optional) e.g. points:',
 
+    'session.enabledIntegrationsLabel': 'Enabled integrations:',
+    'session.howToConnect': 'How to connect',
+    'session.trackerHelpJira': 'Log in with your Atlassian account, or generate an API token at id.atlassian.com → Account settings → Security → API tokens. You need your account email, the token, and your site URL (e.g. https://acme.atlassian.net).',
+    'session.trackerHelpAdo': 'Generate a Personal Access Token in Azure DevOps → User settings → Personal access tokens, with Work Items (Read & Write) scope. You need your organization URL (e.g. https://dev.azure.com/acme) and the token.',
+    'session.trackerHelpGitHub': 'Generate a Personal Access Token at github.com → Settings → Developer settings → Personal access tokens, with repo scope (or Issues read/write for a fine-grained token). You need the repository URL (e.g. https://github.com/owner/repo) and the token.',
+    'session.trackerHelpGitLab': 'Generate a Personal Access Token at gitlab.com → Preferences → Access Tokens, with api scope. You need the project URL (e.g. https://gitlab.com/group/project) and the token.',
+
     'err.integration.disabled': 'Issue-tracker integration is disabled.',
     'err.integration.sessionNotFound': 'Session not found.',
     'err.integration.notParticipant': 'You are not in this session.',
@@ -511,6 +518,13 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.storyPointsPlaceholderJira': 'Campo de story points (opcional), p. ej. customfield_10016',
     'session.storyPointsPlaceholderAzureDevOps': 'Campo de story points (opcional), p. ej. Custom.StoryPoints',
     'session.storyPointsPlaceholderLabel': 'Prefijo de etiqueta de puntos (opcional), p. ej. points:',
+
+    'session.enabledIntegrationsLabel': 'Integraciones habilitadas:',
+    'session.howToConnect': 'Cómo conectar',
+    'session.trackerHelpJira': 'Inicia sesión con tu cuenta de Atlassian, o genera un token de API en id.atlassian.com → Configuración de la cuenta → Seguridad → Tokens de API. Necesitas el correo de tu cuenta, el token y la URL de tu sitio (p. ej. https://acme.atlassian.net).',
+    'session.trackerHelpAdo': 'Genera un token de acceso personal en Azure DevOps → Configuración de usuario → Personal access tokens, con el permiso Work Items (Read & Write). Necesitas la URL de tu organización (p. ej. https://dev.azure.com/acme) y el token.',
+    'session.trackerHelpGitHub': 'Genera un token de acceso personal en github.com → Settings → Developer settings → Personal access tokens, con el permiso repo (o Issues read/write para un token de grano fino). Necesitas la URL del repositorio (p. ej. https://github.com/owner/repo) y el token.',
+    'session.trackerHelpGitLab': 'Genera un token de acceso personal en gitlab.com → Preferences → Access Tokens, con el permiso api. Necesitas la URL del proyecto (p. ej. https://gitlab.com/group/project) y el token.',
 
     'err.integration.disabled': 'La integración con el sistema de incidencias está desactivada.',
     'err.integration.sessionNotFound': 'Sesión no encontrada.',
@@ -769,6 +783,13 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.storyPointsPlaceholderAzureDevOps': 'Campo de story points (opcional), ex.: Custom.StoryPoints',
     'session.storyPointsPlaceholderLabel': 'Prefixo do rótulo de pontos (opcional), ex.: points:',
 
+    'session.enabledIntegrationsLabel': 'Integrações ativadas:',
+    'session.howToConnect': 'Como conectar',
+    'session.trackerHelpJira': 'Faça login com sua conta Atlassian, ou gere um token de API em id.atlassian.com → Configurações da conta → Segurança → Tokens de API. Você precisa do e-mail da conta, do token e da URL do seu site (ex.: https://acme.atlassian.net).',
+    'session.trackerHelpAdo': 'Gere um Personal Access Token no Azure DevOps → Configurações do usuário → Personal access tokens, com a permissão Work Items (Read & Write). Você precisa da URL da sua organização (ex.: https://dev.azure.com/acme) e do token.',
+    'session.trackerHelpGitHub': 'Gere um Personal Access Token em github.com → Settings → Developer settings → Personal access tokens, com a permissão repo (ou Issues read/write para um token refinado). Você precisa da URL do repositório (ex.: https://github.com/owner/repo) e do token.',
+    'session.trackerHelpGitLab': 'Gere um Personal Access Token em gitlab.com → Preferences → Access Tokens, com a permissão api. Você precisa da URL do projeto (ex.: https://gitlab.com/group/project) e do token.',
+
     'err.integration.disabled': 'A integração com o rastreador de issues está desativada.',
     'err.integration.sessionNotFound': 'Sessão não encontrada.',
     'err.integration.notParticipant': 'Você não faz parte desta sessão.',
@@ -1025,6 +1046,13 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.storyPointsPlaceholderJira': 'Pole story points (opcjonalnie), np. customfield_10016',
     'session.storyPointsPlaceholderAzureDevOps': 'Pole story points (opcjonalnie), np. Custom.StoryPoints',
     'session.storyPointsPlaceholderLabel': 'Prefiks etykiety punktów (opcjonalnie), np. points:',
+
+    'session.enabledIntegrationsLabel': 'Włączone integracje:',
+    'session.howToConnect': 'Jak się połączyć',
+    'session.trackerHelpJira': 'Zaloguj się kontem Atlassian albo wygeneruj token API na id.atlassian.com → Ustawienia konta → Bezpieczeństwo → Tokeny API. Potrzebujesz adresu e-mail konta, tokenu i adresu URL swojej witryny (np. https://acme.atlassian.net).',
+    'session.trackerHelpAdo': 'Wygeneruj Personal Access Token w Azure DevOps → Ustawienia użytkownika → Personal access tokens, z uprawnieniem Work Items (Read & Write). Potrzebujesz adresu URL organizacji (np. https://dev.azure.com/acme) i tokenu.',
+    'session.trackerHelpGitHub': 'Wygeneruj Personal Access Token na github.com → Settings → Developer settings → Personal access tokens, z uprawnieniem repo (lub Issues read/write dla tokenu precyzyjnego). Potrzebujesz adresu URL repozytorium (np. https://github.com/owner/repo) i tokenu.',
+    'session.trackerHelpGitLab': 'Wygeneruj Personal Access Token na gitlab.com → Preferences → Access Tokens, z uprawnieniem api. Potrzebujesz adresu URL projektu (np. https://gitlab.com/group/project) i tokenu.',
 
     'err.integration.disabled': 'Integracja z systemem zgłoszeń jest wyłączona.',
     'err.integration.sessionNotFound': 'Nie znaleziono sesji.',

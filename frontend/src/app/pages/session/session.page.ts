@@ -434,6 +434,20 @@ export class SessionPage implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * "How to connect" instructions for a provider (#16): where to generate a token, what scope it
+   * needs, OAuth vs. token, base URL format — shown alongside the connect form so a first-time
+   * organiser isn't left guessing at what a placeholder like "Personal access token" requires.
+   */
+  protected trackerHelp(p: IntegrationProvider): string {
+    switch (p) {
+      case 'Jira': return this.i18n.t('session.trackerHelpJira');
+      case 'AzureDevOps': return this.i18n.t('session.trackerHelpAdo');
+      case 'GitHub': return this.i18n.t('session.trackerHelpGitHub');
+      case 'GitLab': return this.i18n.t('session.trackerHelpGitLab');
+    }
+  }
+
   /** Whether the currently-selected provider offers OAuth ("Log in"). */
   protected selectedProviderHasOAuth(): boolean {
     return this.enabledProviders().find((p) => p.id === this.trackerProvider)?.oauth ?? false;

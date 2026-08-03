@@ -140,8 +140,8 @@ before its dependents** (dependency wins over pure ease). Effort is a rough T-sh
 - [x] Shown in the "Close or delete session" modal: next to **Close**, "Automatically deleted N months after closing."; next to **Delete**, "Permanently removed N days after deletion." (pluralized correctly per locale via `PluralPipe`).
 - [x] Tests: all three transition rules + just-under-threshold boundaries (`SessionMaintenanceTests`); hard delete removes `RoundResult`s + `GetSoftDeletedPastRetentionAsync` (`EfSessionStoreTests`); old 60-min/empty-room immediate delete no longer fires; `GET /api/config` returns the configured windows; modal renders them.
 
-## 16. Integrations status & how-to-connect help  `S`
-- [ ] Expand the tracker modal (`case ('tracker')` in `session.page.html`) with a per-provider instructions block, gated to `enabledProviders()`.
-- [ ] Per-provider instructions content (PAT scope/where to generate, OAuth vs. token, base URL format) — Jira, Azure DevOps, GitHub, GitLab.
-- [ ] Wire through i18n catalogs (en/es/pt/pl) like the rest of the UI.
-- [ ] Tests: instructions only shown for enabled providers; content matches selected provider.
+## 16. Integrations status & how-to-connect help  `S`  ✅ done
+- [x] Expanded the tracker modal (`case ('tracker')` in `session.page.html`) with an "Enabled integrations:" badge summary (always visible, gated to `enabledProviders()`) and a collapsible per-provider "How to connect" block next to the connect form.
+- [x] Per-provider instructions content (PAT scope/where to generate, OAuth vs. token, base URL format) — Jira, Azure DevOps, GitHub, GitLab (`trackerHelp()` in `session.page.ts`).
+- [x] Wired through i18n catalogs (en/es/pt/pl).
+- [x] Tests: enabled-integrations summary lists only the enabled providers; instructions match the selected provider and switch when the selection changes.

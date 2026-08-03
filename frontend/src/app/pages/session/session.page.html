@@ -553,6 +553,13 @@
 
               <!-- Issue tracker modal (organiser; only when ≥1 provider enabled, #43) -->
               @case ('tracker') {
+                <!-- Which integrations are enabled on this deployment (#16) — visible in every state. -->
+                <p class="small text-body-secondary mb-2">
+                  {{ 'session.enabledIntegrationsLabel' | t }}
+                  @for (p of enabledProviders(); track p.id) {
+                    <span class="badge bg-secondary ms-1">{{ providerLabel(p.id) }}</span>
+                  }
+                </p>
                 @if (integration()) {
                   <div class="mb-2"><span class="badge bg-success">{{ integration()!.provider }}</span></div>
                 }
@@ -594,8 +601,8 @@
                   <!-- Only enabled providers are listed (#43); when just one is enabled this is fixed. -->
                   @if (enabledProviders().length > 1) {
                     <div class="mb-2">
-                      <label class="form-label small">{{ 'session.providerFieldLabel' | t }}</label>
-                      <select class="form-select form-select-sm" [(ngModel)]="trackerProvider">
+                      <label class="form-label small" for="trackerProviderSelect">{{ 'session.providerFieldLabel' | t }}</label>
+                      <select id="trackerProviderSelect" class="form-select form-select-sm" [(ngModel)]="trackerProvider">
                         @for (p of enabledProviders(); track p.id) {
                           <option [value]="p.id">{{ providerLabel(p.id) }}</option>
                         }
@@ -608,6 +615,12 @@
                     </button>
                     <div class="text-center text-body-secondary small mb-2">{{ 'session.orUseToken' | t }}</div>
                   }
+                  <!-- Per-provider "how to connect" instructions (#16): PAT scope/where to generate,
+                       base URL format — right where the organiser is about to fill in the form. -->
+                  <details class="mb-2">
+                    <summary class="small text-body-secondary" style="cursor: pointer;">{{ 'session.howToConnect' | t }}</summary>
+                    <p class="small text-body-secondary mt-1">{{ trackerHelp(trackerProvider) }}</p>
+                  </details>
                   <input class="form-control form-control-sm mb-2" [(ngModel)]="trackerBaseUrl"
                     [placeholder]="baseUrlPlaceholder(trackerProvider)"
                     autocomplete="off" />

@@ -472,6 +472,62 @@ describe('SessionPage', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Log in to Jira');
   });
 
+  describe('integrations status & how-to-connect help (#16)', () => {
+    it('lists the enabled integrations at the top of the tracker modal', () => {
+      const fake = new FakeRealtimeClient();
+      fake.session.set(organiserSession());
+      const fixture = setup(fake);
+      enableIntegrations(fixture, [
+        { id: 'Jira', oauth: false },
+        { id: 'GitHub', oauth: false },
+      ]);
+      openModal(fixture, 'tracker');
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Enabled integrations:');
+      expect(text).toContain('Jira');
+      expect(text).toContain('GitHub');
+      // Not enabled here — shouldn't be listed as enabled.
+      expect(text).not.toContain('Azure DevOps');
+    });
+
+    it('shows how-to-connect instructions for the selected provider', () => {
+      const fake = new FakeRealtimeClient();
+      fake.session.set(organiserSession());
+      const fixture = setup(fake);
+      enableIntegrations(fixture, [{ id: 'Jira', oauth: false }]);
+      openConnectPanel(fixture);
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('How to connect');
+      expect(text).toContain('id.atlassian.com');
+    });
+
+    it('switches the instructions when the provider selection changes', () => {
+      const fake = new FakeRealtimeClient();
+      fake.session.set(organiserSession());
+      const fixture = setup(fake);
+      enableIntegrations(fixture, [
+        { id: 'Jira', oauth: false },
+        { id: 'AzureDevOps', oauth: false },
+      ]);
+      openConnectPanel(fixture);
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('id.atlassian.com');
+
+      // Drive the actual <select> so ngModel propagates the change the way a real user interaction
+      // would (directly mutating the bound field instead trips NG0100 in dev-mode change detection).
+      const select = (fixture.nativeElement as HTMLElement).querySelector('#trackerProviderSelect') as HTMLSelectElement;
+      select.value = 'AzureDevOps';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('dev.azure.com');
+      expect(text).not.toContain('id.atlassian.com');
+    });
+  });
+
   // The submit control is derived purely from the session snapshot (organiser + revealed + a linked
   // ticket with a usable points field) so it survives a page refresh — no local connect signal needed.
   function revealedWithLinkedTicket(organiserUserId: string | null) {
