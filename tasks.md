@@ -139,3 +139,9 @@ before its dependents** (dependency wins over pure ease). Effort is a rough T-sh
 - [ ] Expose the configured windows to the frontend (new lightweight config read, or fold into an existing config surface — no dedicated endpoint exists yet).
 - [ ] Show the windows in the "Close or delete session" modal (`session.page.html:719-750`): next to **Close**, note it auto-deletes N months after closing; next to **Delete**, note it's permanently removed N days after deletion.
 - [ ] Tests: all three transition rules; just-under-threshold untouched; hard delete removes `RoundResult`s; old 60-min/empty-room immediate delete no longer fires; modal renders the configured windows.
+
+## 16. Integrations status & how-to-connect help  `S`
+- [ ] Expand the tracker modal (`case ('tracker')` in `session.page.html`) with a per-provider instructions block, gated to `enabledProviders()`.
+- [ ] Per-provider instructions content (PAT scope/where to generate, OAuth vs. token, base URL format) — Jira, Azure DevOps, GitHub, GitLab.
+- [ ] Wire through i18n catalogs (en/es/pt/pl) like the rest of the UI.
+- [ ] Tests: instructions only shown for enabled providers; content matches selected provider.

@@ -271,6 +271,30 @@ deletion. The frontend reads the configured windows rather than hard-coding them
 (mirror onto `core/models.ts` / an app-config endpoint, whichever the existing
 `appsettings.json`-driven frontend config pattern uses).
 
+## 16. Integrations status & how-to-connect help
+
+**What.** A visible summary of which issue-tracker integrations (Jira, Azure DevOps,
+GitHub, GitLab) are enabled on this deployment, with brief per-provider instructions for
+connecting (PAT vs. OAuth, where to generate a token, required scopes/permissions, base
+URL format).
+
+**Why.** `GET /api/integrations/options` (`IntegrationsController.GetOptions`) already
+tells the client which providers are enabled and whether each has OAuth configured, and
+this feeds the connect-form dropdown — but there's no explicit overview a user can check
+without opening the tracker modal and guessing at what a placeholder like "Personal
+access token" actually requires.
+
+**Touch points.** `session.page.ts` (`loadIntegrationOptions`, `enabledProviders`);
+tracker modal in `session.page.html` (`case ('tracker')`); `providerLabel`/
+`baseUrlPlaceholder`/`tokenPlaceholder` already give provider-specific copy that new
+instructions text would sit alongside.
+
+**Approach.** Expand the existing tracker modal (`case ('tracker')` in
+`session.page.html`) with a per-provider instructions block — PAT scope/where to
+generate, OAuth vs. token, base URL format — gated to `enabledProviders()` so only
+providers actually enabled on this deployment are shown. Content goes through the i18n
+catalogs like the rest of the UI.
+
 ---
 
 ## Cross-cutting notes
