@@ -82,6 +82,12 @@ public sealed class FakeSessionStore : ISessionStore
             && s.ReactionsEnabled
             && string.Equals(s.ShortCode, shortCode, StringComparison.OrdinalIgnoreCase)));
 
+    // Mirror the EF IgnoreQueryFilters() query: soft-deleted sessions past the retention threshold (#15).
+    public Task<IReadOnlyList<Session>> GetSoftDeletedPastRetentionAsync(DateTimeOffset threshold, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Session>>(_byId.Values
+            .Where(s => s.DeletedAt is { } deletedAt && deletedAt <= threshold)
+            .ToList());
+
     private void AssignParticipantIds(Session session)
     {
         foreach (var p in session.Participants.Where(p => p.Id == 0))

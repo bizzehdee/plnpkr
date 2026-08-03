@@ -156,6 +156,61 @@ public sealed class EfSessionStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task Remove_cascades_to_round_results()
+    {
+        var session = NewSession("blue-fox-42");
+        await new EfSessionStore(NewContext()).AddAsync(session);
+
+        var adding = new EfSessionStore(NewContext());
+        var loaded = await adding.FindByShortCodeAsync("blue-fox-42");
+        loaded!.RoundResults.Add(new RoundResult
+        {
+            Story = "S",
+            FinalEstimate = "5",
+            Average = 5,
+            Consensus = true,
+            VoteCount = 2,
+            RecordedAt = DateTimeOffset.UnixEpoch,
+        });
+        await adding.UpdateAsync(loaded);
+
+        var store = new EfSessionStore(NewContext());
+        await store.RemoveAsync((await store.FindByShortCodeAsync("blue-fox-42"))!);
+
+        using var ctx = NewContext();
+        (await ctx.Set<RoundResult>().CountAsync()).Should().Be(0); // cascade delete (#15)
+    }
+
+    [Fact]
+    public async Task GetSoftDeletedPastRetention_finds_only_soft_deleted_sessions_at_or_before_the_threshold()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        // Soft-deleted well past the threshold — a hard-delete candidate.
+        var pastDue = NewSession("past-due-1", "u1");
+        await new EfSessionStore(NewContext()).AddAsync(pastDue);
+        var deletingPastDue = new EfSessionStore(NewContext());
+        var loadedPastDue = await deletingPastDue.FindByShortCodeAsync("past-due-1");
+        loadedPastDue!.DeletedAt = now.AddDays(-31);
+        await deletingPastDue.UpdateAsync(loadedPastDue);
+
+        // Soft-deleted, but not yet past the threshold.
+        var recent = NewSession("recent-1", "u2", "Bob");
+        await new EfSessionStore(NewContext()).AddAsync(recent);
+        var deletingRecent = new EfSessionStore(NewContext());
+        var loadedRecent = await deletingRecent.FindByShortCodeAsync("recent-1");
+        loadedRecent!.DeletedAt = now.AddDays(-1);
+        await deletingRecent.UpdateAsync(loadedRecent);
+
+        // Never soft-deleted at all.
+        await new EfSessionStore(NewContext()).AddAsync(NewSession("still-alive-1", "u3", "Cara"));
+
+        var result = await new EfSessionStore(NewContext()).GetSoftDeletedPastRetentionAsync(now.AddDays(-30));
+
+        result.Should().ContainSingle().Which.ShortCode.Should().Be("past-due-1");
+    }
+
+    [Fact]
     public async Task GetAll_returns_all_sessions_with_participants()
     {
         await new EfSessionStore(NewContext()).AddAsync(NewSession("blue-fox-42", "u1"));

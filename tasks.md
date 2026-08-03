@@ -130,15 +130,15 @@ before its dependents** (dependency wins over pure ease). Effort is a rough T-sh
 - [x] Queue from project/group/search.
 - [x] Tests: adapter ops; factory resolution.
 
-## 15. Session retention policy  `S–M`
+## 15. Session retention policy  `S–M`  ✅ done
 **Builds on the `ClosedAt`/`DeletedAt` fields from #26; no new persistence.**
-- [ ] `ISessionStore.GetSoftDeletedPastRetentionAsync` (EF: `IgnoreQueryFilters()` past the `DeletedAt` global filter) + in-memory test store equivalent.
-- [ ] Replace the empty/idle-60-min hard-delete branch in `SessionMaintenanceService.PurgeAsync` with: soft-deleted 30d → hard delete; closed 12mo (not yet soft-deleted) → soft delete; neither, idle 30d → soft delete.
-- [ ] `SessionEvictionService`: broadcast `SessionUpdated` on soft-delete transitions, keep existing `SessionClosed` on hard delete.
-- [ ] Retention windows configurable in `appsettings.json`.
-- [ ] Expose the configured windows to the frontend (new lightweight config read, or fold into an existing config surface — no dedicated endpoint exists yet).
-- [ ] Show the windows in the "Close or delete session" modal (`session.page.html:719-750`): next to **Close**, note it auto-deletes N months after closing; next to **Delete**, note it's permanently removed N days after deletion.
-- [ ] Tests: all three transition rules; just-under-threshold untouched; hard delete removes `RoundResult`s; old 60-min/empty-room immediate delete no longer fires; modal renders the configured windows.
+- [x] `ISessionStore.GetSoftDeletedPastRetentionAsync` (EF: `IgnoreQueryFilters()` past the `DeletedAt` global filter) + `FakeSessionStore` equivalent.
+- [x] Replaced the empty/idle-60-min hard-delete branch in `SessionMaintenanceService.PurgeAsync` with: soft-deleted 30d → hard delete; closed 12mo (not yet soft-deleted) → soft delete; neither, idle 30d → soft delete.
+- [x] `SessionEvictionService`: broadcasts `SessionClosed` for both hard deletes and newly-soft-deleted sessions (matches the existing organiser-triggered `DeleteSessionAsync` convention — a soft-deleted session is gone from every read, so clients get "closed", not a snapshot).
+- [x] Retention windows configurable via `Retention:ClosedRetentionMonths`/`SoftDeleteRetentionDays`/`IdleRetentionDays` (`RetentionOptions`, same `GetValue`-with-default pattern as `SessionLimits`/`HubThrottle`).
+- [x] Exposed via new `GET /api/config` (`ConfigController`) — small, growable server-config surface.
+- [x] Shown in the "Close or delete session" modal: next to **Close**, "Automatically deleted N months after closing."; next to **Delete**, "Permanently removed N days after deletion." (pluralized correctly per locale via `PluralPipe`).
+- [x] Tests: all three transition rules + just-under-threshold boundaries (`SessionMaintenanceTests`); hard delete removes `RoundResult`s + `GetSoftDeletedPastRetentionAsync` (`EfSessionStoreTests`); old 60-min/empty-room immediate delete no longer fires; `GET /api/config` returns the configured windows; modal renders them.
 
 ## 16. Integrations status & how-to-connect help  `S`
 - [ ] Expand the tracker modal (`case ('tracker')` in `session.page.html`) with a per-provider instructions block, gated to `enabledProviders()`.

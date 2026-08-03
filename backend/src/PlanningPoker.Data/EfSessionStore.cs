@@ -70,6 +70,22 @@ public class EfSessionStore : ISessionStore
             .AsNoTracking()
             .AnyAsync(s => s.ShortCode == shortCode && s.ReactionsEnabled, cancellationToken);
 
+    // Soft-deleted sessions sit behind the "not deleted" global query filter, so IgnoreQueryFilters() is
+    // required to see them at all (#15). Narrows to DeletedAt != null in SQL (translatable everywhere);
+    // the DeletedAt <= threshold comparison runs in memory, mirroring GetSessionsWithExpiredTimerAsync's
+    // DateTimeOffset workaround above — at most a handful of soft-deleted sessions reach here per pass.
+    public async Task<IReadOnlyList<Session>> GetSoftDeletedPastRetentionAsync(DateTimeOffset threshold, CancellationToken cancellationToken = default)
+    {
+        var softDeleted = await _db.Sessions
+            .IgnoreQueryFilters()
+            .Include(s => s.Participants)
+            .Include(s => s.RoundResults)
+            .Where(s => s.DeletedAt != null)
+            .ToListAsync(cancellationToken);
+
+        return softDeleted.Where(s => s.DeletedAt <= threshold).ToList();
+    }
+
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
         try

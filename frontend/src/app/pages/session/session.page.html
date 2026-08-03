@@ -721,6 +721,9 @@
                 @if (!isClosed()) {
                   <p class="small">
                     <strong>{{ 'session.closeExplainBold' | t }}</strong> {{ 'session.closeExplainRest' | t }}
+                    @if (retentionConfig(); as retention) {
+                      <span class="text-body-secondary">{{ 'session.closeRetentionHint' | plural: retention.closedRetentionMonths }}</span>
+                    }
                   </p>
                   @if (!confirmingClose()) {
                     <button class="btn btn-warning" (click)="confirmingClose.set(true)">{{ 'session.closeSessionButton' | t }}</button>
@@ -738,6 +741,9 @@
 
                 <p class="small">
                   <strong>{{ 'session.deleteExplainBold' | t }}</strong> {{ 'session.deleteExplainRest' | t }}
+                  @if (retentionConfig(); as retention) {
+                    <span class="text-body-secondary">{{ 'session.deleteRetentionHint' | plural: retention.softDeleteRetentionDays }}</span>
+                  }
                 </p>
                 @if (!confirmingDelete()) {
                   <button class="btn btn-danger" (click)="confirmingDelete.set(true)">{{ 'session.deleteSessionButton' | t }}</button>

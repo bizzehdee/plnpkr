@@ -1313,6 +1313,23 @@ describe('SessionPage', () => {
     expect(fake.deleteSession).toHaveBeenCalledWith(CODE, ME);
   });
 
+  it('renders the configured retention windows in the danger modal (#15)', () => {
+    const fake = new FakeRealtimeClient();
+    fake.session.set(
+      snap({ organiserUserId: ME, participants: [participant({ userId: ME, isOrganiser: true, role: 'Observer' })] }),
+    );
+    const fixture = setup(fake);
+    const c = fixture.componentInstance as unknown as {
+      retentionConfig: { set(v: unknown): void };
+    };
+    c.retentionConfig.set({ closedRetentionMonths: 12, softDeleteRetentionDays: 30, idleRetentionDays: 30 });
+    openModal(fixture, 'danger');
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Automatically deleted 12 months after closing.');
+    expect(text).toContain('Permanently removed 30 days after deletion.');
+  });
+
   it('shows the ended screen when the session is closed/deleted on the server', () => {
     const fake = new FakeRealtimeClient();
     const fixture = setup(fake);

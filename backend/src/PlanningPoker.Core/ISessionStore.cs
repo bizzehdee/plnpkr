@@ -46,6 +46,14 @@ public interface ISessionStore
     /// check — it must not load the session aggregate, as it runs on the per-reaction hot path. See #17.
     /// </summary>
     Task<bool> AreReactionsEnabledAsync(string shortCode, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Soft-deleted sessions (with participants) whose <c>DeletedAt</c> is at or before
+    /// <paramref name="threshold"/> — candidates for hard deletion under the retention policy (#15).
+    /// Soft-deleted sessions sit behind the normal "not deleted" query filter, so implementations must
+    /// bypass it here (EF: <c>IgnoreQueryFilters()</c>) to find them.
+    /// </summary>
+    Task<IReadOnlyList<Session>> GetSoftDeletedPastRetentionAsync(DateTimeOffset threshold, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -202,6 +202,18 @@ export interface SessionAnalytics {
   rounds: RoundResultInfo[];
 }
 
+/** The session retention windows (#15), from GET /api/config — server-configured, not hard-coded. */
+export interface RetentionConfig {
+  closedRetentionMonths: number;
+  softDeleteRetentionDays: number;
+  idleRetentionDays: number;
+}
+
+/** Server-driven runtime config (#15). Small and growable — see `GET /api/config`. */
+export interface AppConfig {
+  retention: RetentionConfig;
+}
+
 /** i18n catalog key for each deck's display label (translated at render time — see `deck.*` keys). */
 export const DECK_LABEL_KEYS: Record<DeckType, string> = {
   Sequential: 'deck.sequential',

@@ -75,6 +75,15 @@ public class Program
             JoinPerMinute = builder.Configuration.GetValue("Abuse:JoinPerMinute", 30),
         });
         builder.Services.AddSingleton<HubThrottle>();
+
+        // Long-term session retention policy (#15), layered on Session.ClosedAt/DeletedAt (#26).
+        // Tunable via "Retention:*"; see RetentionOptions for defaults.
+        builder.Services.AddSingleton(new RetentionOptions
+        {
+            ClosedRetentionMonths = builder.Configuration.GetValue("Retention:ClosedRetentionMonths", 12),
+            SoftDeleteRetentionDays = builder.Configuration.GetValue("Retention:SoftDeleteRetentionDays", 30),
+            IdleRetentionDays = builder.Configuration.GetValue("Retention:IdleRetentionDays", 30),
+        });
         builder.Services.AddHostedService<SessionEvictionService>();
         builder.Services.AddHostedService<RoundTimerService>(); // expires round timers → auto-reveal (#14)
 

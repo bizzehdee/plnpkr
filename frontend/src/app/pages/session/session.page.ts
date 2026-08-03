@@ -13,7 +13,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { PluralPipe } from '../../core/plural.pipe';
 import { resolveApiBase } from '../../core/app-config';
-import { DECK_LABEL_KEYS, DeckType, IntegrationProvider, IntegrationStatus, ParticipantInfo, ParticipantRole, REACTION_EMOJI, SavedDeck, SessionAnalytics } from '../../core/models';
+import { AppConfig, DECK_LABEL_KEYS, DeckType, IntegrationProvider, IntegrationStatus, ParticipantInfo, ParticipantRole, REACTION_EMOJI, RetentionConfig, SavedDeck, SessionAnalytics } from '../../core/models';
 import { DeckStorageService } from '../../core/deck-storage.service';
 import { RevealCueService } from '../../core/reveal-cue.service';
 
@@ -91,6 +91,8 @@ export class SessionPage implements OnInit, OnDestroy {
   protected openModal(modal: 'invite' | 'tracker' | 'settings' | 'danger' | 'analytics'): void {
     if (modal === 'analytics') {
       void this.loadAnalytics();
+    } else if (modal === 'danger') {
+      void this.loadRetentionConfig();
     }
     this.activeModal.set(modal);
     this.menuOpen.set(false);
@@ -145,6 +147,23 @@ export class SessionPage implements OnInit, OnDestroy {
   // --- Close & delete (organiser, #26) — each behind an inline confirm ---
   protected readonly confirmingClose = signal(false);
   protected readonly confirmingDelete = signal(false);
+
+  // --- Retention windows (#15): shown in the danger modal so the organiser knows what Close/Delete
+  //     actually leads to. Server-configured (RetentionOptions), not hard-coded on the client. ---
+  protected readonly retentionConfig = signal<RetentionConfig | null>(null);
+  private retentionConfigLoaded = false;
+
+  /** Loads the retention windows once per page visit — they're static server config, no need to refetch. */
+  protected async loadRetentionConfig(): Promise<void> {
+    if (this.retentionConfigLoaded) return;
+    this.retentionConfigLoaded = true;
+    try {
+      const config = await firstValueFrom(this.http.get<AppConfig>(`${resolveApiBase()}/api/config`));
+      this.retentionConfig.set(config.retention);
+    } catch {
+      this.retentionConfigLoaded = false; // transient failure — allow a retry on next open
+    }
+  }
 
   protected async closeSession(): Promise<void> {
     await this.realtime.closeSession(this.shortCode, this.myUserId);

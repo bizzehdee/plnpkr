@@ -1066,12 +1066,18 @@ const LOCALE_TAGS: Record<Locale, string> = {
 const PLURALS: Record<Locale, Record<string, Partial<Record<Intl.LDMLPluralRule, string>>>> = {
   en: {
     'session.showAllParticipants': { one: 'Show all {count} participant', other: 'Show all {count} participants' },
+    'session.closeRetentionHint': { one: 'Automatically deleted {count} month after closing.', other: 'Automatically deleted {count} months after closing.' },
+    'session.deleteRetentionHint': { one: 'Permanently removed {count} day after deletion.', other: 'Permanently removed {count} days after deletion.' },
   },
   es: {
     'session.showAllParticipants': { one: 'Mostrar el {count} participante', other: 'Mostrar los {count} participantes' },
+    'session.closeRetentionHint': { one: 'Se elimina automáticamente {count} mes después de cerrarla.', other: 'Se elimina automáticamente {count} meses después de cerrarla.' },
+    'session.deleteRetentionHint': { one: 'Se elimina definitivamente {count} día después de borrarla.', other: 'Se elimina definitivamente {count} días después de borrarla.' },
   },
   pt: {
     'session.showAllParticipants': { one: 'Mostrar o {count} participante', other: 'Mostrar os {count} participantes' },
+    'session.closeRetentionHint': { one: 'Excluída automaticamente {count} mês após o fechamento.', other: 'Excluída automaticamente {count} meses após o fechamento.' },
+    'session.deleteRetentionHint': { one: 'Removida definitivamente {count} dia após a exclusão.', other: 'Removida definitivamente {count} dias após a exclusão.' },
   },
   pl: {
     'session.showAllParticipants': {
@@ -1079,6 +1085,18 @@ const PLURALS: Record<Locale, Record<string, Partial<Record<Intl.LDMLPluralRule,
       few: 'Pokaż {count} uczestników',
       many: 'Pokaż wszystkich {count} uczestników',
       other: 'Pokaż {count} uczestnika',
+    },
+    'session.closeRetentionHint': {
+      one: 'Automatycznie usuwana po {count} miesiącu od zamknięcia.',
+      few: 'Automatycznie usuwana po {count} miesiącach od zamknięcia.',
+      many: 'Automatycznie usuwana po {count} miesiącach od zamknięcia.',
+      other: 'Automatycznie usuwana po {count} miesiącach od zamknięcia.',
+    },
+    'session.deleteRetentionHint': {
+      one: 'Trwale usuwana po {count} dniu od usunięcia.',
+      few: 'Trwale usuwana po {count} dniach od usunięcia.',
+      many: 'Trwale usuwana po {count} dniach od usunięcia.',
+      other: 'Trwale usuwana po {count} dniach od usunięcia.',
     },
   },
 };

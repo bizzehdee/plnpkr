@@ -15,7 +15,7 @@ public class SessionMaintenanceTests
     private readonly SessionMaintenanceService _sut;
 
     private static readonly TimeSpan Grace = TimeSpan.FromMinutes(2);
-    private static readonly TimeSpan Idle = TimeSpan.FromMinutes(60);
+    private static readonly RetentionOptions Retention = new(); // 12mo closed / 30d soft-delete / 30d idle defaults
 
     private const string Code = "blue-fox-42";
 
@@ -25,11 +25,11 @@ public class SessionMaintenanceTests
         _sut = new SessionMaintenanceService(_store, _clock);
     }
 
-    private async Task SeedAsync(string code = Code, string creator = "alice")
+    private async Task SeedAsync(string code = Code, string creator = "alice", bool organise = false)
     {
         var gen = new StubShortCodeGenerator(code);
         var svc = new SessionService(_store, gen, _clock);
-        await svc.CreateAsync(new CreateSessionRequest("Sprint", DeckType.Fibonacci, null, creator, "Alice", false));
+        await svc.CreateAsync(new CreateSessionRequest("Sprint", DeckType.Fibonacci, null, creator, "Alice", organise));
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class SessionMaintenanceTests
         await _sessions.MarkDisconnectedAsync(Code, "bob");
 
         _clock.Advance(Grace + TimeSpan.FromSeconds(1));
-        var report = await _sut.PurgeAsync(Grace, Idle);
+        var report = await _sut.PurgeAsync(Grace, Retention);
 
         var session = await _store.FindByShortCodeAsync(Code);
         session!.Participants.Select(p => p.UserId).Should().NotContain("bob");
@@ -55,35 +55,35 @@ public class SessionMaintenanceTests
         await _sessions.MarkDisconnectedAsync(Code, "bob");
 
         _clock.Advance(TimeSpan.FromSeconds(30)); // still inside the grace window
-        await _sut.PurgeAsync(Grace, Idle);
+        await _sut.PurgeAsync(Grace, Retention);
 
         var session = await _store.FindByShortCodeAsync(Code);
         session!.Participants.Select(p => p.UserId).Should().Contain("bob");
     }
 
     [Fact]
-    public async Task Session_left_empty_after_eviction_is_deleted()
+    public async Task Empty_session_is_not_immediately_deleted_the_old_60min_empty_room_rule_no_longer_fires()
     {
         await SeedAsync(); // only Alice (a connected observer-less voter)
         await _sessions.MarkDisconnectedAsync(Code, "alice");
 
         _clock.Advance(Grace + TimeSpan.FromSeconds(1));
-        var report = await _sut.PurgeAsync(Grace, Idle);
+        var report = await _sut.PurgeAsync(Grace, Retention);
 
-        (await _store.FindByShortCodeAsync(Code)).Should().BeNull();
-        report.RemovedShortCodes.Should().Contain(Code);
+        (await _store.FindByShortCodeAsync(Code)).Should().NotBeNull();
+        report.RemovedShortCodes.Should().NotContain(Code);
     }
 
     [Fact]
-    public async Task Idle_session_past_the_idle_window_is_deleted_even_with_connected_members()
+    public async Task Idle_session_past_60_minutes_is_no_longer_deleted()
     {
         await SeedAsync();
 
-        _clock.Advance(Idle + TimeSpan.FromMinutes(1));
-        var report = await _sut.PurgeAsync(Grace, Idle);
+        _clock.Advance(TimeSpan.FromMinutes(61)); // the old SessionIdle threshold — no longer meaningful
+        var report = await _sut.PurgeAsync(Grace, Retention);
 
-        (await _store.FindByShortCodeAsync(Code)).Should().BeNull();
-        report.RemovedShortCodes.Should().Contain(Code);
+        (await _store.FindByShortCodeAsync(Code)).Should().NotBeNull();
+        report.RemovedShortCodes.Should().BeEmpty();
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class SessionMaintenanceTests
         await SeedAsync();
 
         _clock.Advance(TimeSpan.FromMinutes(5));
-        var report = await _sut.PurgeAsync(Grace, Idle);
+        var report = await _sut.PurgeAsync(Grace, Retention);
 
         (await _store.FindByShortCodeAsync(Code)).Should().NotBeNull();
         report.RemovedShortCodes.Should().BeEmpty();
@@ -109,11 +109,116 @@ public class SessionMaintenanceTests
         await svc.MarkDisconnectedAsync(Code, "alice");
 
         _clock.Advance(Grace + TimeSpan.FromSeconds(1));
-        await _sut.PurgeAsync(Grace, Idle);
+        await _sut.PurgeAsync(Grace, Retention);
 
         var session = await _store.FindByShortCodeAsync(Code);
         session.Should().NotBeNull();
         session!.OrganiserUserId.Should().BeNull();
         session.Participants.Select(p => p.UserId).Should().Contain("bob").And.NotContain("alice");
+    }
+
+    // --- Retention policy (#15): three transition rules + boundaries --------------------------
+
+    [Fact]
+    public async Task Idle_session_just_under_the_idle_retention_window_is_untouched()
+    {
+        await SeedAsync();
+
+        _clock.Advance(TimeSpan.FromDays(Retention.IdleRetentionDays) - TimeSpan.FromMinutes(1));
+        var report = await _sut.PurgeAsync(Grace, Retention);
+
+        (await _store.FindByShortCodeAsync(Code)).Should().NotBeNull();
+        report.RemovedShortCodes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Idle_session_past_the_idle_retention_window_is_soft_deleted_not_hard_deleted()
+    {
+        await SeedAsync();
+
+        _clock.Advance(TimeSpan.FromDays(Retention.IdleRetentionDays) + TimeSpan.FromMinutes(1));
+        var report = await _sut.PurgeAsync(Grace, Retention);
+
+        // Gone from every normal read (the client is told it's closed)...
+        (await _store.FindByShortCodeAsync(Code)).Should().BeNull();
+        report.RemovedShortCodes.Should().Contain(Code);
+        // ...but the row still exists, soft-deleted, findable via the retention-only query.
+        var softDeleted = await _store.GetSoftDeletedPastRetentionAsync(_clock.UtcNow);
+        softDeleted.Should().ContainSingle(s => s.ShortCode == Code);
+    }
+
+    [Fact]
+    public async Task Closed_session_just_under_the_closed_retention_window_is_untouched()
+    {
+        var svc = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        await svc.CreateAsync(new CreateSessionRequest("Sprint", DeckType.Fibonacci, null, "alice", "Alice", true));
+        await svc.CloseSessionAsync(Code, "alice");
+
+        _clock.Advance(TimeSpan.FromDays(Retention.ClosedRetentionMonths * 30 - 5)); // comfortably under 12 months
+        var report = await _sut.PurgeAsync(Grace, Retention);
+
+        (await _store.FindByShortCodeAsync(Code)).Should().NotBeNull();
+        report.RemovedShortCodes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Closed_session_past_the_closed_retention_window_is_soft_deleted()
+    {
+        var svc = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        await svc.CreateAsync(new CreateSessionRequest("Sprint", DeckType.Fibonacci, null, "alice", "Alice", true));
+        await svc.CloseSessionAsync(Code, "alice");
+
+        _clock.Advance(TimeSpan.FromDays(Retention.ClosedRetentionMonths * 31)); // comfortably past 12 months
+        var report = await _sut.PurgeAsync(Grace, Retention);
+
+        (await _store.FindByShortCodeAsync(Code)).Should().BeNull();
+        report.RemovedShortCodes.Should().Contain(Code);
+        var softDeleted = await _store.GetSoftDeletedPastRetentionAsync(_clock.UtcNow);
+        softDeleted.Should().ContainSingle(s => s.ShortCode == Code);
+    }
+
+    [Fact]
+    public async Task Closed_session_is_governed_by_closed_retention_not_idle_retention()
+    {
+        // Closing sets LastActivityAt too, so it'd also cross the (shorter) idle threshold — the idle
+        // rule must not fire for a closed session; only ClosedAt + ClosedRetentionMonths governs it.
+        var svc = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        await svc.CreateAsync(new CreateSessionRequest("Sprint", DeckType.Fibonacci, null, "alice", "Alice", true));
+        await svc.CloseSessionAsync(Code, "alice");
+
+        _clock.Advance(TimeSpan.FromDays(Retention.IdleRetentionDays) + TimeSpan.FromDays(1));
+        var report = await _sut.PurgeAsync(Grace, Retention);
+
+        (await _store.FindByShortCodeAsync(Code)).Should().NotBeNull();
+        report.RemovedShortCodes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Soft_deleted_session_just_under_the_hard_delete_window_is_untouched()
+    {
+        await SeedAsync();
+        await _sessions.DeleteSessionAsync(Code, "alice");
+
+        _clock.Advance(TimeSpan.FromDays(Retention.SoftDeleteRetentionDays) - TimeSpan.FromHours(1));
+        var report = await _sut.PurgeAsync(Grace, Retention);
+
+        report.RemovedShortCodes.Should().BeEmpty();
+        var softDeleted = await _store.GetSoftDeletedPastRetentionAsync(_clock.UtcNow);
+        softDeleted.Should().ContainSingle(s => s.ShortCode == Code);
+    }
+
+    [Fact]
+    public async Task Soft_deleted_session_past_the_hard_delete_window_is_hard_deleted()
+    {
+        await SeedAsync();
+        await _sessions.DeleteSessionAsync(Code, "alice");
+
+        _clock.Advance(TimeSpan.FromDays(Retention.SoftDeleteRetentionDays) + TimeSpan.FromHours(1));
+        var report = await _sut.PurgeAsync(Grace, Retention);
+
+        report.RemovedShortCodes.Should().Contain(Code);
+        // Truly gone now — not even the retention-only query finds it.
+        var softDeleted = await _store.GetSoftDeletedPastRetentionAsync(_clock.UtcNow);
+        softDeleted.Should().BeEmpty();
     }
 }

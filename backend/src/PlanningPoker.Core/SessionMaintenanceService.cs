@@ -4,9 +4,14 @@ using PlanningPoker.Core.Models;
 namespace PlanningPoker.Core;
 
 /// <summary>
-/// Idle eviction: removes participants who have been disconnected past a grace period and deletes
-/// sessions that are empty or have had no activity for a while. Clock-driven so it is fully
-/// unit-testable. See #37.
+/// Idle eviction + long-term retention (#15): removes participants who have been disconnected past a
+/// grace period, and applies the retention policy layered on <see cref="Session.ClosedAt"/>/
+/// <see cref="Session.DeletedAt"/> (#26) — a closed session is soft-deleted <see
+/// cref="RetentionOptions.ClosedRetentionMonths"/> months after closing; a session that's neither
+/// closed nor already soft-deleted is soft-deleted after <see
+/// cref="RetentionOptions.IdleRetentionDays"/> days of no activity; a soft-deleted session is
+/// permanently (hard) deleted <see cref="RetentionOptions.SoftDeleteRetentionDays"/> days later.
+/// Clock-driven so it is fully unit-testable. See #37.
 /// </summary>
 public class SessionMaintenanceService
 {
@@ -20,8 +25,8 @@ public class SessionMaintenanceService
     }
 
     /// <param name="disconnectGrace">How long a disconnected participant is kept for reconnect.</param>
-    /// <param name="sessionIdle">How long a session may have no activity before deletion.</param>
-    public async Task<PurgeReport> PurgeAsync(TimeSpan disconnectGrace, TimeSpan sessionIdle, CancellationToken ct = default)
+    /// <param name="retention">The soft/hard-delete windows for the retention policy (#15).</param>
+    public async Task<PurgeReport> PurgeAsync(TimeSpan disconnectGrace, RetentionOptions retention, CancellationToken ct = default)
     {
         var now = _clock.UtcNow;
         var removedShortCodes = new List<string>();
@@ -43,10 +48,19 @@ public class SessionMaintenanceService
                 }
             }
 
-            var idle = session.LastActivityAt + sessionIdle <= now;
-            if (session.Participants.Count == 0 || idle)
+            // Retention (#15): a closed session auto soft-deletes after ClosedRetentionMonths; a session
+            // that's neither closed nor already soft-deleted auto soft-deletes after IdleRetentionDays of
+            // no activity. `AddMonths` (not a fixed day count) so "12 months" tracks calendar months.
+            var shouldSoftDelete =
+                (session.ClosedAt is { } closedAt && closedAt.AddMonths(retention.ClosedRetentionMonths) <= now)
+                || (session.ClosedAt is null && session.LastActivityAt.AddDays(retention.IdleRetentionDays) <= now);
+
+            if (shouldSoftDelete)
             {
-                await _store.RemoveAsync(session, ct);
+                // Same effect as an organiser-triggered DeleteSessionAsync: gone from every read behind
+                // the global query filter, so connected clients are told it's closed, not sent a snapshot.
+                session.DeletedAt = now;
+                await _store.UpdateAsync(session, ct);
                 removedShortCodes.Add(session.ShortCode);
             }
             else if (stale.Count > 0)
@@ -54,6 +68,14 @@ public class SessionMaintenanceService
                 await _store.UpdateAsync(session, ct);
                 updatedSessions.Add(SessionService.ToSnapshot(session));
             }
+        }
+
+        // Soft-deleted sessions past SoftDeleteRetentionDays are hard-deleted (row + RoundResults gone).
+        var hardDeleteThreshold = now.AddDays(-retention.SoftDeleteRetentionDays);
+        foreach (var session in await _store.GetSoftDeletedPastRetentionAsync(hardDeleteThreshold, ct))
+        {
+            await _store.RemoveAsync(session, ct);
+            removedShortCodes.Add(session.ShortCode);
         }
 
         return new PurgeReport(removedShortCodes, updatedSessions);
@@ -103,7 +125,12 @@ public class SessionMaintenanceService
     }
 }
 
-/// <summary>Outcome of a purge: which sessions were deleted and which had participants removed.</summary>
+/// <summary>
+/// Outcome of a purge. <see cref="RemovedShortCodes"/> covers both hard-deleted sessions and sessions
+/// newly soft-deleted this pass — to a connected client both mean "gone" (broadcast SessionClosed for
+/// each). <see cref="UpdatedSessions"/> is still-alive sessions whose participant list changed only
+/// (broadcast the new snapshot).
+/// </summary>
 public record PurgeReport(
     IReadOnlyList<string> RemovedShortCodes,
     IReadOnlyList<SessionSnapshot> UpdatedSessions);

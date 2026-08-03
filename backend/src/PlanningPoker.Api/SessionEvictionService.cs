@@ -5,27 +5,30 @@ using PlanningPoker.Core;
 namespace PlanningPoker.Api;
 
 /// <summary>
-/// Periodically purges away participants and idle/empty sessions, broadcasting the result so live
-/// clients update (or are told the session closed). The "is this stale?" decision lives in
-/// <see cref="SessionMaintenanceService"/> (Core, unit-tested); this is just the scheduler. See #37.
+/// Periodically purges away disconnected-past-grace participants and applies the retention policy
+/// (#15), broadcasting the result so live clients update (or are told the session closed). The
+/// "is this stale?" decision lives in <see cref="SessionMaintenanceService"/> (Core, unit-tested);
+/// this is just the scheduler + retention config. See #37.
 /// </summary>
 public class SessionEvictionService : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan DisconnectGrace = TimeSpan.FromMinutes(2);
-    private static readonly TimeSpan SessionIdle = TimeSpan.FromMinutes(60);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHubContext<PlanningPokerHub> _hub;
+    private readonly RetentionOptions _retention;
     private readonly ILogger<SessionEvictionService> _logger;
 
     public SessionEvictionService(
         IServiceScopeFactory scopeFactory,
         IHubContext<PlanningPokerHub> hub,
+        RetentionOptions retention,
         ILogger<SessionEvictionService> logger)
     {
         _scopeFactory = scopeFactory;
         _hub = hub;
+        _retention = retention;
         _logger = logger;
     }
 
@@ -54,7 +57,7 @@ public class SessionEvictionService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var maintenance = scope.ServiceProvider.GetRequiredService<SessionMaintenanceService>();
 
-        var report = await maintenance.PurgeAsync(DisconnectGrace, SessionIdle, ct);
+        var report = await maintenance.PurgeAsync(DisconnectGrace, _retention, ct);
 
         foreach (var snapshot in report.UpdatedSessions)
         {
