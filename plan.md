@@ -1,10 +1,22 @@
-# plnpkr — Feature Plan
+# TeamTools — Feature Plan
 
-Planned enhancements to the Planning Poker app. Each feature below lists **what** it
-delivers, **why**, the **touch points** in the current codebase, and a sketched
-**approach**. Implementation order and dependencies live in [tasks.md](./tasks.md).
+**TeamTools** is a platform hosting **two** team-ceremony tools over one shared room
+engine: **Planning Poker** (real-time estimation — shipped) and **Team Retro**
+(real-time retrospectives — planned in §21–§28, on the platform groundwork laid by
+§17–§20, with §29 rewriting the README last).
 
-## Architecture reference (current)
+Each feature below lists **what** it delivers, **why**, the **touch points** in the
+codebase, and a sketched **approach**. Implementation order and dependencies live in
+[tasks.md](./tasks.md).
+
+§§1–16 are **shipped**, built while the product was planning-poker-only. The
+cross-cutting ones — a11y (§4), i18n (§5), rate limiting (§3), retention (§15),
+multi-organiser (§7), large-group mode (§6) — become platform-wide the moment §19
+lifts room concerns into a shared core; the retro tool inherits them rather than
+re-implementing them, and each retro task below carries the checklist item that proves
+it.
+
+## Architecture reference (current — single-tool)
 
 - **Backend** — .NET 10, ASP.NET Core, SignalR hub `PlanningPokerHub`
   (`backend/src/PlanningPoker.Api/Hubs/`), domain logic in
@@ -19,6 +31,37 @@ delivers, **why**, the **touch points** in the current codebase, and a sketched
   (`Core/Integrations/IssueTracking.cs`); adapters in `PlanningPoker.Integrations`.
 - **Existing infra to reuse** — `Hubs/ReactionRateLimiter.cs` (token-bucket pattern),
   `RoundTimerService.cs` (deadline broadcast), `IClock` (testable time).
+
+## Target architecture (platform)
+
+§17 writes this design down before any code moves; §18–§20 build it. Names are
+the post-rename ones (§18).
+
+```
+TeamTools.Core            Room core: Room, Participant, presence, organiser set,
+                          password, close/soft-delete/retention, reactions, IClock,
+                          short codes, name normalisation, rate-limit policy.
+TeamTools.Poker           Estimation: PokerRound state machine, decks, StatsCalculator,
+                          RoundResult, round timer, discussion phase.
+TeamTools.Retro           Retrospectives: RetroBoard, columns, cards, groups, votes,
+                          action items, phase state machine.
+TeamTools.Data*           EF Core model + a project per engine (Sqlite/SqlServer/PostgreSql).
+TeamTools.Integrations    Jira / Azure DevOps / GitHub / GitLab adapters (poker-only today).
+TeamTools.Api             Hosts both hubs (PokerHub, RetroHub) + REST controllers.
+```
+
+- **Room vs. tool state.** A `Room` owns the short code, participants, presence,
+  organiser set, password, `ClosedAt`/`DeletedAt` and reaction settings. A room has
+  exactly one tool payload — `PokerRound`(+history) **or** `RetroBoard` — chosen at
+  creation and immutable thereafter (`RoomTool` discriminator). Rooms are independent;
+  there is no team/workspace entity (see §27 for how carry-over works without one).
+- **Realtime contract.** Two hubs, one shape: each broadcasts a full tool-specific
+  snapshot after every mutation (`PokerSessionUpdated` / `RetroBoardUpdated`), both
+  embedding the same `RoomSnapshot` fragment (participants, presence, organisers,
+  closed state). Ephemeral `ReactionReceived` and terminal `RoomClosed` are shared.
+- **Frontend.** Home page becomes a tool picker; routes split under `/poker/*` and
+  `/retro/*` with a shared shell (`core/room.client.ts` for room-level realtime,
+  `core/models.ts` gains a `room` fragment mirrored from `RoomSnapshot`).
 
 ---
 
@@ -297,14 +340,348 @@ catalogs like the rest of the UI.
 
 ---
 
+# Platform work — two tools
+
+§17 writes the target architecture down **before any code moves**; §18–§20 build the
+platform; §21–§28 build the second tool on it; §29 updates the README last.
+
+## 17. ARCHITECTURE.md — document the platform target first
+
+**What.** Rewrite `ARCHITECTURE.md` to describe the two-tool platform — the Room core,
+the two tool modules, the two hubs, the shared snapshot fragment, the one-tool-per-room
+rule and the table layout after the split — **before** the rename (§18) or the refactor
+(§19) touches a line of code.
+
+**Why.** §19 moves nearly every type in `TeamTools.Core` and rewrites the persistence
+schema with hand-written data motion. That is exactly the change where "we'll document
+it after" produces a refactor that drifts from any plan, and where a reviewer has
+nothing to check the migration against. Writing the target down first turns §19 from an
+exploratory refactor into an implementation of an agreed design — and the doc is the
+artefact that says whether the result is right. It also front-loads the cheapest chance
+to discover the design is wrong: on a page, not in a migration.
+
+**Touch points.** `ARCHITECTURE.md` (whole document). The existing doc describes a
+single `SessionService`, a single hub and a single `Sessions` table — all three change.
+
+**Approach.** Write it in the future tense of the target, not the present tense of the
+code, and say so at the top: this documents where §18–§28 land, and the code catches up
+task by task. Cover the Room/tool-payload boundary and which existing fields go where;
+the `Rooms` + `PokerRounds` + retro tables shape and the data-motion requirement; the
+`RoomSnapshot` fragment and the two-hub contract; the one-tool-per-room rule and the
+absence of a team entity; which cross-cutting concerns (§3, §4, §5, §6, §7, §15) are
+room-level and therefore inherited by both tools. Keep the existing doc's structure and
+level of detail where it still applies rather than starting from a blank page. §29
+revisits it only to correct anything §18–§28 discovered — the design should not need
+re-explaining at the end.
+
+## 18. Rename to TeamTools
+
+**What.** Rename the solution, projects, namespaces, hub, database context and
+user-facing branding from `PlanningPoker.*`/plnpkr to `TeamTools.*`, with the estimation
+tool keeping the name "Planning Poker" as a *tool* inside the platform.
+
+**Why.** Every file added by §19–§28 should land with its final name; renaming after the
+retro tool exists doubles the diff. `PlanningPoker.Core` housing retro logic would be
+actively misleading.
+
+**Touch points.** `backend/PlanningPoker.sln` + all six `src` projects and the test
+projects; every `namespace PlanningPoker.*` / `using` line; `PlanningPokerHub.cs` →
+`PokerHub.cs`; `PlanningPokerDbContext` → `TeamToolsDbContext` (**note:** the EF
+migration snapshot files name the context class — regenerate or hand-edit all three
+providers' `*ModelSnapshot.cs` and `*.Designer.cs`); `DesignTimeDbContextFactory.cs` ×3;
+`Dockerfile`, `docker-compose.yml`, `.github/workflows`, `deploy/`, `run.sh`, `run.ps1`
+(project paths and the `planningpoker.db` default filename); `NOTICE`; frontend
+`package.json` name, `index.html` title, and the app-name keys in the i18n catalogs.
+`README.md` is deliberately **not** here — it is §29.
+
+**Approach.** Purely mechanical, no behaviour change — its own commit, so the
+behavioural diffs that follow stay reviewable. Keep the default SQLite file migratable:
+if the old `planningpoker.db` is present, read it and log a rename hint rather than
+silently starting empty. `plnpkr` stays as the short brand for the poker tool; the Ko-Fi
+link and licence attribution are unchanged.
+
+## 19. Shared Room core
+
+**What.** Extract the tool-agnostic half of `Session` into a `Room` aggregate —
+short code, name, participants, presence, organiser set, password, `ClosedAt`/
+`DeletedAt`, reaction settings, `LastActivityAt` — leaving estimation-specific state
+(`State`, `DeckType`, `CustomCards`, `CurrentStory`, `CurrentStoryNote`, the timer
+fields, `LinkedProvider`/`LinkedIssue`/`TicketQueue`, `RoundResult`s) on a `PokerRound`
+payload. Add a `RoomTool` discriminator (`Poker` | `Retro`) fixed at creation.
+
+**Why.** This is the platform bet. Every cross-cutting feature already shipped — rate
+limiting (§3), a11y (§4), i18n (§5), large-group mode (§6), multi-organiser and
+succession (§7), retention (§15) — is room-level, not poker-level. Lifting them once
+means the retro tool inherits them and a third tool is cheap. The cheaper alternative
+(nullable retro columns on `Session`) pays for itself once and then charges rent
+forever.
+
+**Touch points.** `Core/Models/Session.cs` → `Room.cs` + `Poker/PokerRound.cs`;
+`Participant.cs` (`SessionId` → `RoomId`); `ISessionStore` splits into `IRoomStore`
+(find-by-short-code, add, update, remove, retention queries, `AreReactionsEnabledAsync`)
+plus a poker-specific store for `GetSessionsWithExpiredTimerAsync`; `SessionService.cs`
+splits into `RoomService` (join/leave/rename/role/organiser/password/close/delete) and
+`PokerService` (vote/reveal/reset/deck/story/timer/discussion);
+`SessionMaintenanceService` and `RetentionOptions` move to room level;
+`Contracts/Snapshots.cs` grows a `RoomSnapshot` fragment that each tool snapshot embeds;
+`Hubs/PokerHub.cs`, `ConnectionRegistry`, `HubThrottle`, `ReactionRateLimiter` become
+room-scoped; `EfSessionStore` + `TeamToolsDbContext` + an EF migration for all three
+providers; frontend `core/models.ts` mirrors `RoomSnapshot`, and
+`core/realtime.client.ts` splits into a shared `room.client.ts` + `poker.client.ts`.
+
+**Approach.** A behaviour-preserving refactor implementing the boundary §17 wrote down,
+verified by the existing suite — the ≥90% Core coverage gate is the safety net, so keep
+it green and add no features in this commit. Table shape: `Rooms` (renamed from
+`Sessions`, minus the poker columns, plus `Tool`) and `PokerRounds` (1:1 with a poker
+room, owning the moved columns). The migration must **move** existing data, not drop it,
+so write the data-motion SQL by hand rather than accepting a scaffolded
+drop-and-recreate. Invite links (`/join/<code>`) keep working: the join page resolves a
+short code to `{ tool, shortCode }` and routes to the right tool page. Existing hub
+method names and their client-visible payloads stay as they are, apart from the snapshot
+gaining its `room` fragment.
+
+## 20. Tool picker & platform shell
+
+**What.** The home page becomes a platform landing page offering both tools; routes
+split into `/poker/*` and `/retro/*` under a shared shell (header, theme toggle,
+language switcher, tool switcher).
+
+**Why.** Two tools need a front door. Today `home.page` hard-codes deck choice and
+"create session" — poker-only concepts sitting on the platform's entry point.
+
+**Touch points.** `app.routes.ts` (`/`, `/join/:shortCode`, `/session/:shortCode` →
+`/`, `/join/:shortCode`, `/poker/:shortCode`, `/retro/:shortCode`, plus the per-tool
+create routes); `pages/home/home.page.*` splits into a picker plus
+`pages/poker/create`; `app.html` shell; `join.page.ts` (resolve the tool from the short
+code, per §19); the en/es/pt/pl i18n catalogs gain platform and tool-name keys.
+
+**Approach.** Keep `/session/:shortCode` as a permanent redirect to `/poker/:shortCode`
+so links already sitting in people's calendars survive. The picker inherits the §4 a11y
+conventions (keyboard-navigable cards, visible focus rings) and all copy goes through
+the i18n catalogs — no hard-coded strings.
+
+## 21. Retro board: model, creation, cards
+
+**What.** The retro tool's foundation: a `RetroBoard` with column templates (Went well /
+To improve / Action items, Start-Stop-Continue, 4Ls, Mad-Sad-Glad, Custom) and cards
+that participants add, edit, delete and move between columns in real time.
+
+**Why.** Everything else in the retro tool — phases, grouping, voting, actions,
+export — operates on cards in columns. This is the analogue of the deck plus votes.
+
+**Touch points.** New `TeamTools.Retro`: `RetroBoard.cs` (settings + columns),
+`RetroColumn.cs`, `RetroCard.cs`, `RetroTemplateCatalog.cs` (mirrors the existing
+`DeckCatalog.cs` pattern — built-in templates plus a Custom escape hatch),
+`RetroService.cs` (mirrors `PokerService`); `Contracts/RetroSnapshots.cs` embedding
+`RoomSnapshot` (§19); `Hubs/RetroHub.cs` (`AddCard`, `EditCard`, `DeleteCard`,
+`MoveCard`, `SetTemplate`); EF migration ×3; frontend `pages/retro/retro.page.*`,
+`core/retro.client.ts`, `core/models.ts`.
+
+**Approach.** A card is `{ Id, ColumnId, AuthorUserId, Text, CreatedAt, Order }`,
+editable and deletable by its author or an organiser (the §7 organiser set, unchanged).
+Broadcast the full board snapshot per mutation exactly as poker does — the §6
+large-group work already proved that shape at 50+ participants, and a board is a
+comparable payload. Cap card text length and rate-limit adds through the §3 token
+bucket. Reuse the §10 note-editing conventions for inline card editing.
+
+## 22. Retro anonymity
+
+**What.** A board-level facilitator setting: cards are **attributed** (author shown) or
+**anonymous**. Anonymous means the snapshot carries no author identity for other
+participants — not merely a hidden UI field.
+
+**Why.** Psychological safety is the point of a retro, and a client-side-only hide is a
+promise one devtools panel disproves. Settling this in the snapshot contract *before*
+grouping, voting and export exist is what stops those three leaking authorship later.
+
+**Touch points.** `RetroBoard.Anonymous` (organiser-settable, and — see approach — only
+while the board is empty); the `RetroService` snapshot projection;
+`RetroSnapshots.cs` (`AuthorUserId` null for everyone but the author, with `IsMine`
+computed per recipient); `RetroHub.SetAnonymous`; EF migration ×3; frontend card
+rendering.
+
+**Approach.** The snapshot is already projected per recipient in poker (votes hidden
+pre-reveal) — the same mechanism applies: strip `AuthorUserId` for everyone but the
+author, and never send it at all on an anonymous board, while still marking the
+caller's own cards so they can edit them. `AuthorUserId` is still *stored* — an author
+must be able to edit their own card and organiser moderation needs a target — so
+document plainly that this is anonymity from participants, not from a database
+administrator. Lock the toggle once the first card exists: flipping it mid-retro would
+retroactively expose cards written under a promise of anonymity.
+
+## 23. Facilitator-driven phases
+
+**What.** A retro phase state machine — **Collect → Group → Vote → Discuss → Actions →
+Closed** — advanced by an organiser, with cards hidden from other participants until
+Collect ends, and an optional countdown per phase.
+
+**Why.** An unstructured board is a free-for-all where the first loud voice anchors
+everyone. Hidden collection is the retro equivalent of hidden voting — and it is the
+reason the per-recipient snapshot projection matters.
+
+**Touch points.** A `RetroPhase` enum plus transitions in `RetroService`;
+`RetroHub.AdvancePhase` / `SetPhase` (organiser-gated via §7); `RoundTimerService.cs`
+generalised into a room-level phase timer reusing its existing deadline-broadcast
+pattern (§9 established it for the discussion phase); snapshot plus a frontend phase
+rail; EF migration ×3 (persisted enum + deadline, mirroring the poker `State` and
+`TimerDeadline` columns).
+
+**Approach.** Model transitions explicitly and forward-only, with an organiser-only
+"back one phase" escape hatch — facilitators mis-click. During Collect a participant
+sees their own cards plus a count of everyone else's: the same affordance as §1. Gate
+mutations by phase (no new cards in Vote, no votes in Collect) and return friendly
+`SessionActionResult` failures. Announce phase changes through the §4 `aria-live`
+region.
+
+## 24. Grouping into themes
+
+**What.** In the Group phase, drag cards onto one another to form named theme groups;
+groups collapse and expand, can be renamed and ungrouped, and become the unit that
+voting and discussion operate on.
+
+**Why.** Twelve cards saying the same thing should be one conversation and one vote
+target — otherwise dot voting splits across duplicates and the real top theme loses.
+
+**Touch points.** `RetroGroup.cs` (`{ Id, BoardId, Label, Order }`) and
+`RetroCard.GroupId`; `RetroHub.GroupCards` / `UngroupCard` / `RenameGroup`; snapshot;
+EF migration ×3; frontend drag-and-drop in `retro.page.*`.
+
+**Approach.** Grouping is organiser-driven by default, with a board setting to open it
+to everyone. Concurrent drags resolve last-write-wins on `GroupId`, with the
+full-snapshot rebroadcast reconciling divergence — cheap and correct at room scale.
+Drag-and-drop needs a keyboard and screen-reader equivalent to satisfy §4: a "move card
+to group" menu on every card, not a mouse-only affordance.
+
+## 25. Dot voting
+
+**What.** In the Vote phase each participant spends a configurable budget of dots across
+cards and groups (multiple dots on one item allowed or not, per board setting); the
+result orders the Discuss phase.
+
+**Why.** It turns a wall of cards into a ranked agenda in about ninety seconds, and it
+gives the quiet half of the team equal weight.
+
+**Touch points.** `RetroVote.cs` (`{ BoardId, VoterUserId, TargetKind, TargetId }`) and
+`RetroBoard.VoteBudget` / `AllowMultiplePerItem`; `RetroHub.CastRetroVote` /
+`WithdrawVote`; a `StatsCalculator` sibling for tallies; snapshot (own dots always
+visible, others' totals only once the Vote phase ends); EF migration ×3; frontend dot
+controls plus the ranked list.
+
+**Approach.** Enforce the budget server-side — never trust a client dot count. Totals
+stay hidden during Vote (the same anchoring argument as §23) and reveal on the
+transition to Discuss, where the board reorders by score. Votes follow their target
+through grouping: grouping cards sums their dots, ungrouping returns each card's own.
+Voting is per participant, so anonymity (§22) is unaffected.
+
+## 26. Action items
+
+**What.** First-class action items with a title, an optional owner (a participant or a
+free-text name) and an optional due date, created in the Actions phase — typically from
+a discussed theme — persisted with the board and markable done.
+
+**Why.** A retro whose outcomes evaporate is theatre. Actions are also the only retro
+artefact with a life *after* the meeting, which is what makes §27 and §28 worth having.
+
+**Touch points.** `RetroActionItem.cs` (`{ Id, BoardId, Title, OwnerUserId, OwnerName,
+DueDate, DoneAt, SourceGroupId?, CarriedFromBoardId? }`); `RetroHub.AddAction` /
+`EditAction` / `ToggleActionDone` / `DeleteAction`; snapshot; EF migration ×3; frontend
+actions panel; locale-aware date rendering through the §5 i18n service (`Intl`).
+
+**Approach.** Creatable from a theme (title prefilled from the group label) or
+standalone. The owner is optional and free-text-capable: the platform has no accounts,
+and the owner may be someone who was not in the room. Actions stay editable after the
+board is closed, because "mark done" happens days later — that is deliberately the one
+write allowed on a closed room, and it needs an explicit carve-out in the §19 close
+check rather than a silent exception.
+
+## 27. Carry-over from the previous retro
+
+**What.** Starting a retro can pull the unfinished action items from a previous board
+forward, shown as a review list at the top of the Collect phase.
+
+**Why.** "What happened to last time's actions?" is the highest-value two minutes of a
+retro. Rooms are independent — there is no team entity — so carry-over needs an
+explicit link.
+
+**Touch points.** The retro creation flow (`pages/retro/create`) accepts a previous
+board's short code; `RetroService.CreateWithCarryOverAsync`;
+`RetroActionItem.CarriedFromBoardId` (§26); `RetroBoard.PreviousBoardShortCode`; a
+snapshot section; EF migration ×3.
+
+**Approach.** **Copy** the not-done actions into the new board rather than referencing
+them, keeping `CarriedFromBoardId` for provenance — the new board then stays
+self-contained for export (§28) and is unaffected when the old one is
+retention-deleted (§15). Require the previous board's **password** if it had one: a
+short code is a bearer token here, and carry-over must not become a way to read a
+protected board's contents. Deep-link it too, so "start the next retro" from a closing
+board prefills the code.
+
+## 28. Retro export
+
+**What.** Export a retro board — columns, cards, groups, vote tallies, action items — to
+CSV, JSON and Markdown, plus a read-only post-retro summary view.
+
+**Why.** Retro output belongs in the team's wiki or ticket tracker, and pasteable
+Markdown is the format that actually gets used. This extends the §12 poker export
+rather than inventing a second mechanism.
+
+**Touch points.** `GET /api/retro/{shortCode}/export?format=csv|json|md` alongside the
+existing `GET /api/sessions/{shortCode}/export` (§12) — both move under the shared room
+export controller from §19; frontend download button plus the summary view.
+
+**Approach.** Reuse §12's streaming and content-type handling and its
+existence-plus-password guard verbatim. **Anonymity (§22) must hold in the export:** an
+anonymous board exports no author column at all, and there is no organiser override
+that de-anonymises it — an export that quietly attributes anonymous cards would be the
+worst possible bug in this feature. Markdown output is grouped by theme, ordered by
+dots, with actions as a task list.
+
+## 29. README & deploy — last
+
+**What.** Rewrite `README.md` around the two-tool platform (intro, per-tool feature
+lists, layout block, run instructions), reconcile `ARCHITECTURE.md` with anything
+§18–§28 discovered, and finish any deploy/CI wiring the rename (§18) could not settle
+in advance.
+
+**Why.** The README is the product's front page and it describes features as *shipped*.
+Rewriting it before the retro tool exists would advertise something a visitor cannot
+use — which is why it is deliberately excluded from the §18 rename and lands here
+instead. `ARCHITECTURE.md` is the opposite case: it describes the *design*, so it goes
+first (§17) and only needs correcting at the end.
+
+**Touch points.** `README.md` (platform intro, per-tool feature lists, layout block,
+run/prerequisite instructions); `ARCHITECTURE.md` (corrections only — the design was
+written in §17); `.github/workflows` and `deploy/` if the retro tool added anything;
+`run.sh` / `run.ps1` help text.
+
+**Approach.** One commit, once the shape has stopped moving, so the docs match a single
+point in the history. Per the repo convention, docs-only edits do not require running
+the test suites to source a number. If §17's design turned out to be wrong somewhere,
+say so in the doc's history rather than quietly rewriting it to match the code — the
+divergence is worth knowing about.
+
+---
+
 ## Cross-cutting notes
 
 - **Tests.** Backend has a ≥90% Core coverage gate (xUnit); every Core change needs unit
   tests against the in-memory store + fake `IClock`. Frontend uses Vitest + TestBed.
-- **Migrations.** Any `Session`/`Participant`/new-entity change needs EF migrations for
+- **Migrations.** Any `Room`/`Participant`/new-entity change needs EF migrations for
   all three providers (Sqlite, SqlServer, PostgreSql).
-- **Snapshot contract.** New broadcast fields go through `Snapshots.cs` and the mirrored
-  `core/models.ts` — keep them in sync.
+- **Snapshot contract.** New broadcast fields go through the tool's snapshot record and
+  the mirrored `core/models.ts` — keep them in sync. Room-level fields belong in the
+  shared `RoomSnapshot` fragment (§19), never duplicated per tool.
 - **Scaling caveat.** The app is single-instance (in-process SignalR + SQLite). Analytics
   history and large-group broadcasts are fine at that scale; horizontal scaling (Redis
   backplane) is out of scope here.
+- **One tool per room.** A room is created as poker *or* retro and cannot switch. There
+  is no team/workspace entity: the two tools share the room engine and the front door,
+  nothing else (§27 is the one deliberate cross-board link, and it copies rather than
+  references).
+- **Cross-cutting parity.** Anything room-level added from §19 onward must work for
+  both tools by construction. Each retro task carries an explicit a11y + i18n checklist
+  item precisely so the new surface does not quietly regress §4 and §5.
+- **Docs cadence.** `ARCHITECTURE.md` is written **first** (§17), before the rename or
+  the refactor, because it is the design the refactor implements. `README.md` is written
+  **last** (§29), because it describes shipped features to visitors. The two are not one
+  docs task — they answer to opposite deadlines.

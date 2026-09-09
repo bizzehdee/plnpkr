@@ -1,8 +1,13 @@
-# plnpkr — Task Queue
+# TeamTools — Task Queue
 
 Tasks derived from [plan.md](./plan.md), ordered for execution. Ordering rule:
 **ascending ease of implementation, but a task that others depend on always comes
 before its dependents** (dependency wins over pure ease). Effort is a rough T-shirt size.
+
+Two phases: **#1–#16 (done)** built the planning-poker tool, and **#17–#29** turn the app
+into the TeamTools platform and add the second tool, Team Retro.
+
+## Phase 1 — Planning Poker (#1–#16, all done)
 
 | # | Task | Effort | Depends on | Layer |
 |---|------|--------|-----------|-------|
@@ -20,6 +25,8 @@ before its dependents** (dependency wins over pure ease). Effort is a rough T-sh
 | 12 | Export | M | 10, 11 | BE + FE |
 | 13 | GitHub Issues support | L | — | BE |
 | 14 | GitLab support | L | 13 | BE |
+| 15 | Session retention policy | S–M | — | BE + FE |
+| 16 | Integrations status & how-to-connect help | S | 5, 13, 14 | FE |
 
 > **Why this order.** #1, #2, #3 are small and unblock nothing-but-themselves, so they go
 > first. #4 (a11y) and #5 (i18n) are cross-cutting foundations — done before the larger
@@ -145,3 +152,175 @@ before its dependents** (dependency wins over pure ease). Effort is a rough T-sh
 - [x] Per-provider instructions content (PAT scope/where to generate, OAuth vs. token, base URL format) — Jira, Azure DevOps, GitHub, GitLab (`trackerHelp()` in `session.page.ts`).
 - [x] Wired through i18n catalogs (en/es/pt/pl).
 - [x] Tests: enabled-integrations summary lists only the enabled providers; instructions match the selected provider and switch when the selection changes.
+---
+
+# Platform phase — TeamTools with two tools
+
+| # | Task | Effort | Depends on | Layer |
+|---|------|--------|-----------|-------|
+| 17 | `ARCHITECTURE.md` — document the platform target | S | — | Docs |
+| 18 | Rename to TeamTools | M (mechanical) | 17 | All |
+| 19 | Shared Room core | L | 17, 18 | BE (+FE contract) |
+| 20 | Tool picker & platform shell | M | 19 | FE |
+| 21 | Retro board: model, creation, cards | L | 19, 20 | BE + FE |
+| 22 | Retro anonymity | S–M | 21 | BE + FE |
+| 23 | Facilitator-driven phases | M | 21, 22 | BE + FE |
+| 24 | Grouping into themes | M | 23 | BE + FE |
+| 25 | Dot voting | M | 24 | BE + FE |
+| 26 | Action items | M | 23 | BE + FE |
+| 27 | Carry-over from the previous retro | S–M | 26 | BE + FE |
+| 28 | Retro export | S–M | 24, 25, 26 | BE + FE |
+| 29 | `README.md` & deploy | S | 17–28 | Docs |
+
+> **Why this order.** The ease-before-dependents rule still applies, but four hard
+> constraints dominate.
+>
+> **#17 (`ARCHITECTURE.md`) goes first, before any code moves.** #19 relocates nearly
+> every type in Core and rewrites the schema with hand-written data motion — the one
+> change where "document it afterwards" yields a refactor that drifted from the plan and
+> a migration a reviewer cannot check against anything. Writing the target down first
+> makes #19 an implementation of an agreed design, and finds a wrong design on a page
+> instead of in a migration.
+>
+> **#18 (rename) goes next** even though it is not the easiest: every file #19–#28 adds
+> should land with its final name, and renaming afterwards doubles the diff.
+>
+> **#19 (Room core) goes third** because it *is* the platform: a pure
+> behaviour-preserving refactor guarded by the existing ≥90% Core coverage gate, and the
+> one change that gets strictly harder the more retro code exists.
+>
+> **#22 (anonymity) comes before #23–#28, not after**, even though it looks like a
+> settings toggle. Anonymity is a snapshot-contract property; build phases, grouping,
+> voting and export against an attributed snapshot first and each becomes its own
+> authorship leak to hunt down. Cheap now, expensive later.
+>
+> #23 (phases) then gates every later mutation, so grouping (#24) and voting (#25) build
+> on it — and #25 follows #24 because dots attach to groups. #26 (actions) needs only the
+> phase machine, so it can run in parallel with #24/#25. #27 needs actions to carry. #28
+> (export) needs everything it serialises.
+>
+> **#29 (`README.md`) goes last** — the opposite deadline to #17. The README describes
+> features as *shipped*, so rewriting it before the retro tool exists would advertise
+> something a visitor cannot use. `ARCHITECTURE.md` describes the *design*, so it leads.
+
+---
+
+## 17. `ARCHITECTURE.md` — document the platform target  `S`  ✅ done
+**First, before any code moves. #19 implements what this task decides.**
+- [x] Rewrite `ARCHITECTURE.md` for the two-tool platform, stated as the target #18–#28 land on (the code catches up task by task).
+- [x] Room / tool-payload boundary: which current `Session` fields go to `Room` and which to `PokerRound`.
+- [x] Table shape after the split (`Rooms` + `PokerRounds` + the retro tables) and the requirement that the migration **moves** data rather than dropping it.
+- [x] The `RoomSnapshot` fragment and the two-hub realtime contract (`PokerHub`, `RetroHub`).
+- [x] One-tool-per-room rule; no team/workspace entity; #27 as the single deliberate cross-board link.
+- [x] Which cross-cutting concerns are room-level and therefore inherited by both tools: #3, #4, #5, #6, #7, #15.
+- [x] Keep the existing doc's structure and detail level where it still applies — this is a rewrite, not a blank page.
+- [x] Verify: a reader can predict #19's file moves and migration from this doc alone. (Docs-only: no test run needed.)
+
+## 18. Rename to TeamTools  `M (mechanical)`  — depends on #17
+**Everything below should land with its final name.**
+- [ ] Rename solution + all `src`/test projects `PlanningPoker.*` → `TeamTools.*`; update every `namespace`/`using`.
+- [ ] `PlanningPokerHub.cs` → `PokerHub.cs`; `PlanningPokerDbContext` → `TeamToolsDbContext`.
+- [ ] Fix the EF migration snapshots + designers for all three providers (they name the context class) and `DesignTimeDbContextFactory.cs` ×3.
+- [ ] Update `Dockerfile`, `docker-compose.yml`, `.github/workflows`, `deploy/`, `run.sh`, `run.ps1` (project paths + the `planningpoker.db` default filename).
+- [ ] Handle the old default SQLite file: read `planningpoker.db` if present and log a rename hint rather than silently starting empty.
+- [ ] Frontend `package.json` name, `index.html` title, app-name keys in all four i18n catalogs; `NOTICE`.
+- [ ] **Not** `README.md` — that is #29.
+- [ ] Verify: full backend + frontend suites green with zero behavioural diff; `docker compose up` still boots.
+
+## 19. Shared Room core  `L`  — depends on #17, #18
+**The platform bet. Implements #17's design. Behaviour-preserving; no new features.**
+- [ ] `Session` → `Room` (short code, name, participants, presence, organiser set, password, `ClosedAt`/`DeletedAt`, reactions, `LastActivityAt`) + `RoomTool` discriminator (`Poker` | `Retro`), fixed at creation.
+- [ ] Poker-specific state → `Poker/PokerRound` (`State`, deck, story + note, timer fields, tracker link/queue, `RoundResult`s).
+- [ ] `ISessionStore` → `IRoomStore` + a poker store for `GetSessionsWithExpiredTimerAsync`; update `EfSessionStore` and the in-memory fake.
+- [ ] `SessionService` → `RoomService` (join/leave/role/organiser/password/close/delete) + `PokerService` (vote/reveal/reset/deck/story/timer/discussion).
+- [ ] Move `SessionMaintenanceService` + `RetentionOptions` to room level; retention (#15) now applies to any room.
+- [ ] Room-scope `ConnectionRegistry`, `HubThrottle`, `ReactionRateLimiter` so #3's limits cover both tools.
+- [ ] `RoomSnapshot` fragment in the contracts, embedded by each tool snapshot; mirror in `core/models.ts`; split `realtime.client.ts` into `room.client.ts` + `poker.client.ts`.
+- [ ] EF migration ×3 that **moves** existing rows into `Rooms` + `PokerRounds` — hand-written data motion, not a scaffolded drop/recreate.
+- [ ] Verify: existing suites pass unchanged and the Core coverage gate stays ≥90%; a pre-refactor DB upgrades with sessions, participants, notes and round history intact; the result matches #17's doc (correct the doc in #29 if it does not).
+
+## 20. Tool picker & platform shell  `M`  — depends on #19
+- [ ] Home page → platform picker (Planning Poker | Team Retro); poker creation moves to `pages/poker/create`.
+- [ ] Routes: `/poker/:shortCode`, `/retro/:shortCode`, per-tool create routes; `/session/:shortCode` kept as a permanent redirect so existing invite links survive.
+- [ ] `join.page.ts` resolves a short code to `{ tool, shortCode }` (per #19) and routes to the right tool.
+- [ ] Shared shell in `app.html`: header, theme toggle, language switcher, tool switcher.
+- [ ] a11y + i18n: picker is keyboard-navigable with visible focus rings (#4); all new copy through the en/es/pt/pl catalogs (#5).
+- [ ] Tests: picker routes to each tool; `/session/:code` redirect; short-code resolution picks the right tool page.
+
+## 21. Retro board: model, creation, cards  `L`  — depends on #19, #20
+**Foundation for #22–#28.**
+- [ ] `TeamTools.Retro`: `RetroBoard`, `RetroColumn`, `RetroCard`, `RetroTemplateCatalog` (Went well/To improve/Actions, Start-Stop-Continue, 4Ls, Mad-Sad-Glad, Custom — mirroring `DeckCatalog`), `RetroService`.
+- [ ] `RetroSnapshots.cs` embedding `RoomSnapshot`; mirror in `core/models.ts`.
+- [ ] `RetroHub`: `AddCard`, `EditCard`, `DeleteCard`, `MoveCard`, `SetTemplate`; author-or-organiser authz on edit/delete.
+- [ ] Card text length cap + adds rate-limited through the #3 token bucket.
+- [ ] EF migration ×3.
+- [ ] `pages/retro/retro.page.*` + `core/retro.client.ts`; inline card editing follows the #10 note conventions.
+- [ ] a11y + i18n: cards and column controls keyboard-operable (#4); template labels and all copy in the catalogs (#5).
+- [ ] Tests: card CRUD + move broadcast; non-author non-organiser cannot edit/delete; template catalog; custom columns.
+
+## 22. Retro anonymity  `S–M`  — depends on #21
+**Before #23–#28: it is a snapshot-contract property, not a UI toggle.**
+- [ ] `RetroBoard.Anonymous` + `RetroHub.SetAnonymous` (organiser-gated), locked once the first card exists.
+- [ ] Per-recipient snapshot projection: `AuthorUserId` never sent for others (and not at all on an anonymous board), with `IsMine` so authors can still edit their own cards.
+- [ ] Document that this is anonymity from participants, not from a DB administrator (`AuthorUserId` is still stored for edit authz + moderation).
+- [ ] EF migration ×3.
+- [ ] i18n: setting label + the "locked once cards exist" explanation in all catalogs.
+- [ ] Tests: anonymous board's snapshot carries no other-author identity **on the wire**; author still sees `IsMine`; toggle rejected once a card exists.
+
+## 23. Facilitator-driven phases  `M`  — depends on #21, #22
+- [ ] `RetroPhase` (Collect → Group → Vote → Discuss → Actions → Closed) + explicit forward-only transitions in `RetroService`, with an organiser-only "back one phase".
+- [ ] `RetroHub.AdvancePhase`/`SetPhase`, organiser-gated (#7).
+- [ ] Collect hides other participants' cards; each participant sees their own plus a count of everyone else's (the #1 affordance).
+- [ ] Phase-gated mutations (no cards in Vote, no votes in Collect) returning friendly `SessionActionResult` failures.
+- [ ] Generalise `RoundTimerService` into a room-level phase timer reusing its deadline broadcast (#9's pattern).
+- [ ] EF migration ×3 (persisted phase enum + deadline).
+- [ ] a11y + i18n: phase changes announced via the #4 `aria-live` region; phase names in all catalogs.
+- [ ] Tests: every legal transition + rejection of illegal ones; Collect hides others' card text on the wire; phase-gate rejections; timer expiry behaviour.
+
+## 24. Grouping into themes  `M`  — depends on #23
+- [ ] `RetroGroup` + `RetroCard.GroupId`; `RetroHub.GroupCards`/`UngroupCard`/`RenameGroup`.
+- [ ] Organiser-driven by default, with a board setting to open grouping to everyone.
+- [ ] Concurrent drags: last-write-wins on `GroupId`, reconciled by the full-snapshot rebroadcast.
+- [ ] EF migration ×3; snapshot + `core/models.ts`.
+- [ ] Drag-and-drop in `retro.page.*` **plus** a keyboard/screen-reader "move card to group" menu on every card (#4 — no mouse-only affordance).
+- [ ] Tests: group/ungroup/rename authz; concurrent-move convergence; keyboard move path works without drag events.
+
+## 25. Dot voting  `M`  — depends on #24
+- [ ] `RetroVote` (`{ BoardId, VoterUserId, TargetKind, TargetId }`) + `RetroBoard.VoteBudget`/`AllowMultiplePerItem`.
+- [ ] `RetroHub.CastRetroVote`/`WithdrawVote` with **server-side** budget enforcement.
+- [ ] Tally calculator (a `StatsCalculator` sibling); own dots always visible, others' totals only once Vote ends; Discuss reorders by score.
+- [ ] Votes follow their target through grouping: grouping sums dots, ungrouping returns each card's own.
+- [ ] EF migration ×3; snapshot + `core/models.ts`.
+- [ ] a11y + i18n: dot controls as real buttons with counts announced (#4); budget/remaining copy pluralised via `PluralPipe` (#5).
+- [ ] Tests: over-budget rejected server-side; totals absent from the wire during Vote; group/ungroup dot arithmetic; ranking order.
+
+## 26. Action items  `M`  — depends on #23
+- [ ] `RetroActionItem` (`{ Id, BoardId, Title, OwnerUserId, OwnerName, DueDate, DoneAt, SourceGroupId?, CarriedFromBoardId? }`).
+- [ ] `RetroHub.AddAction`/`EditAction`/`ToggleActionDone`/`DeleteAction`; creatable from a theme (prefilled from the group label) or standalone.
+- [ ] Optional free-text owner (no accounts; the owner may not be in the room).
+- [ ] Explicit carve-out in the #19 close check so actions stay editable on a **closed** room — "mark done" happens days later.
+- [ ] EF migration ×3; snapshot + `core/models.ts`; actions panel in `retro.page.*`.
+- [ ] a11y + i18n: due dates rendered via the #5 `Intl` service; panel keyboard-operable (#4).
+- [ ] Tests: action CRUD + done toggle; the closed-room write carve-out allows exactly this and nothing else; creation from a group prefills the title.
+
+## 27. Carry-over from the previous retro  `S–M`  — depends on #26
+- [ ] Retro creation accepts a previous board's short code; `RetroBoard.PreviousBoardShortCode`.
+- [ ] `RetroService.CreateWithCarryOverAsync` **copies** not-done actions (keeping `CarriedFromBoardId`) so the new board stays self-contained and survives the old one's retention delete (#15).
+- [ ] Require the previous board's password if it had one — a short code is a bearer token, and carry-over must not leak a protected board.
+- [ ] Carried actions shown as a review list at the top of Collect; "start next retro" from a closing board deep-links the code.
+- [ ] EF migration ×3 if not already covered by #26's columns.
+- [ ] Tests: only not-done actions carry; provenance recorded; wrong/missing password refused; deleting the source board leaves the new one intact.
+
+## 28. Retro export  `S–M`  — depends on #24, #25, #26
+- [ ] `GET /api/retro/{shortCode}/export?format=csv|json|md`, reusing #12's streaming, content-type and existence+password guard.
+- [ ] Serialise columns, cards, groups, vote tallies and action items; Markdown grouped by theme, ordered by dots, actions as a task list.
+- [ ] **Anonymity holds in the export** (#22): an anonymous board exports no author column, with no organiser override.
+- [ ] Read-only post-retro summary view + FE download button.
+- [ ] Tests: CSV/JSON/MD shapes; password guard; an anonymous board's export contains no author data in any of the three formats.
+
+## 29. `README.md` & deploy  `S`  — depends on #17–#28
+**Last: the README describes shipped features, so it waits until they are.**
+- [ ] `README.md`: platform intro, per-tool feature lists, updated layout block, run/prerequisite instructions.
+- [ ] `ARCHITECTURE.md`: corrections only, where #18–#28 diverged from #17's design — note the divergence rather than quietly rewriting to match the code.
+- [ ] `.github/workflows`, `deploy/` and `run.sh`/`run.ps1` help text, for anything the retro tool added that #18 could not settle in advance.
+- [ ] One commit, done last, so the docs match a single point in the history. (Docs-only: no test run needed just to source a number.)
