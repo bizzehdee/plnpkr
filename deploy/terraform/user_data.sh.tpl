@@ -16,43 +16,43 @@ DOTNETPROFILE
 chmod +x /etc/profile.d/dotnet.sh
 
 # ── App user and directories ──────────────────────────────────────────────────
-useradd -r -s /sbin/nologin planningpoker
-mkdir -p /opt/planningpoker/app
-mkdir -p /opt/planningpoker/data
-chown -R planningpoker:planningpoker /opt/planningpoker
+useradd -r -s /sbin/nologin teamtools
+mkdir -p /opt/teamtools/app
+mkdir -p /opt/teamtools/data
+chown -R teamtools:teamtools /opt/teamtools
 
 # ── Environment file ──────────────────────────────────────────────────────────
 # Values are injected by Terraform's templatefile() function at apply time.
-cat > /etc/planningpoker.env << ENVFILE
+cat > /etc/teamtools.env << ENVFILE
 ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=http://+:8080
 DOTNET_ROOT=/usr/local/dotnet
 Database__Provider=${database_provider}
-ConnectionStrings__Default=Data Source=/opt/planningpoker/data/planningpoker.db
+ConnectionStrings__Default=Data Source=/opt/teamtools/data/teamtools.db
 Integrations__Jira__Enabled=${jira_enabled}
 Integrations__Ado__Enabled=${ado_enabled}
 Integrations__Jira__OAuth__ClientId=${jira_client_id}
 Integrations__Jira__OAuth__ClientSecret=${jira_client_secret}
 ENVFILE
-chmod 600 /etc/planningpoker.env
+chmod 600 /etc/teamtools.env
 
 # ── systemd unit ─────────────────────────────────────────────────────────────
-cat > /etc/systemd/system/planningpoker.service << 'UNIT'
+cat > /etc/systemd/system/teamtools.service << 'UNIT'
 [Unit]
-Description=Planning Poker API
+Description=TeamTools API
 After=network.target
 
 [Service]
 Type=simple
-User=planningpoker
-WorkingDirectory=/opt/planningpoker/app
-ExecStart=/usr/local/dotnet/dotnet /opt/planningpoker/app/PlanningPoker.Api.dll
+User=teamtools
+WorkingDirectory=/opt/teamtools/app
+ExecStart=/usr/local/dotnet/dotnet /opt/teamtools/app/TeamTools.Api.dll
 Restart=always
 RestartSec=10
-EnvironmentFile=/etc/planningpoker.env
+EnvironmentFile=/etc/teamtools.env
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=planningpoker
+SyslogIdentifier=teamtools
 
 # Prevent the service crashing the host if the SQLite file is missing on first boot.
 StartLimitIntervalSec=60
@@ -64,6 +64,6 @@ UNIT
 
 systemctl daemon-reload
 # Enable but do not start — the app binary is deployed separately via deploy-backend.sh.
-systemctl enable planningpoker
+systemctl enable teamtools
 
 echo "EC2 bootstrap complete. Deploy the app with deploy-backend.sh."

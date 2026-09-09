@@ -9,6 +9,7 @@
 *.db-wal
 *.sqlite$
 *.sqlite3$
+teamtools.db*
 planningpoker.db*
 
 # Single-artifact publish output

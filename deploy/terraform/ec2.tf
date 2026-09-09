@@ -16,7 +16,7 @@ data "aws_ami" "al2023" {
 
 resource "aws_security_group" "backend" {
   name        = "${var.app_name}-backend"
-  description = "Planning Poker backend — app port + SSH"
+  description = "TeamTools backend — app port + SSH"
 
   # The app listens on 8080. In production, restrict this to the CloudFront
   # managed prefix list (pl-3b927c52) if you want belt-and-braces security,

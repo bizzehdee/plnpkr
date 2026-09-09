@@ -4,8 +4,8 @@ import { JoinPage } from './pages/join/join.page';
 import { SessionPage } from './pages/session/session.page';
 
 export const routes: Routes = [
-  { path: '', component: HomePage, title: 'plnpkr' },
+  { path: '', component: HomePage, title: 'TeamTools' },
   { path: 'join/:shortCode', component: JoinPage, title: 'Join session' },
-  { path: 'session/:shortCode', component: SessionPage, title: 'plnpkr' },
+  { path: 'session/:shortCode', component: SessionPage, title: 'TeamTools' },
   { path: '**', redirectTo: '' },
 ];

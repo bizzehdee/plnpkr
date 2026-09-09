@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-  One-command runner for Planning Poker.
+  One-command runner for TeamTools (Planning Poker + Team Retro).
 .DESCRIPTION
   Checks prerequisites, installs/restores dependencies, then:
     dev   (default) - starts the API (:5210) and the Angular dev server (:4200) together
@@ -21,8 +21,8 @@ $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $backend = Join-Path $root 'backend'
 $frontend = Join-Path $root 'frontend'
-$apiProject = Join-Path $backend 'src/PlanningPoker.Api'
-$solution = Join-Path $backend 'PlanningPoker.slnx'
+$apiProject = Join-Path $backend 'src/TeamTools.Api'
+$solution = Join-Path $backend 'TeamTools.slnx'
 
 function Require-Command($name, $hint) {
     if (-not (Get-Command $name -ErrorAction SilentlyContinue)) {
@@ -57,7 +57,7 @@ function Free-Port($port) {
     }
 }
 
-Write-Host "Planning Poker — mode: $Mode" -ForegroundColor Green
+Write-Host "TeamTools — mode: $Mode" -ForegroundColor Green
 Require-Command dotnet 'Install the .NET 10 SDK: https://dotnet.microsoft.com/download'
 Require-Command node   'Install Node 20+: https://nodejs.org'
 Require-Command npm    'npm ships with Node.js'
@@ -84,7 +84,7 @@ switch ($Mode) {
         $env:ASPNETCORE_URLS = 'http://localhost:5210'
         Push-Location $publish
         # --contentRoot so appsettings*.json load (config is read relative to the content root).
-        try { dotnet PlanningPoker.Api.dll --contentRoot $publish } finally { Pop-Location }
+        try { dotnet TeamTools.Api.dll --contentRoot $publish } finally { Pop-Location }
         return
     }
 
@@ -99,7 +99,7 @@ switch ($Mode) {
 
         # Run the built DLL directly (not 'dotnet run', which forks a child we couldn't cleanly
         # kill), so the tracked process IS the server and shutdown stops it reliably.
-        $apiDll = Join-Path $apiProject 'bin/Debug/net10.0/PlanningPoker.Api.dll'
+        $apiDll = Join-Path $apiProject 'bin/Debug/net10.0/TeamTools.Api.dll'
         $env:ASPNETCORE_ENVIRONMENT = 'Development'
         $env:ASPNETCORE_URLS = 'http://localhost:5210'
         Write-Host '==> Starting API on http://localhost:5210 ...' -ForegroundColor Cyan

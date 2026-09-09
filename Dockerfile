@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Single-artifact container for Planning Poker: one image where the .NET API serves the
+# Single-artifact container for TeamTools: one image where the .NET API serves the
 # REST surface, the SignalR hub, and the Angular SPA from wwwroot — the same shape as the App Service
 # deploy. Single instance only (in-process SignalR + local SQLite); scale up, not out.
 
@@ -23,7 +23,7 @@ RUN cd frontend && npm ci
 # Now the source. dotnet publish restores + builds the API and (via the .csproj target) the SPA,
 # emitting the SPA into /app/wwwroot.
 COPY . .
-RUN dotnet publish backend/src/PlanningPoker.Api/PlanningPoker.Api.csproj -c Release -o /app
+RUN dotnet publish backend/src/TeamTools.Api/TeamTools.Api.csproj -c Release -o /app
 
 # --- Runtime stage: ASP.NET runtime only (no SDK/Node) --------------------------------------------
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
@@ -34,11 +34,11 @@ COPY --from=build /app .
 # is the content root, so appsettings*.json load correctly (no content-root pitfall, cf. run scripts).
 ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Production \
-    ConnectionStrings__Default="Data Source=/data/planningpoker.db"
+    ConnectionStrings__Default="Data Source=/data/teamtools.db"
 
 # Pre-create the data dir and run as the image's non-root user (uid 1654).
 RUN mkdir -p /data && chown -R app:app /data /app
 USER app
 
 EXPOSE 8080
-ENTRYPOINT ["dotnet", "PlanningPoker.Api.dll"]
+ENTRYPOINT ["dotnet", "TeamTools.Api.dll"]

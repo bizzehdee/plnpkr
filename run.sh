@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# One-command runner for Planning Poker.
+# One-command runner for TeamTools (Planning Poker + Team Retro).
 #   ./run.sh        dev   (default) - API (:5210) + Angular dev server (:4200) together
 #   ./run.sh prod         - publish the single artifact (API + SPA) and run it on :5210
 #   ./run.sh test         - run all backend tests, the Core coverage gate, and frontend tests
@@ -11,8 +11,8 @@ MODE="${1:-dev}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND="$ROOT/backend"
 FRONTEND="$ROOT/frontend"
-API_PROJECT="$BACKEND/src/PlanningPoker.Api"
-SOLUTION="$BACKEND/PlanningPoker.slnx"
+API_PROJECT="$BACKEND/src/TeamTools.Api"
+SOLUTION="$BACKEND/TeamTools.slnx"
 
 require() {
   command -v "$1" >/dev/null 2>&1 || { echo "Error: required tool '$1' not found on PATH. $2"; exit 1; }
@@ -53,7 +53,7 @@ free_port() {
   esac
 }
 
-echo "Planning Poker — mode: $MODE"
+echo "TeamTools — mode: $MODE"
 require dotnet "Install the .NET 10 SDK: https://dotnet.microsoft.com/download"
 require node   "Install Node 20+: https://nodejs.org"
 require npm    "npm ships with Node.js"
@@ -80,7 +80,7 @@ case "$MODE" in
     free_port 5210
     echo "==> Starting app on http://localhost:5210 (Ctrl+C to stop)"
     # --contentRoot so appsettings*.json load (config is read relative to the content root, not the DLL).
-    ASPNETCORE_URLS=http://localhost:5210 dotnet "$ROOT/publish/PlanningPoker.Api.dll" --contentRoot "$ROOT/publish"
+    ASPNETCORE_URLS=http://localhost:5210 dotnet "$ROOT/publish/TeamTools.Api.dll" --contentRoot "$ROOT/publish"
     ;;
 
   dev)
@@ -93,7 +93,7 @@ case "$MODE" in
 
     # Run the built DLL directly (not 'dotnet run', which forks a child we couldn't cleanly kill),
     # so $API_PID is the actual server and shutdown stops it reliably.
-    API_DLL="$API_PROJECT/bin/Debug/net10.0/PlanningPoker.Api.dll"
+    API_DLL="$API_PROJECT/bin/Debug/net10.0/TeamTools.Api.dll"
     echo "==> Starting API on http://localhost:5210 ..."
     # --contentRoot points at the project so appsettings*.json load (config is read relative to the
     # content root, not the DLL's folder — without this, Integrations:Enabled etc. silently default).

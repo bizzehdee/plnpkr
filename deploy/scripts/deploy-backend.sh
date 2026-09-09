@@ -16,7 +16,7 @@ EC2_IP="$(cd "$TF_DIR" && terraform output -raw ec2_public_ip)"
 
 echo "==> Building .NET backend (Release, no SPA)"
 cd "$REPO_ROOT"
-dotnet publish backend/src/PlanningPoker.Api \
+dotnet publish backend/src/TeamTools.Api \
   -c Release \
   -o "$PUBLISH_DIR" \
   -p:BuildSpa=false \
@@ -29,22 +29,22 @@ ssh -i "$EC2_KEY" \
     -o StrictHostKeyChecking=no \
     -o ConnectTimeout=30 \
     "$EC2_USER@$EC2_IP" \
-    "sudo systemctl stop planningpoker 2>/dev/null || true"
+    "sudo systemctl stop teamtools 2>/dev/null || true"
 
 echo "==> Copying files (rsync)"
 rsync -az --delete \
   -e "ssh -i $EC2_KEY -o StrictHostKeyChecking=no" \
   "$PUBLISH_DIR/" \
-  "$EC2_USER@$EC2_IP:/opt/planningpoker/app/"
+  "$EC2_USER@$EC2_IP:/opt/teamtools/app/"
 
 echo "==> Fixing ownership and starting service"
 ssh -i "$EC2_KEY" \
     -o StrictHostKeyChecking=no \
     "$EC2_USER@$EC2_IP" \
-    "sudo chown -R planningpoker:planningpoker /opt/planningpoker/app \
-     && sudo systemctl start planningpoker \
+    "sudo chown -R teamtools:teamtools /opt/teamtools/app \
+     && sudo systemctl start teamtools \
      && sleep 2 \
-     && sudo systemctl status planningpoker --no-pager"
+     && sudo systemctl status teamtools --no-pager"
 
 rm -rf "$PUBLISH_DIR"
 echo "==> Backend deployed. Health: http://$EC2_IP:8080/health/live"

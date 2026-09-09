@@ -52,6 +52,6 @@ output "next_steps" {
       1. Deploy the backend:  bash deploy/scripts/deploy-backend.sh
       2. Deploy the frontend: bash deploy/scripts/deploy-frontend.sh
     SSH to the instance:     ssh -i ~/.ssh/<key>.pem ec2-user@${aws_eip.backend.public_ip}
-    Tail logs:               sudo journalctl -u planningpoker -f
+    Tail logs:               sudo journalctl -u teamtools -f
   EOT
 }

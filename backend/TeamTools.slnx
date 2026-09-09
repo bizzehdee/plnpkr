@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TeamTools.Api/TeamTools.Api.csproj" />
+    <Project Path="src/TeamTools.Core/TeamTools.Core.csproj" />
+    <Project Path="src/TeamTools.Data/TeamTools.Data.csproj" />
+    <Project Path="src/TeamTools.Data.Sqlite/TeamTools.Data.Sqlite.csproj" />
+    <Project Path="src/TeamTools.Data.SqlServer/TeamTools.Data.SqlServer.csproj" />
+    <Project Path="src/TeamTools.Data.PostgreSql/TeamTools.Data.PostgreSql.csproj" />
+    <Project Path="src/TeamTools.Integrations/TeamTools.Integrations.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TeamTools.Api.Tests/TeamTools.Api.Tests.csproj" />
+    <Project Path="tests/TeamTools.Core.Tests/TeamTools.Core.Tests.csproj" />
+    <Project Path="tests/TeamTools.Data.Tests/TeamTools.Data.Tests.csproj" />
+    <Project Path="tests/TeamTools.Integrations.Tests/TeamTools.Integrations.Tests.csproj" />
+  </Folder>
+</Solution>

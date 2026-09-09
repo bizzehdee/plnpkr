@@ -11,7 +11,7 @@ services:
       # Database engine. Defaults to on-disk SQLite on the volume below. To use a server engine,
       # set the provider + connection string (and you can drop the volume), e.g.:
       #   - Database__Provider=PostgreSql
-      #   - ConnectionStrings__Default=Host=db;Database=planningpoker;Username=pp;Password=...
+      #   - ConnectionStrings__Default=Host=db;Database=teamtools;Username=pp;Password=...
       # Supported: Sqlite (default) | SqlServer | PostgreSql. MySQL/MariaDB is wired but not yet enabled.
       - Database__Provider=Sqlite
       # Turn each issue-tracker provider on independently for local use; OAuth client id/secret

@@ -216,16 +216,26 @@ into the TeamTools platform and add the second tool, Team Retro.
 - [x] Keep the existing doc's structure and detail level where it still applies — this is a rewrite, not a blank page.
 - [x] Verify: a reader can predict #19's file moves and migration from this doc alone. (Docs-only: no test run needed.)
 
-## 18. Rename to TeamTools  `M (mechanical)`  — depends on #17
-**Everything below should land with its final name.**
-- [ ] Rename solution + all `src`/test projects `PlanningPoker.*` → `TeamTools.*`; update every `namespace`/`using`.
-- [ ] `PlanningPokerHub.cs` → `PokerHub.cs`; `PlanningPokerDbContext` → `TeamToolsDbContext`.
-- [ ] Fix the EF migration snapshots + designers for all three providers (they name the context class) and `DesignTimeDbContextFactory.cs` ×3.
-- [ ] Update `Dockerfile`, `docker-compose.yml`, `.github/workflows`, `deploy/`, `run.sh`, `run.ps1` (project paths + the `planningpoker.db` default filename).
-- [ ] Handle the old default SQLite file: read `planningpoker.db` if present and log a rename hint rather than silently starting empty.
-- [ ] Frontend `package.json` name, `index.html` title, app-name keys in all four i18n catalogs; `NOTICE`.
-- [ ] **Not** `README.md` — that is #29.
-- [ ] Verify: full backend + frontend suites green with zero behavioural diff; `docker compose up` still boots.
+## 18. Rename to TeamTools  `M (mechanical)`  — depends on #17  ✅ done
+**Everything below landed with its final name.**
+- [x] Renamed solution (`TeamTools.slnx`) + all `src`/test projects `PlanningPoker.*` → `TeamTools.*`; every `namespace`/`using` updated.
+- [x] `PlanningPokerHub.cs` → `PokerHub.cs` (class too); `PlanningPokerDbContext` → `TeamToolsDbContext`.
+- [x] EF migration snapshots renamed (`TeamToolsDbContextModelSnapshot.cs` ×3) and the designers' context references updated; `DesignTimeDbContextFactory.cs` ×3.
+- [x] `Dockerfile`, `docker-compose.yml`, `.github/workflows/ci.yml`, `deploy/` (incl. the terraform systemd unit, which named `PlanningPoker.Api.dll` and would have broken the EC2 deploy), `run.sh`, `run.ps1`, `coverage-gate.ps1`, `.gitignore`.
+- [x] Old default SQLite file handled: `LegacyDatabaseFile.ResolveDefaultConnectionString` keeps using `planningpoker.db` when it is the only one present and logs a rename hint; the new default is `teamtools.db`. Only applies when no connection string is configured.
+- [x] Frontend `package.json` name, `index.html` title, `app.brand`/`app.copyright` in all four i18n catalogs, route titles; `NOTICE` product line.
+- [x] **Not** `README.md` — that is #29.
+- [x] Verify: backend 368 passed (364 pre-existing + 4 new `LegacyDatabaseFileTests`), frontend 115 passed, zero behavioural diff; `docker build` + container boot green with `/health` 200.
+
+> **Deliberately not renamed** (each would be a destructive or out-of-scope change, not a rename):
+> - `deploy/terraform/variables.tf` `app_name = "planning-poker"` — it is the name prefix for **all**
+>   AWS resources, so changing it would destroy and recreate live infrastructure on the next apply.
+> - the `pp-data` docker volume name — renaming it orphans the existing volume's SQLite data.
+> - the compose project name (derives from the repo directory name) and the
+>   `github.com/bizzehdee/plnpkr` URL — both are outside the codebase.
+>
+> The legacy `planningpoker.db` files in `src/TeamTools.Api/` are gitignored dev artifacts; they are
+> exactly the case the fallback above covers.
 
 ## 19. Shared Room core  `L`  — depends on #17, #18
 **The platform bet. Implements #17's design. Behaviour-preserving; no new features.**

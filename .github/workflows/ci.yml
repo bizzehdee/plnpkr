@@ -24,14 +24,14 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Restore
-        run: dotnet restore backend/PlanningPoker.slnx
+        run: dotnet restore backend/TeamTools.slnx
 
       - name: Build (Release)
-        run: dotnet build backend/PlanningPoker.slnx --configuration Release --no-restore
+        run: dotnet build backend/TeamTools.slnx --configuration Release --no-restore
 
       # `dotnet test` exits non-zero on any failed test, failing the job.
       - name: Test
-        run: dotnet test backend/PlanningPoker.slnx --configuration Release --no-build --verbosity normal
+        run: dotnet test backend/TeamTools.slnx --configuration Release --no-build --verbosity normal
 
   frontend:
     name: Frontend (build + test)
