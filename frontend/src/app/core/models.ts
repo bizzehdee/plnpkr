@@ -317,11 +317,21 @@ export const RETRO_TEMPLATE_LABEL_KEYS: Record<RetroTemplate, string> = {
 export interface RetroCardInfo {
   id: string;
   text: string;
+  /** The theme this card belongs to, or null when it stands alone (#24). */
+  groupId: string | null;
   authorUserId: string | null;
   authorDisplayName: string | null;
   isMine: boolean;
   order: number;
   createdAt: string;
+}
+
+/** A theme and the cards gathered into it (#24). */
+export interface RetroGroupInfo {
+  id: string;
+  label: string;
+  order: number;
+  cards: RetroCardInfo[];
 }
 
 export interface RetroColumnInfo {
@@ -350,7 +360,10 @@ export interface RetroBoardSnapshotWire {
   anonymous: boolean;
   /** False once the first card exists — anonymity is then locked (#22). */
   canChangeAnonymity: boolean;
+  /** Whether any participant may group cards, or only a facilitator (#24). */
+  allowParticipantGrouping: boolean;
   columns: RetroColumnInfo[];
+  groups: RetroGroupInfo[];
 }
 
 /** The flat view model the retro components read; `room` is kept for fields with no flat alias. */
@@ -372,7 +385,9 @@ export interface RetroBoardSnapshot {
   phaseDeadline: string | null;
   anonymous: boolean;
   canChangeAnonymity: boolean;
+  allowParticipantGrouping: boolean;
   columns: RetroColumnInfo[];
+  groups: RetroGroupInfo[];
 }
 
 export type RetroActionStatus =
@@ -388,6 +403,8 @@ export type RetroActionStatus =
   | 'AnonymityLocked'
   | 'WrongPhase'
   | 'IllegalPhaseTransition'
+  | 'GroupNotFound'
+  | 'InvalidGroupLabel'
   | 'InvalidTemplate'
   | 'RateLimited';
 

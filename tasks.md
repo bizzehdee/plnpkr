@@ -372,13 +372,28 @@ into the TeamTools platform and add the second tool, Team Retro.
 > preconditions (end collection first), not to the feature: cross-participant visibility is only
 > meaningful once collecting has ended.
 
-## 24. Grouping into themes  `M`  — depends on #23
-- [ ] `RetroGroup` + `RetroCard.GroupId`; `RetroHub.GroupCards`/`UngroupCard`/`RenameGroup`.
-- [ ] Organiser-driven by default, with a board setting to open grouping to everyone.
-- [ ] Concurrent drags: last-write-wins on `GroupId`, reconciled by the full-snapshot rebroadcast.
-- [ ] EF migration ×3; snapshot + `core/models.ts`.
-- [ ] Drag-and-drop in `retro.page.*` **plus** a keyboard/screen-reader "move card to group" menu on every card (#4 — no mouse-only affordance).
-- [ ] Tests: group/ungroup/rename authz; concurrent-move convergence; keyboard move path works without drag events.
+## 24. Grouping into themes  `M`  — depends on #23  ✅ done
+- [x] `RetroGroup` + `RetroCard.GroupId`; `RetroHub.GroupCards` / `UngroupCard` / `RenameGroup` / `SetAllowParticipantGrouping`.
+- [x] Organiser-driven by default, with `RetroBoard.AllowParticipantGrouping` to open it to everyone — off by default because grouping is a facilitation act, and two people dragging the same card in opposite directions is worse than waiting.
+- [x] Concurrent drags resolve last-write-wins on `GroupId`, reconciled by the per-recipient board rebroadcast; cheaper and less surprising than locking at room scale.
+- [x] EF migration ×3; snapshot gains `Groups` + `RetroCardInfo.GroupId`, mirrored in `core/models.ts`.
+- [x] Drag-and-drop in `retro.page.*` (card→theme, card→card forms a pair) **plus** a keyboard "group with…" select on every ungrouped card and a "remove from theme" button on every grouped one. The select lists existing themes and "New theme"; the drag handlers are the addition for mouse users, never the only way in (#4).
+- [x] i18n: 11 strings × 4 locales.
+- [x] Tests: 22 backend (`RetroGroupingTests`) + 12 frontend. Backend **515**, frontend **168**, coverage gate **94.8% line / 90.9% branch**.
+
+> **Themes carry the same per-recipient card projection as the columns**, so grouping cannot become
+> a side door around anonymity (#22) or hidden collection (#23) — a test asserts an anonymous
+> board's theme cards carry no authorship. Cards appear in both their column and their theme, so a
+> client can render the board either way without a second request.
+
+> **Grouping is refused outside the Group phase**, in both directions: during Collect the cards are
+> still hidden from each other, so grouping them is meaningless; from Vote onwards, regrouping would
+> move dots people have already spent.
+
+> **An emptied theme is removed, not left behind.** Every grouping change prunes groups that hold no
+> cards and renumbers the rest — an empty theme is not something the team can discuss or vote on.
+> The relationship is `SetNull` rather than `Cascade`: deleting a theme must never take the team's
+> cards with it.
 
 ## 25. Dot voting  `M`  — depends on #24
 - [ ] `RetroVote` (`{ BoardId, VoterUserId, TargetKind, TargetId }`) + `RetroBoard.VoteBudget`/`AllowMultiplePerItem`.

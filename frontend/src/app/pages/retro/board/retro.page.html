@@ -102,6 +102,95 @@
         }
       </nav>
 
+      <!-- Themes (#24). Only meaningful once cards are grouped, so hidden until they are. -->
+      @if (b.groups.length > 0) {
+        <section class="mb-3" [attr.aria-labelledby]="'themes-heading'">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <h2 class="h6 mb-0" id="themes-heading">{{ 'retro.themes' | t }}</h2>
+            <span class="badge text-bg-light">{{ b.groups.length }}</span>
+            @if (canFacilitate() && isGrouping() && !b.isClosed) {
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ms-auto"
+                (click)="toggleParticipantGrouping()"
+              >
+                {{
+                  (b.allowParticipantGrouping
+                    ? 'retro.groupingFacilitatorOnly'
+                    : 'retro.groupingEveryone'
+                  ) | t
+                }}
+              </button>
+            }
+          </div>
+
+          <ul class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 list-unstyled mb-0">
+            @for (group of b.groups; track group.id) {
+              <li class="col">
+                <!--
+                  A theme is a drop target for dragging, and its cards each carry a keyboard
+                  control, so neither input method is the only way in (#4).
+                -->
+                <div
+                  class="card h-100 border-primary-subtle"
+                  (dragover)="allowDrop($event)"
+                  (drop)="dropOnGroup(group.id, $event)"
+                >
+                  <div class="card-header d-flex align-items-center gap-2">
+                    @if (renamingGroup() === group.id) {
+                      <label class="visually-hidden" [attr.for]="'rename-' + group.id">
+                        {{ 'retro.renameTheme' | t }}
+                      </label>
+                      <input
+                        [id]="'rename-' + group.id"
+                        class="form-control form-control-sm"
+                        [(ngModel)]="renameDraft"
+                        [name]="'rename-' + group.id"
+                      />
+                      <button type="button" class="btn btn-sm btn-primary" (click)="saveRename(group)">
+                        {{ 'common.save' | t }}
+                      </button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelRename()">
+                        {{ 'common.cancel' | t }}
+                      </button>
+                    } @else {
+                      <h3 class="h6 mb-0">{{ group.label }}</h3>
+                      <span class="badge text-bg-light">{{ group.cards.length }}</span>
+                      @if (canGroup()) {
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-link p-0 ms-auto"
+                          (click)="startRename(group)"
+                        >
+                          {{ 'retro.renameTheme' | t }}
+                        </button>
+                      }
+                    }
+                  </div>
+
+                  <ul class="list-group list-group-flush">
+                    @for (card of group.cards; track card.id) {
+                      <li class="list-group-item d-flex align-items-start gap-2">
+                        <span class="flex-grow-1" style="white-space: pre-wrap">{{ card.text }}</span>
+                        @if (canGroup()) {
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-link p-0"
+                            (click)="ungroup(card)"
+                          >
+                            {{ 'retro.ungroup' | t }}
+                          </button>
+                        }
+                      </li>
+                    }
+                  </ul>
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
       <!--
         The columns are a list of lists: a screen reader announces how many columns there are and
         how many cards each holds, which is the structure a sighted user gets from the layout (#4).
@@ -128,8 +217,16 @@
                 }
 
                 <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
-                  @for (card of column.cards; track card.id) {
-                    <li class="border rounded p-2">
+@for (card of column.cards; track card.id) {
+                    <li
+                      class="border rounded p-2"
+                      [class.opacity-50]="card.groupId"
+                      [attr.draggable]="canGroup() ? true : null"
+                      (dragstart)="startDrag(card, $event)"
+                      (dragend)="endDrag()"
+                      (dragover)="allowDrop($event)"
+                      (drop)="dropOnCard(card, $event)"
+                    >
                       @if (editingCard() === card.id) {
                         <label class="visually-hidden" [attr.for]="'edit-' + card.id">
                           {{ 'retro.editCard' | t }}
@@ -181,6 +278,30 @@
                             </div>
                           }
                         </div>
+
+                        @if (canGroup() && !card.groupId) {
+                          <!--
+                            The keyboard equivalent of dragging a card onto a theme (#4). This is
+                            the primary path; the drag handlers are an addition for mouse users,
+                            not a replacement for this.
+                          -->
+                          <div class="mt-2">
+                            <label class="visually-hidden" [attr.for]="'group-' + card.id">
+                              {{ 'retro.groupWith' | t }}
+                            </label>
+                            <select
+                              [id]="'group-' + card.id"
+                              class="form-select form-select-sm"
+                              (change)="groupWith(card, $any($event.target).value); $any($event.target).value = ''"
+                            >
+                              <option value="" selected>{{ 'retro.groupWith' | t }}…</option>
+                              <option value="new">{{ 'retro.newTheme' | t }}</option>
+                              @for (group of b.groups; track group.id) {
+                                <option [value]="group.id">{{ group.label }}</option>
+                              }
+                            </select>
+                          </div>
+                        }
 
                         @if (canModify(card) && otherColumns(card).length > 0) {
                           <!--

@@ -18,6 +18,9 @@ public class RetroService
     /// <summary>Longest a card may be. Long enough for a thought, short enough to read on a board.</summary>
     public const int MaxCardLength = 500;
 
+    /// <summary>Longest a theme label may be — it is a heading, not a paragraph. See #24.</summary>
+    public const int MaxGroupLabelLength = 120;
+
     private readonly IRoomStore _store;
     private readonly RoomService _rooms;
     private readonly IClock _clock;
@@ -363,6 +366,193 @@ public class RetroService
         return await CommitAsync(room!, userId, ct);
     }
 
+    // --- Grouping (#24) ----------------------------------------------------
+
+    /// <summary>
+    /// Gathers cards into a theme. Passing a card that is already in a group moves it; passing a
+    /// single card creates a group of one, which is how a facilitator labels a standalone theme.
+    /// <para>
+    /// Concurrency is deliberately last-write-wins on <c>GroupId</c>: two facilitators dragging the
+    /// same card settle on whoever committed last, and the full-snapshot rebroadcast puts every
+    /// client back in agreement. At room scale that is cheaper and less surprising than locking.
+    /// </para>
+    /// </summary>
+    public async Task<RetroActionResult> GroupCardsAsync(
+        string shortCode, string userId, Guid[] cardIds, Guid? targetGroupId,
+        CancellationToken ct = default)
+    {
+        var (room, error) = await LoadForGroupingAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var board = Board(room!);
+        var cards = cardIds
+            .Select(id => board.Cards.FirstOrDefault(c => c.Id == id))
+            .Where(c => c is not null)
+            .Select(c => c!)
+            .ToList();
+
+        if (cards.Count == 0 || cards.Count != cardIds.Length)
+        {
+            return RetroActionResult.CardNotFound();
+        }
+
+        RetroGroup group;
+        if (targetGroupId is { } existingId)
+        {
+            var existing = board.Groups.FirstOrDefault(g => g.Id == existingId);
+            if (existing is null)
+            {
+                return RetroActionResult.GroupNotFound();
+            }
+            group = existing;
+        }
+        else
+        {
+            // Seed the label from the first card: an unnamed theme is harder to discuss than a
+            // badly named one, and the facilitator can rename it.
+            group = new RetroGroup
+            {
+                Id = Guid.NewGuid(),
+                BoardId = board.RoomId,
+                Label = Truncate(cards[0].Text, MaxGroupLabelLength),
+                Order = board.Groups.Count,
+            };
+            board.Groups.Add(group);
+        }
+
+        foreach (var card in cards)
+        {
+            card.GroupId = group.Id;
+        }
+
+        PruneEmptyGroups(board);
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    /// <summary>
+    /// Takes a card back out of its theme. A group left with nothing in it is removed — an empty
+    /// theme is not a thing the team can discuss or vote on.
+    /// </summary>
+    public async Task<RetroActionResult> UngroupCardAsync(
+        string shortCode, string userId, Guid cardId, CancellationToken ct = default)
+    {
+        var (room, error) = await LoadForGroupingAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var board = Board(room!);
+        var card = board.Cards.FirstOrDefault(c => c.Id == cardId);
+        if (card is null)
+        {
+            return RetroActionResult.CardNotFound();
+        }
+
+        card.GroupId = null;
+        PruneEmptyGroups(board);
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    /// <summary>Renames a theme — the name is what the team discusses, so it matters.</summary>
+    public async Task<RetroActionResult> RenameGroupAsync(
+        string shortCode, string userId, Guid groupId, string label, CancellationToken ct = default)
+    {
+        var (room, error) = await LoadForGroupingAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var board = Board(room!);
+        var group = board.Groups.FirstOrDefault(g => g.Id == groupId);
+        if (group is null)
+        {
+            return RetroActionResult.GroupNotFound();
+        }
+
+        var trimmed = (label ?? string.Empty).Trim();
+        if (trimmed.Length == 0)
+        {
+            return RetroActionResult.InvalidGroupLabel();
+        }
+
+        group.Label = Truncate(trimmed, MaxGroupLabelLength);
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    /// <summary>
+    /// Organiser-only: open grouping to every participant, or close it again. Off by default —
+    /// grouping is a facilitation act, and two people dragging the same card in opposite directions
+    /// is worse than waiting for the facilitator.
+    /// </summary>
+    public async Task<RetroActionResult> SetAllowParticipantGroupingAsync(
+        string shortCode, string userId, bool allowed, CancellationToken ct = default)
+    {
+        var (room, error) = await _rooms.LoadForControlAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return Project(error, userId);
+        }
+
+        Board(room!).AllowParticipantGrouping = allowed;
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    /// <summary>
+    /// Loads a board for a grouping change: right phase, and either an organiser or — when the
+    /// board allows it — any participant.
+    /// </summary>
+    private async Task<(Room? Room, RetroActionResult? Error)> LoadForGroupingAsync(
+        string shortCode, string userId, CancellationToken ct)
+    {
+        var (room, error) = await LoadForParticipantAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return (null, error);
+        }
+
+        var board = Board(room!);
+        if (!RetroPhaseRules.GroupingAllowed(board.Phase))
+        {
+            return (null, RetroActionResult.WrongPhase());
+        }
+
+        if (!board.AllowParticipantGrouping && !RoomAuthz.CanControl(room!, userId))
+        {
+            return (null, RetroActionResult.NotOrganiser());
+        }
+
+        return (room, null);
+    }
+
+    /// <summary>
+    /// Drops groups that no longer hold any cards, and renumbers the rest. Runs after every
+    /// grouping change so the board never shows a theme with nothing in it.
+    /// </summary>
+    private static void PruneEmptyGroups(RetroBoard board)
+    {
+        var empty = board.Groups
+            .Where(g => board.Cards.All(c => c.GroupId != g.Id))
+            .ToList();
+        foreach (var group in empty)
+        {
+            board.Groups.Remove(group);
+        }
+
+        var ordered = board.Groups.OrderBy(g => g.Order).ToList();
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            ordered[i].Order = i;
+        }
+    }
+
+    private static string Truncate(string value, int max) =>
+        value.Length > max ? value[..max] : value;
+
     // --- Phases (#23) ------------------------------------------------------
 
     /// <summary>
@@ -590,6 +780,21 @@ public class RetroService
             })
             .ToArray();
 
+        // Themes carry the same per-recipient card projection as the columns, so hidden collection
+        // and anonymity hold however the client chooses to render the board (#22, #23).
+        var groups = board.Groups
+            .OrderBy(g => g.Order)
+            .Select(g => new RetroGroupInfo(
+                g.Id,
+                g.Label,
+                g.Order,
+                board.Cards
+                    .Where(card => card.GroupId == g.Id && (othersVisible || card.AuthorUserId == forUserId))
+                    .OrderBy(card => card.Order)
+                    .Select(card => ToCardInfo(card, forUserId, names, board.Anonymous))
+                    .ToArray()))
+            .ToArray();
+
         return new RetroBoardSnapshot(
             RoomProjection.ToSnapshot(room, RoomProjection.ToInfos(room, revealed: false)),
             board.Template,
@@ -600,7 +805,9 @@ public class RetroService
             board.PhaseDeadline,
             board.Anonymous,
             board.Cards.Count == 0,
-            columns);
+            board.AllowParticipantGrouping,
+            columns,
+            groups);
     }
 
     private static RetroCardInfo ToCardInfo(
@@ -611,6 +818,7 @@ public class RetroService
         return new RetroCardInfo(
             card.Id,
             card.Text,
+            card.GroupId,
             // Null for everyone on an anonymous board, including the author: "everyone but you"
             // would still put a userId on the wire, and one leak is all it takes.
             anonymous ? null : card.AuthorUserId,

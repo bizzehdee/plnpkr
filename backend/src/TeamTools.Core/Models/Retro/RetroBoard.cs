@@ -50,6 +50,41 @@ public class RetroBoard
 
     /// <summary>Every card on the board, across all columns.</summary>
     public List<RetroCard> Cards { get; set; } = new();
+
+    /// <summary>The themes cards have been grouped into. See #24.</summary>
+    public List<RetroGroup> Groups { get; set; } = new();
+
+    /// <summary>
+    /// When true, any participant may group cards — not just an organiser (#24). Off by default:
+    /// grouping is a facilitation act, and two people dragging the same card in opposite directions
+    /// is a worse experience than waiting for the facilitator.
+    /// </summary>
+    public bool AllowParticipantGrouping { get; set; }
+}
+
+/// <summary>
+/// A theme: several cards that say the same thing, gathered so the team discusses them once and
+/// votes on them once (#24). Twelve cards about slow CI should not out-vote one card about a real
+/// problem simply by being twelve.
+/// </summary>
+public class RetroGroup
+{
+    public Guid Id { get; set; }
+
+    public Guid BoardId { get; set; }
+
+    public RetroBoard? Board { get; set; }
+
+    /// <summary>
+    /// The theme's name. Seeded from the first card's text when the group is formed, because an
+    /// unnamed group is harder to discuss than a badly named one — the facilitator renames it.
+    /// </summary>
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Display position among the groups, ascending.</summary>
+    public int Order { get; set; }
+
+    public List<RetroCard> Cards { get; set; } = new();
 }
 
 /// <summary>A column on a retro board — one of the prompts the team writes cards against.</summary>
@@ -85,6 +120,11 @@ public class RetroCard
     public Guid ColumnId { get; set; }
 
     public RetroColumn? Column { get; set; }
+
+    /// <summary>The theme this card belongs to, or null when it stands alone. See #24.</summary>
+    public Guid? GroupId { get; set; }
+
+    public RetroGroup? Group { get; set; }
 
     /// <summary>The stable per-browser id of whoever wrote it. See #34.</summary>
     public string AuthorUserId { get; set; } = string.Empty;

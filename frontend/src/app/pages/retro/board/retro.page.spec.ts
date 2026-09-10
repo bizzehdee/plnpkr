@@ -27,6 +27,7 @@ function card(over: Partial<RetroCardInfo> = {}): RetroCardInfo {
     isMine: true,
     order: 0,
     createdAt: '2026-01-01T00:00:00Z',
+    groupId: null,
     ...over,
   };
 }
@@ -72,6 +73,8 @@ function board(over: Partial<RetroBoardSnapshot> = {}): RetroBoardSnapshot {
     },
     template: 'WentWellToImprove',
     phase: 'Collect',
+    allowParticipantGrouping: false,
+    groups: [],
     nextPhase: 'Group',
     previousPhase: null,
     phaseDurationSeconds: null,
@@ -106,6 +109,12 @@ class FakeRetroClient {
     ok(board({ phase: 'Group', nextPhase: 'Vote', previousPhase: 'Collect' })),
   );
   previousPhase = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
+  groupCards = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
+  ungroupCard = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
+  renameGroup = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
+  setAllowParticipantGrouping = vi
+    .fn<(...a: unknown[]) => Promise<RetroActionResult>>()
+    .mockResolvedValue(ok(board()));
 }
 
 type Cmp = {
@@ -123,6 +132,13 @@ type Cmp = {
   advancePhase(): Promise<void>;
   previousPhase(): Promise<void>;
   canEditText(c: RetroCardInfo): boolean;
+  canGroup(): boolean;
+  groupWith(c: RetroCardInfo, value: string): Promise<void>;
+  ungroup(c: RetroCardInfo): Promise<void>;
+  startRename(g: { id: string; label: string }): void;
+  saveRename(g: { id: string; label: string }): Promise<void>;
+  renameDraft: string;
+  toggleParticipantGrouping(): Promise<void>;
 };
 
 async function setup(fake: FakeRetroClient) {
@@ -481,5 +497,186 @@ describe('RetroPage', () => {
     const fixture = await setup(new FakeRetroClient());
 
     expect((fixture.nativeElement as HTMLElement).querySelector('.font-monospace')).toBeNull();
+  });
+});
+
+// --- Grouping (#24) ---------------------------------------------------------
+
+describe('RetroPage grouping', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  /** A board in the Group phase, which is the only phase grouping is allowed in. */
+  function grouping(over: Partial<RetroBoardSnapshot> = {}): RetroBoardSnapshot {
+    return board({ phase: 'Group', nextPhase: 'Vote', previousPhase: 'Collect', ...over });
+  }
+
+  it('renders each theme with its cards and a count', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(
+      grouping({
+        groups: [
+          {
+            id: 'g-1',
+            label: 'Slow feedback loop',
+            order: 0,
+            cards: [card({ id: 'c-1', text: 'CI is slow', groupId: 'g-1' })],
+          },
+        ],
+      }),
+    );
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).toContain('Themes');
+    expect(el.textContent).toContain('Slow feedback loop');
+    expect(el.textContent).toContain('CI is slow');
+  });
+
+  it('hides the themes panel until something is grouped', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(grouping());
+    const fixture = await setup(fake);
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Themes');
+  });
+
+  it('offers a keyboard control to group a card into a new or existing theme', async () => {
+    // Dragging is unavailable to keyboard and screen-reader users, so this is the primary path (#4).
+    const fake = new FakeRetroClient();
+    fake.board.set(
+      grouping({
+        groups: [{ id: 'g-1', label: 'Slow feedback loop', order: 0, cards: [] }],
+      }),
+    );
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    const select = el.querySelector<HTMLSelectElement>('select#group-card-1');
+    expect(select).toBeTruthy();
+    const options = Array.from(select!.options).map((o) => o.textContent?.trim());
+    expect(options).toContain('New theme');
+    expect(options).toContain('Slow feedback loop');
+  });
+
+  it('groups a card into a brand-new theme', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(grouping());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.groupWith(card({ id: 'c-1' }), 'new');
+
+    expect(fake.groupCards).toHaveBeenCalledWith(CODE, ME, ['c-1'], null);
+  });
+
+  it('groups a card into an existing theme', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(grouping());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.groupWith(card({ id: 'c-1' }), 'g-1');
+
+    expect(fake.groupCards).toHaveBeenCalledWith(CODE, ME, ['c-1'], 'g-1');
+  });
+
+  it('ignores the placeholder option', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(grouping());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.groupWith(card({ id: 'c-1' }), '');
+
+    expect(fake.groupCards).not.toHaveBeenCalled();
+  });
+
+  it('takes a card back out of its theme', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(grouping());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.ungroup(card({ id: 'c-1', groupId: 'g-1' }));
+
+    expect(fake.ungroupCard).toHaveBeenCalledWith(CODE, ME, 'c-1');
+  });
+
+  it('renames a theme with the trimmed label', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(grouping());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    cmp.startRename({ id: 'g-1', label: 'old' });
+    cmp.renameDraft = '  Slow feedback loop  ';
+    await cmp.saveRename({ id: 'g-1', label: 'old' });
+
+    expect(fake.renameGroup).toHaveBeenCalledWith(CODE, ME, 'g-1', 'Slow feedback loop');
+  });
+
+  it('does not offer grouping outside the group phase', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Collect' }));
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    expect(cmp.canGroup()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).querySelector('select#group-card-1')).toBeNull();
+  });
+
+  it('does not offer grouping to a participant unless the board allows it', async () => {
+    const participantOnly = {
+      organiserUserId: 'someone-else',
+      participants: [
+        {
+          userId: ME,
+          displayName: 'Me',
+          isOrganiser: false,
+          role: 'Voter' as const,
+          hasVoted: false,
+          changedAfterReveal: false,
+          vote: null,
+          isConnected: true,
+          isOutlier: false,
+        },
+      ],
+    };
+
+    const closedFake = new FakeRetroClient();
+    closedFake.board.set(grouping({ ...participantOnly, allowParticipantGrouping: false }));
+    const closedFixture = await setup(closedFake);
+    expect((closedFixture.componentInstance as unknown as Cmp).canGroup()).toBe(false);
+    TestBed.resetTestingModule();
+
+    const openFake = new FakeRetroClient();
+    openFake.board.set(grouping({ ...participantOnly, allowParticipantGrouping: true }));
+    const openFixture = await setup(openFake);
+    expect((openFixture.componentInstance as unknown as Cmp).canGroup()).toBe(true);
+  });
+
+  it('lets a facilitator open grouping to everyone', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(
+      grouping({
+        allowParticipantGrouping: false,
+        groups: [{ id: 'g-1', label: 'A theme', order: 0, cards: [] }],
+      }),
+    );
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.toggleParticipantGrouping();
+
+    expect(fake.setAllowParticipantGrouping).toHaveBeenCalledWith(CODE, ME, true);
+  });
+
+  it('marks cards as draggable only while grouping is available', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(grouping());
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('li[draggable="true"]')).toBeTruthy();
   });
 });

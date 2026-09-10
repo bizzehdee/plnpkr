@@ -138,6 +138,25 @@ public class RetroHub : Hub
     public Task<RetroActionResult> SetPhaseDuration(string shortCode, string userId, int? seconds) =>
         MutateAndBroadcast(shortCode, () => _retro.SetPhaseDurationAsync(shortCode, userId, seconds));
 
+    // --- Grouping (#24) -----------------------------------------------------
+
+    public Task<RetroActionResult> GroupCards(
+        string shortCode, string userId, Guid[] cardIds, Guid? targetGroupId) =>
+        MutateAndBroadcast(shortCode, () =>
+            _retro.GroupCardsAsync(shortCode, userId, cardIds, targetGroupId));
+
+    public Task<RetroActionResult> UngroupCard(string shortCode, string userId, Guid cardId) =>
+        MutateAndBroadcast(shortCode, () => _retro.UngroupCardAsync(shortCode, userId, cardId));
+
+    public Task<RetroActionResult> RenameGroup(
+        string shortCode, string userId, Guid groupId, string label) =>
+        MutateAndBroadcast(shortCode, () => _retro.RenameGroupAsync(shortCode, userId, groupId, label));
+
+    public Task<RetroActionResult> SetAllowParticipantGrouping(
+        string shortCode, string userId, bool allowed) =>
+        MutateAndBroadcast(shortCode, () =>
+            _retro.SetAllowParticipantGroupingAsync(shortCode, userId, allowed));
+
     // --- Room-level settings & lifecycle ------------------------------------
 
     public Task<RetroActionResult> SetReactionsEnabled(string shortCode, string userId, bool enabled) =>

@@ -42,7 +42,9 @@ export function flattenBoard(wire: RetroBoardSnapshotWire): RetroBoardSnapshot {
     phaseDeadline: wire.phaseDeadline,
     anonymous: wire.anonymous,
     canChangeAnonymity: wire.canChangeAnonymity,
+    allowParticipantGrouping: wire.allowParticipantGrouping,
     columns: wire.columns,
+    groups: wire.groups,
   };
 }
 
@@ -95,6 +97,15 @@ export interface IRetroClient {
   advancePhase(shortCode: string, userId: string, seconds: number | null): Promise<RetroActionResult>;
   previousPhase(shortCode: string, userId: string): Promise<RetroActionResult>;
   setPhaseDuration(shortCode: string, userId: string, seconds: number | null): Promise<RetroActionResult>;
+  groupCards(
+    shortCode: string,
+    userId: string,
+    cardIds: string[],
+    targetGroupId: string | null,
+  ): Promise<RetroActionResult>;
+  ungroupCard(shortCode: string, userId: string, cardId: string): Promise<RetroActionResult>;
+  renameGroup(shortCode: string, userId: string, groupId: string, label: string): Promise<RetroActionResult>;
+  setAllowParticipantGrouping(shortCode: string, userId: string, allowed: boolean): Promise<RetroActionResult>;
   closeBoard(shortCode: string, userId: string): Promise<RetroActionResult>;
   deleteBoard(shortCode: string, userId: string): Promise<RetroActionResult>;
   setPassword(shortCode: string, userId: string, password: string | null): Promise<RetroActionResult>;
@@ -284,6 +295,22 @@ export class SignalrRetroClient extends RoomClientBase implements IRetroClient {
 
   setPhaseDuration(shortCode: string, userId: string, seconds: number | null) {
     return this.action('SetPhaseDuration', shortCode, userId, seconds);
+  }
+
+  groupCards(shortCode: string, userId: string, cardIds: string[], targetGroupId: string | null) {
+    return this.action('GroupCards', shortCode, userId, cardIds, targetGroupId);
+  }
+
+  ungroupCard(shortCode: string, userId: string, cardId: string) {
+    return this.action('UngroupCard', shortCode, userId, cardId);
+  }
+
+  renameGroup(shortCode: string, userId: string, groupId: string, label: string) {
+    return this.action('RenameGroup', shortCode, userId, groupId, label);
+  }
+
+  setAllowParticipantGrouping(shortCode: string, userId: string, allowed: boolean) {
+    return this.action('SetAllowParticipantGrouping', shortCode, userId, allowed);
   }
 
   closeBoard(shortCode: string, userId: string) {

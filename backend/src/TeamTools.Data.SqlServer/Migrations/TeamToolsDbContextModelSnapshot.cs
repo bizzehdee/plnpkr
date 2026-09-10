@@ -138,6 +138,9 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.Property<Guid>("RoomId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("AllowParticipantGrouping")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("Anonymous")
                         .HasColumnType("bit");
 
@@ -181,6 +184,9 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Order")
                         .HasColumnType("int");
 
@@ -194,6 +200,8 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.HasIndex("BoardId");
 
                     b.HasIndex("ColumnId");
+
+                    b.HasIndex("GroupId");
 
                     b.ToTable("RetroCard");
                 });
@@ -219,6 +227,29 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.HasIndex("BoardId");
 
                     b.ToTable("RetroColumn");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("RetroGroup");
                 });
 
             modelBuilder.Entity("TeamTools.Core.Models.Room", b =>
@@ -402,15 +433,33 @@ namespace TeamTools.Data.SqlServer.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("TeamTools.Core.Models.RetroGroup", "Group")
+                        .WithMany("Cards")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Board");
 
                     b.Navigation("Column");
+
+                    b.Navigation("Group");
                 });
 
             modelBuilder.Entity("TeamTools.Core.Models.RetroColumn", b =>
                 {
                     b.HasOne("TeamTools.Core.Models.RetroBoard", "Board")
                         .WithMany("Columns")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroGroup", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.RetroBoard", "Board")
+                        .WithMany("Groups")
                         .HasForeignKey("BoardId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -439,9 +488,16 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.Navigation("Cards");
 
                     b.Navigation("Columns");
+
+                    b.Navigation("Groups");
                 });
 
             modelBuilder.Entity("TeamTools.Core.Models.RetroColumn", b =>
+                {
+                    b.Navigation("Cards");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroGroup", b =>
                 {
                     b.Navigation("Cards");
                 });

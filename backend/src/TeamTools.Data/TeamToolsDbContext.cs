@@ -111,6 +111,27 @@ public class TeamToolsDbContext : DbContext
                 .WithOne(c => c.Board!)
                 .HasForeignKey(c => c.BoardId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(b => b.Groups)
+                .WithOne(g => g.Board!)
+                .HasForeignKey(g => g.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- RetroGroup: a theme (#24) --------------------------------------
+        modelBuilder.Entity<RetroGroup>(e =>
+        {
+            e.HasKey(g => g.Id);
+            e.Property(g => g.Id).ValueGeneratedNever(); // the domain assigns it — see RetroCard.Id
+            e.Property(g => g.Label).IsRequired().HasMaxLength(120);
+            e.HasIndex(g => g.BoardId);
+
+            // SetNull, not Cascade: deleting a theme must not delete the team.s cards with it, and a
+            // second cascade path to the same rows is what SQL Server rejects as a cycle.
+            e.HasMany(g => g.Cards)
+                .WithOne(c => c.Group!)
+                .HasForeignKey(c => c.GroupId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<RetroColumn>(e =>
@@ -145,6 +166,7 @@ public class TeamToolsDbContext : DbContext
             e.Property(c => c.Text).IsRequired().HasMaxLength(500);
             e.HasIndex(c => c.BoardId);
             e.HasIndex(c => c.ColumnId);
+            e.HasIndex(c => c.GroupId);
         });
 
         modelBuilder.Entity<RoundResult>(e =>

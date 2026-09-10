@@ -123,6 +123,19 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.err.illegalPhase': 'The retro moves one phase at a time.',
     'retro.announce.phaseChanged': 'Phase changed to {phase}.',
 
+    // Grouping (#24).
+    'retro.themes': 'Themes',
+    'retro.groupWith': 'Group with',
+    'retro.newTheme': 'New theme',
+    'retro.renameTheme': 'Rename',
+    'retro.ungroup': 'Remove from theme',
+    'retro.groupingEveryone': 'Let everyone group',
+    'retro.groupingFacilitatorOnly': 'Only I can group',
+    'retro.err.invalidGroupLabel': 'A theme needs a name.',
+    'retro.announce.grouped': 'Cards grouped into a theme.',
+    'retro.announce.ungrouped': 'Card removed from its theme.',
+    'retro.announce.themeRenamed': 'Theme renamed.',
+
     'common.cancel': 'Cancel',
     'common.save': 'Save',
     'common.close': 'Close',
@@ -479,6 +492,19 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.err.wrongPhase': 'Eso no está disponible en esta fase de la retro.',
     'retro.err.illegalPhase': 'La retro avanza de fase en fase.',
     'retro.announce.phaseChanged': 'Fase cambiada a {phase}.',
+
+    // Grouping (#24).
+    'retro.themes': 'Temas',
+    'retro.groupWith': 'Agrupar con',
+    'retro.newTheme': 'Tema nuevo',
+    'retro.renameTheme': 'Renombrar',
+    'retro.ungroup': 'Quitar del tema',
+    'retro.groupingEveryone': 'Permitir agrupar a todos',
+    'retro.groupingFacilitatorOnly': 'Solo yo puedo agrupar',
+    'retro.err.invalidGroupLabel': 'Un tema necesita un nombre.',
+    'retro.announce.grouped': 'Tarjetas agrupadas en un tema.',
+    'retro.announce.ungrouped': 'Tarjeta quitada de su tema.',
+    'retro.announce.themeRenamed': 'Tema renombrado.',
 
     'common.cancel': 'Cancelar',
     'common.save': 'Guardar',
@@ -837,6 +863,19 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.err.illegalPhase': 'A retro avança uma fase de cada vez.',
     'retro.announce.phaseChanged': 'Fase alterada para {phase}.',
 
+    // Grouping (#24).
+    'retro.themes': 'Temas',
+    'retro.groupWith': 'Agrupar com',
+    'retro.newTheme': 'Novo tema',
+    'retro.renameTheme': 'Renomear',
+    'retro.ungroup': 'Remover do tema',
+    'retro.groupingEveryone': 'Deixar todos agrupar',
+    'retro.groupingFacilitatorOnly': 'Só eu posso agrupar',
+    'retro.err.invalidGroupLabel': 'Um tema precisa de um nome.',
+    'retro.announce.grouped': 'Cartões agrupados num tema.',
+    'retro.announce.ungrouped': 'Cartão removido do seu tema.',
+    'retro.announce.themeRenamed': 'Tema renomeado.',
+
     'common.cancel': 'Cancelar',
     'common.save': 'Salvar',
     'common.close': 'Fechar',
@@ -1193,6 +1232,19 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.err.wrongPhase': 'To nie jest dostępne w tej fazie retrospektywy.',
     'retro.err.illegalPhase': 'Retrospektywa przechodzi jedną fazę na raz.',
     'retro.announce.phaseChanged': 'Faza zmieniona na {phase}.',
+
+    // Grouping (#24).
+    'retro.themes': 'Motywy',
+    'retro.groupWith': 'Zgrupuj z',
+    'retro.newTheme': 'Nowy motyw',
+    'retro.renameTheme': 'Zmień nazwę',
+    'retro.ungroup': 'Usuń z motywu',
+    'retro.groupingEveryone': 'Pozwól wszystkim grupować',
+    'retro.groupingFacilitatorOnly': 'Tylko ja mogę grupować',
+    'retro.err.invalidGroupLabel': 'Motyw potrzebuje nazwy.',
+    'retro.announce.grouped': 'Karty zgrupowane w motyw.',
+    'retro.announce.ungrouped': 'Karta usunięta z motywu.',
+    'retro.announce.themeRenamed': 'Nazwa motywu zmieniona.',
 
     'common.cancel': 'Anuluj',
     'common.save': 'Zapisz',

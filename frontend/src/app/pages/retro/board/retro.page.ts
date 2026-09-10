@@ -14,6 +14,7 @@ import {
   RetroActionResult,
   RetroCardInfo,
   RetroColumnInfo,
+  RetroGroupInfo,
   RetroPhase,
 } from '../../../core/models';
 
@@ -320,6 +321,145 @@ export class RetroPage implements OnInit, OnDestroy {
     return this.canModify(card) && this.isCollecting();
   }
 
+  // --- Grouping (#24) ----------------------------------------------------
+
+  protected readonly isGrouping = computed(() => this.board()?.phase === 'Group');
+
+  /** Whether this viewer may group cards: a facilitator, or anyone if the board allows it. */
+  protected readonly canGroup = computed(() => {
+    const board = this.board();
+    if (!board || board.isClosed || board.phase !== 'Group') {
+      return false;
+    }
+    return board.allowParticipantGrouping || this.canFacilitate();
+  });
+
+  /** Which theme is being renamed, and its draft label. */
+  protected readonly renamingGroup = signal<string | null>(null);
+  protected renameDraft = '';
+
+  /** The card currently being dragged, so a drop target knows what it is receiving. */
+  private readonly dragging = signal<string | null>(null);
+
+  protected startDrag(card: RetroCardInfo, event: DragEvent): void {
+    this.dragging.set(card.id);
+    event.dataTransfer?.setData('text/plain', card.id);
+  }
+
+  protected endDrag(): void {
+    this.dragging.set(null);
+  }
+
+  protected allowDrop(event: DragEvent): void {
+    if (this.canGroup() && this.dragging()) {
+      event.preventDefault(); // marks this element as a valid drop target
+    }
+  }
+
+  /** Dropping a card onto a theme adds it; dropping onto another card forms a theme from the pair. */
+  protected async dropOnGroup(groupId: string, event: DragEvent): Promise<void> {
+    event.preventDefault();
+    const cardId = this.dragging() ?? event.dataTransfer?.getData('text/plain');
+    this.endDrag();
+    if (cardId) {
+      await this.groupCards([cardId], groupId);
+    }
+  }
+
+  protected async dropOnCard(target: RetroCardInfo, event: DragEvent): Promise<void> {
+    event.preventDefault();
+    event.stopPropagation();
+    const cardId = this.dragging() ?? event.dataTransfer?.getData('text/plain');
+    this.endDrag();
+    if (!cardId || cardId === target.id) {
+      return;
+    }
+
+    // Dropping onto a card that is already in a theme joins that theme; otherwise the pair
+    // becomes a new one.
+    await this.groupCards(target.groupId ? [cardId] : [cardId, target.id], target.groupId);
+  }
+
+  /**
+   * The keyboard path (#4): "group with…" on every card. Present from the start, because dragging
+   * is unavailable to keyboard and screen-reader users — the drag handlers above are the addition,
+   * not the other way round.
+   */
+  protected async groupWith(card: RetroCardInfo, value: string): Promise<void> {
+    if (!value) {
+      return;
+    }
+    if (value === 'new') {
+      await this.groupCards([card.id], null);
+      return;
+    }
+    await this.groupCards([card.id], value);
+  }
+
+  private async groupCards(cardIds: string[], targetGroupId: string | null): Promise<void> {
+    const result = await this.retro.groupCards(
+      this.shortCode,
+      this.myUserId,
+      cardIds,
+      targetGroupId,
+    );
+    if (result.status === 'Ok') {
+      this.announce(this.i18n.t('retro.announce.grouped'));
+    } else {
+      this.error.set(this.statusMessage(result.status));
+    }
+  }
+
+  protected async ungroup(card: RetroCardInfo): Promise<void> {
+    const result = await this.retro.ungroupCard(this.shortCode, this.myUserId, card.id);
+    if (result.status === 'Ok') {
+      this.announce(this.i18n.t('retro.announce.ungrouped'));
+    } else {
+      this.error.set(this.statusMessage(result.status));
+    }
+  }
+
+  protected startRename(group: RetroGroupInfo): void {
+    this.renamingGroup.set(group.id);
+    this.renameDraft = group.label;
+  }
+
+  protected cancelRename(): void {
+    this.renamingGroup.set(null);
+    this.renameDraft = '';
+  }
+
+  protected async saveRename(group: RetroGroupInfo): Promise<void> {
+    const label = this.renameDraft.trim();
+    if (!label) {
+      return;
+    }
+
+    const result = await this.retro.renameGroup(this.shortCode, this.myUserId, group.id, label);
+    if (result.status === 'Ok') {
+      this.cancelRename();
+      this.announce(this.i18n.t('retro.announce.themeRenamed'));
+    } else {
+      this.error.set(this.statusMessage(result.status));
+    }
+  }
+
+  protected async toggleParticipantGrouping(): Promise<void> {
+    const board = this.board();
+    if (!board) {
+      return;
+    }
+
+    const result = await this.retro.setAllowParticipantGrouping(
+      this.shortCode,
+      this.myUserId,
+      !board.allowParticipantGrouping,
+    );
+    if (result.status !== 'Ok') {
+      this.error.set(this.statusMessage(result.status));
+    }
+  }
+
   /**
    * Facilitator-only: switch the board between attributed and anonymous cards (#22). The control is
    * only offered while `canChangeAnonymity` holds — once a card exists the server refuses, because
@@ -363,6 +503,10 @@ export class RetroPage implements OnInit, OnDestroy {
         return this.i18n.t('retro.err.wrongPhase');
       case 'IllegalPhaseTransition':
         return this.i18n.t('retro.err.illegalPhase');
+      case 'GroupNotFound':
+        return this.i18n.t('retro.err.gone');
+      case 'InvalidGroupLabel':
+        return this.i18n.t('retro.err.invalidGroupLabel');
       case 'RateLimited':
         return this.i18n.t('err.create.rateLimited');
       case 'CardNotFound':

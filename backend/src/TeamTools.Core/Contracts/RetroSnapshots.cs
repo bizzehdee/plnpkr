@@ -28,7 +28,21 @@ public record RetroBoardSnapshot(
     /// would retroactively expose or hide what people already wrote (#22).
     /// </summary>
     bool CanChangeAnonymity,
-    IReadOnlyList<RetroColumnInfo> Columns);
+    /// <summary>Whether any participant may group cards, or only an organiser (#24).</summary>
+    bool AllowParticipantGrouping,
+    IReadOnlyList<RetroColumnInfo> Columns,
+    /// <summary>The themes on the board, in display order (#24).</summary>
+    IReadOnlyList<RetroGroupInfo> Groups);
+
+/// <summary>
+/// A theme and the cards gathered into it (#24). Cards appear here *and* in their column, so a
+/// client can render the board either way without a second request.
+/// </summary>
+public record RetroGroupInfo(
+    Guid Id,
+    string Label,
+    int Order,
+    IReadOnlyList<RetroCardInfo> Cards);
 
 /// <summary>
 /// A column and the cards in it that this recipient may see, in display order.
@@ -58,6 +72,8 @@ public record RetroColumnInfo(
 public record RetroCardInfo(
     Guid Id,
     string Text,
+    /// <summary>The theme this card belongs to, or null when it stands alone (#24).</summary>
+    Guid? GroupId,
     string? AuthorUserId,
     string? AuthorDisplayName,
     bool IsMine,
@@ -88,6 +104,10 @@ public enum RetroActionStatus
     WrongPhase,
     /// <summary>Not a legal phase transition — phases move one step at a time (#23).</summary>
     IllegalPhaseTransition,
+    /// <summary>The referenced theme is not on this board (#24).</summary>
+    GroupNotFound,
+    /// <summary>A theme label cannot be empty (#24).</summary>
+    InvalidGroupLabel,
     /// <summary>The requested template is invalid (e.g. an empty custom layout).</summary>
     InvalidTemplate,
     /// <summary>Too many cards added too quickly (abuse throttle). See #3-abuse.</summary>
@@ -113,6 +133,9 @@ public record RetroActionResult(RetroActionStatus Status, RetroBoardSnapshot? Bo
     public static RetroActionResult WrongPhase() => new(RetroActionStatus.WrongPhase, null);
     public static RetroActionResult IllegalPhaseTransition() =>
         new(RetroActionStatus.IllegalPhaseTransition, null);
+    public static RetroActionResult GroupNotFound() => new(RetroActionStatus.GroupNotFound, null);
+    public static RetroActionResult InvalidGroupLabel() =>
+        new(RetroActionStatus.InvalidGroupLabel, null);
     public static RetroActionResult InvalidTemplate() => new(RetroActionStatus.InvalidTemplate, null);
     public static RetroActionResult RateLimited() => new(RetroActionStatus.RateLimited, null);
 }

@@ -131,6 +131,9 @@ namespace TeamTools.Data.Sqlite.Migrations
                     b.Property<Guid>("RoomId")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("AllowParticipantGrouping")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("Anonymous")
                         .HasColumnType("INTEGER");
 
@@ -174,6 +177,9 @@ namespace TeamTools.Data.Sqlite.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Order")
                         .HasColumnType("INTEGER");
 
@@ -187,6 +193,8 @@ namespace TeamTools.Data.Sqlite.Migrations
                     b.HasIndex("BoardId");
 
                     b.HasIndex("ColumnId");
+
+                    b.HasIndex("GroupId");
 
                     b.ToTable("RetroCard");
                 });
@@ -212,6 +220,29 @@ namespace TeamTools.Data.Sqlite.Migrations
                     b.HasIndex("BoardId");
 
                     b.ToTable("RetroColumn");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("RetroGroup");
                 });
 
             modelBuilder.Entity("TeamTools.Core.Models.Room", b =>
@@ -395,15 +426,33 @@ namespace TeamTools.Data.Sqlite.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("TeamTools.Core.Models.RetroGroup", "Group")
+                        .WithMany("Cards")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Board");
 
                     b.Navigation("Column");
+
+                    b.Navigation("Group");
                 });
 
             modelBuilder.Entity("TeamTools.Core.Models.RetroColumn", b =>
                 {
                     b.HasOne("TeamTools.Core.Models.RetroBoard", "Board")
                         .WithMany("Columns")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroGroup", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.RetroBoard", "Board")
+                        .WithMany("Groups")
                         .HasForeignKey("BoardId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -432,9 +481,16 @@ namespace TeamTools.Data.Sqlite.Migrations
                     b.Navigation("Cards");
 
                     b.Navigation("Columns");
+
+                    b.Navigation("Groups");
                 });
 
             modelBuilder.Entity("TeamTools.Core.Models.RetroColumn", b =>
+                {
+                    b.Navigation("Cards");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroGroup", b =>
                 {
                     b.Navigation("Cards");
                 });
