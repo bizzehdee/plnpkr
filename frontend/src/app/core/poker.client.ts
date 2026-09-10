@@ -23,6 +23,7 @@ import {
   ConnectionStatus,
   PingResponse,
   RoomClientBase,
+  RoomJoinResult,
   flattenSession,
 } from './room.client';
 
@@ -200,6 +201,17 @@ export class SignalrRealtimeClient extends RoomClientBase implements IRealtimeCl
       this._session.set(result.session);
     }
     return result;
+  }
+
+  /** The room-level join contract (#32) — poker's own `joinSession` with the snapshot dropped. */
+  joinRoom(
+    shortCode: string,
+    userId: string,
+    displayName: string,
+    role: ParticipantRole,
+    password: string | null = null,
+  ): Promise<RoomJoinResult> {
+    return this.joinSession(shortCode, userId, displayName, role, password);
   }
 
   async joinSession(

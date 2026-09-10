@@ -36,6 +36,12 @@ public enum JoinStatus
     SessionFull,
     /// <summary>The caller is joining too quickly (abuse throttle). See #3-abuse.</summary>
     RateLimited,
+    /// <summary>
+    /// The short code exists but belongs to the platform's *other* tool (#32). A tool service will
+    /// not seat anyone in a room it does not host, so a client that routes a join to the wrong hub
+    /// is refused rather than half-served.
+    /// </summary>
+    WrongTool,
 }
 
 public record JoinResult(

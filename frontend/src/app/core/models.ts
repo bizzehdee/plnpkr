@@ -207,7 +207,9 @@ export type JoinStatus =
   | 'WrongPassword'
   | 'SessionClosed'
   | 'SessionFull'
-  | 'RateLimited';
+  | 'RateLimited'
+  /** The short code exists but belongs to the platform's *other* tool (#32). */
+  | 'WrongTool';
 
 /** Lean /join landing info from GET /api/sessions/{shortCode} (#9). */
 export interface SessionLanding {

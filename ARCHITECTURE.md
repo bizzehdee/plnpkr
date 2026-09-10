@@ -244,6 +244,12 @@ PokerHub    (renamed from PlanningPokerHub)   RetroHub
 - **Reconnection:** the client stores `userId` in `localStorage`; on reconnect the server re-attaches the
   existing participant by `userId` (not connection id), reclaiming their seat, vote/dots, role and
   organiser status.
+- **One room, one tool, enforced on join (#32).** A short code names a room, and a room hosts exactly
+  one tool, so `RoomService.JoinAsync` takes the calling service's tool and refuses a mismatch with
+  `JoinStatus.WrongTool` — **before writing anything**. The rule lives in the room engine rather than
+  in either tool, so a third tool inherits it. Before #32 the poker service would seat the
+  participant and only then throw projecting a poker snapshot for a retro room, leaving the joiner in
+  a room they had been told they did not join.
 
 ### The REST surface beside the hubs
 
@@ -396,13 +402,19 @@ Routes are `/`, `/join/:shortCode`, `/poker/:shortCode`, `/retro/:shortCode`,
 **permanent redirect** to `/poker/:shortCode` so invite links already sitting in people's calendars
 keep working.
 
-**Each tool loads on demand (#31).** The five tool pages are `loadComponent` routes; the picker and
-the `/join` landing stay eager, because they are the two cold entry points and making an invite link
-wait on a chunk would put the latency in the worst place. The tools sharing nothing but the room
+**Each tool loads on demand (#31/#32).** The five tool pages are `loadComponent` routes; the picker
+and the `/join` landing stay eager, because they are the two cold entry points and making an invite
+link wait on a chunk would put the latency in the worst place. The tools sharing nothing but the room
 engine is what makes them clean split points — and it is why the shell's connection badge reads a
 **registry** each client registers itself with, rather than injecting every tool's client: otherwise
 the shell would have to know how many tools there are, and the picker would download a realtime
 transport it never uses.
+
+The `/join` landing goes further: it `import()`s the hub client for the room's tool once the landing
+read tells it which tool that is (#32), so it holds no compile-time knowledge of either tool beyond
+the route it navigates to — and `@microsoft/signalr` stays out of the initial bundle even though the
+page itself is eager. `RoomClientBase.joinRoom` is the room-level join contract that makes one page
+able to drive either client; `JoinStatus` was already shared by both tools.
 
 SignalR sits behind a per-tool interface (`IRealtimeClient` / `IRetroClient`) so components test
 against a fake, with no live socket. Component specs (Angular TestBed + fake client) assert
@@ -464,9 +476,9 @@ Coverage is a guardrail; every test maps to a behaviour. The gate was also the s
 refactor, which landed with the suite green and no behavioural change. It runs in CI as well as
 locally (`./run.sh test`).
 
-As of task #31 that is **633 backend tests** (Core 509, Integrations 40, Data 35, Api 49) and **222
-frontend specs**, with `TeamTools.Core` at ~96% line / ~92% branch. The production bundle is 690 kB
-initial (138 kB transfer) against an 800 kB budget.
+As of task #32 that is **638 backend tests** (Core 514, Integrations 40, Data 35, Api 49) and **226
+frontend specs**, with `TeamTools.Core` at ~96% line / ~92% branch. The production bundle is 631 kB
+initial (127 kB transfer) against an 800 kB budget.
 
 ## Deployment & hosting
 

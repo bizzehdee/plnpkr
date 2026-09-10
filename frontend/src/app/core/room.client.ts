@@ -3,6 +3,7 @@ import { Subject } from 'rxjs';
 import { inject, signal } from '@angular/core';
 import { ConnectionStatus, ConnectionStatusService } from './connection-status.service';
 import {
+  JoinStatus,
   ParticipantRole,
   ReactionEvent,
   SessionSnapshot,
@@ -10,6 +11,16 @@ import {
 } from './models';
 
 export type { ConnectionStatus };
+
+/**
+ * The room-level half of a join outcome (#32): the status and the server's message, without either
+ * tool's snapshot. `JoinStatus` is already shared by both tools, which is what makes one contract
+ * possible — see `RoomClientBase.joinRoom`.
+ */
+export interface RoomJoinResult {
+  status: JoinStatus;
+  error: string | null;
+}
 
 export interface PingResponse {
   reply: string;
@@ -86,6 +97,25 @@ export abstract class RoomClientBase {
   protected constructor() {
     inject(ConnectionStatusService).register(() => this._status());
   }
+
+  /**
+   * Connects to this tool's hub. Idempotent — a second call on a live connection is a no-op.
+   */
+  abstract connect(): Promise<void>;
+
+  /**
+   * Takes a seat in a room, whatever the tool (#32). The room-level half of a join — the name
+   * gate, the password gate, the seat — is identical for both tools and answered with the shared
+   * `JoinStatus`, so the `/join` landing can drive either client through this without knowing which
+   * it holds. Each tool's own `joinSession` / `joinBoard` stays for callers that want the snapshot.
+   */
+  abstract joinRoom(
+    shortCode: string,
+    userId: string,
+    displayName: string,
+    role: ParticipantRole,
+    password?: string | null,
+  ): Promise<RoomJoinResult>;
 
   get isConnected(): boolean {
     return this.connection?.state === HubConnectionState.Connected;

@@ -2,6 +2,7 @@ using FluentAssertions;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Models;
 using TeamTools.Core.Poker;
+using TeamTools.Core.Retro;
 using TeamTools.Core.Tests.Fakes;
 using Xunit;
 
@@ -213,5 +214,81 @@ public class RoomCoreTests
         var expired = await TestServices.Timers(_store, _clock).ExpireDueRoundTimersAsync();
 
         expired.Should().BeEmpty();
+    }
+
+    // --- One tool per room, enforced on join (#32) -------------------------
+
+    /// <summary>A retro board on the shared short code, so a poker join can be aimed at it.</summary>
+    private RetroService Retro() => new(_store, _rooms, _clock);
+
+    private Task SeedRetroAsync(RetroService retro) =>
+        retro.CreateAsync(new CreateRetroRequest(
+            "Sprint 24 retro", RetroTemplate.MadSadGlad, null, Organiser, "Alice", Organise: true));
+
+    [Fact]
+    public async Task Joining_a_retro_room_over_the_poker_service_is_refused()
+    {
+        // The bug this closes (#32): the poker service used to seat the participant and only then
+        // fail projecting a poker snapshot for a room with no round, so the joiner saw a server
+        // error with their seat already taken. The refusal has to come before anything is written.
+        await SeedRetroAsync(Retro());
+
+        var result = await _poker.JoinAsync(new JoinSessionRequest(Code, "bob", "Bob", ParticipantRole.Voter));
+
+        result.Status.Should().Be(JoinStatus.WrongTool);
+        result.Session.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task A_refused_cross_tool_join_leaves_no_seat_behind()
+    {
+        // The half-served state was the damaging half: a participant sitting in a room the client
+        // had been told they did not join.
+        var retro = Retro();
+        await SeedRetroAsync(retro);
+
+        await _poker.JoinAsync(new JoinSessionRequest(Code, "bob", "Bob", ParticipantRole.Voter));
+
+        var board = (await retro.GetByShortCodeAsync(Code, Organiser))!;
+        board.Room.Participants.Should().OnlyContain(p => p.UserId == Organiser, "Bob was never seated");
+    }
+
+    [Fact]
+    public async Task Joining_a_poker_room_over_the_retro_service_is_refused()
+    {
+        // Symmetric, and enforced in the room engine rather than in either tool, so a third tool
+        // would inherit it.
+        await _poker.CreateAsync(new CreateSessionRequest(
+            "Sprint 24", DeckType.Fibonacci, null, Organiser, "Alice", Organise: true));
+
+        var result = await Retro().JoinAsync(new JoinSessionRequest(Code, "bob", "Bob", ParticipantRole.Voter));
+
+        result.Status.Should().Be(JoinStatus.WrongTool);
+        result.Board.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task A_join_aimed_at_the_right_tool_is_unaffected()
+    {
+        await _poker.CreateAsync(new CreateSessionRequest(
+            "Sprint 24", DeckType.Fibonacci, null, Organiser, "Alice", Organise: true));
+
+        var result = await _poker.JoinAsync(new JoinSessionRequest(Code, "bob", "Bob", ParticipantRole.Voter));
+
+        result.Status.Should().Be(JoinStatus.Ok);
+        result.Session!.Participants.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task The_room_engine_still_serves_a_tool_agnostic_join()
+    {
+        // RoomService.JoinAsync takes the expected tool as an *option*: a caller with no tool of its
+        // own (there is none today, but the room engine does not assume one) is not blocked.
+        await SeedRetroAsync(Retro());
+
+        var outcome = await _rooms.JoinAsync(
+            new JoinSessionRequest(Code, "bob", "Bob", ParticipantRole.Voter));
+
+        outcome.Status.Should().Be(JoinStatus.Ok);
     }
 }

@@ -117,8 +117,14 @@ public class RoomService
     /// <summary>
     /// Seats a participant: enforces the password gate, per-room name uniqueness and the participant
     /// cap, and reclaims an existing seat on reconnect (keeping vote, role and organiser rights).
+    /// <para>
+    /// <paramref name="expectedTool"/> is the tool of the service asking. It is optional only so a
+    /// tool-agnostic caller can omit it; both tool services pass their own, which is what stops one
+    /// tool seating a participant in the other's room (#32).
+    /// </para>
     /// </summary>
-    public async Task<RoomJoinOutcome> JoinAsync(JoinSessionRequest request, CancellationToken ct = default)
+    public async Task<RoomJoinOutcome> JoinAsync(
+        JoinSessionRequest request, RoomTool? expectedTool = null, CancellationToken ct = default)
     {
         if (NameNormalizer.IsBlank(request.DisplayName))
         {
@@ -129,6 +135,17 @@ public class RoomService
         if (room is null)
         {
             return new RoomJoinOutcome(JoinStatus.SessionNotFound, null, null, "Session not found.");
+        }
+
+        // The short code names a room, and a room hosts exactly one tool (#19). A tool service must
+        // not seat anyone in a room it does not host — before #32 the poker service would add the
+        // participant and only then fail projecting a poker snapshot for a retro room, leaving a
+        // seat behind and reporting a server error (#32).
+        if (expectedTool is { } tool && room.Tool != tool)
+        {
+            return new RoomJoinOutcome(
+                JoinStatus.WrongTool, null, null,
+                $"That code is a {room.Tool} room, not a {tool} one.");
         }
 
         var normalized = NameNormalizer.Normalize(request.DisplayName);

@@ -173,6 +173,7 @@ into the TeamTools platform and add the second tool, Team Retro.
 | 29 | `README.md` & deploy | S | 17–28 | Docs |
 | 30 | Password-guard the poker round history | S | 12, 28 | BE + FE |
 | 31 | Get the frontend bundle back under its budget | S | 29 | FE |
+| 32 | Join a room over its own tool's hub | S | 19, 31 | BE + FE |
 
 > **Why this order.** The ease-before-dependents rule still applies, but four hard
 > constraints dominate.
@@ -580,15 +581,15 @@ into the TeamTools platform and add the second tool, Team Retro.
 > hand-written `@HostListener('document:keydown.escape')`. Bootstrap's CSS is still needed and still
 > loaded; only the JS went.
 
-> **`@microsoft/signalr` is still in the initial bundle (57 kB), deliberately.** Lazy routes moved
-> both tool clients out, and the shell no longer pins them — but `/join/:shortCode` is eager and
-> joins the room over the poker hub before navigating, so it pulls the transport back in. Making the
-> join page lazy would trade a round-trip on the *high-intent* path (an invite link) for bytes on the
-> browsing path, which is the wrong direction. Left as-is.
+> **`@microsoft/signalr` was still in the initial bundle (57 kB) when #31 finished.** Lazy routes
+> moved both tool clients out, and the shell no longer pins them — but `/join/:shortCode` is eager
+> and joined the room over the poker hub before navigating, so it pulled the transport back in.
+> Making the whole join page lazy would have traded a round-trip on the *high-intent* path (an invite
+> link) for bytes on the browsing path, which is the wrong direction, so it was left alone here.
 >
-> Noticed while looking: the join page joins **every** room over the *poker* hub, including retro
-> rooms, and then navigates to the retro board, which rejoins on arrival. That looks redundant at
-> best. Not touched here — it is a behavioural question about the join flow, not a bundle one.
+> Noticed while looking: the join page joined **every** room over the *poker* hub, including retro
+> rooms. That turned out to be a real bug, not just redundancy — **#32** fixes it, and resolving the
+> client per tool moved the transport out of the initial bundle after all (631 kB).
 
 > **The i18n catalogs were left eager, on the numbers.** Four locales inline are 100 kB of source,
 > and splitting the three non-English ones behind dynamic imports was the obvious next cut. But
@@ -602,3 +603,43 @@ into the TeamTools platform and add the second tool, Team Retro.
 > true of `"disconnected"` too, and of `"desconectado"` for `"conectado"`. So it would have passed
 > whatever the badge said. It now asserts the badge element's exact text (via a new
 > `id="connection-status"`), and covers all three states including the multi-tool fold.
+
+## 32. Join a room over its own tool's hub  `S`  — follow-up to #19/#31  ✅ done
+**Noticed at #31, closed here. Reproduced in a browser first, then fixed both halves.**
+- [x] **Client:** `join.page.ts` resolves the hub client from the landing read's tool instead of always using poker's. The client is `import()`ed once the tool is known, so the page holds no compile-time knowledge of either tool.
+- [x] **Server:** `RoomService.JoinAsync` takes the calling service's tool and refuses a mismatch with a new `JoinStatus.WrongTool` — **before writing anything**. Both tool services pass their own, so the rule lives in the room engine and a third tool would inherit it.
+- [x] `RoomClientBase.joinRoom` is the room-level join contract both clients implement (each tool's `joinSession`/`joinBoard` stays for callers that want the snapshot). `JoinStatus` was already shared, which is what made one contract possible.
+- [x] i18n: 1 string × 4 locales.
+- [x] Tests: 5 core (`RoomCoreTests`) + 3 frontend, plus the join spec's harness fixed. Backend **638**, frontend **226**, coverage gate **95.5% line / 91.7% branch**.
+- [x] Verified end to end in a browser: a retro invite link now lands on the board with the badge reading "connected", and a poker invite link still lands on the table.
+
+> **Reproduced before fixing.** Joining a retro room from its invite link showed *"Could not reach
+> the server. Is the API running?"* — while the API was up and the shell's own badge said
+> "connected". The API log had the real story:
+> `InvalidOperationException: Room 'red-moose-36' hosts Retro, not Poker — it has no poker round.`
+
+> **The seat was taken anyway, which was the damaging half.** `RoomService.JoinAsync` commits the
+> participant, and only then does `PokerService` project a snapshot and throw. So the joiner was in
+> the room, told they were not, and `membership.remember` never ran — the one state the client cannot
+> recover from. There is a test that counts the participants after a refused cross-tool join.
+
+> **Fixed in both places on purpose.** The client fix alone would have been enough to make invite
+> links work, and the server fix alone would have turned a 500 into a clean refusal. Neither alone is
+> the guarantee worth having: a tool service must not be *able* to seat someone in another tool's
+> room, whatever the client does, and the client should not need a server refusal to route correctly.
+
+> **This is what #31 could not move out of the initial bundle.** The eager join page pinned
+> `@microsoft/signalr` there by injecting the poker client. Resolving the client on demand moved both
+> clients and the transport into lazy chunks: **690.23 kB → 631.04 kB initial** (138.52 → 126.66 kB
+> transfer). The page's first act is an HTTP read, so there is nothing to overlap with — the import
+> happens when the user presses Join.
+
+> **`RoomService.JoinAsync`'s tool argument is optional, and stays optional.** Nothing tool-agnostic
+> joins today, but the room engine does not get to assume every caller is a tool — that assumption is
+> exactly the direction #19 was pulling away from. There is a test pinning the tool-agnostic call.
+
+> **The join spec's harness was reading a half-initialised component.** It called `join()` without
+> waiting for the landing read, so `tool()` was still its `'Poker'` default when the client was
+> resolved while the later navigation read the resolved `'Retro'`. The old assertions could not see
+> the difference — they only checked where it navigated. The harness now awaits stability, which is
+> what the real page does by gating the form on `loading()`.

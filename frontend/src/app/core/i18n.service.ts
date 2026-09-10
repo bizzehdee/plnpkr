@@ -265,6 +265,7 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'err.join.wrongPassword': 'Incorrect password — please try again.',
     'err.join.sessionClosed': 'This session is closed and can no longer be joined.',
     'err.join.sessionFull': 'This session is full — it has reached its participant limit.',
+    'err.join.wrongTool': 'That code belongs to a different tool — reload the page and try again.',
 
     'home.errorNameRequired': 'Please give the session a name.',
     'home.errorYourNameRequired': 'Please enter your name.',
@@ -708,6 +709,7 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'err.join.wrongPassword': 'Contraseña incorrecta — inténtalo de nuevo.',
     'err.join.sessionClosed': 'Esta sesión está cerrada y ya no se puede unir a ella.',
     'err.join.sessionFull': 'Esta sesión está llena — ha alcanzado su límite de participantes.',
+    'err.join.wrongTool': 'Ese código pertenece a otra herramienta — recarga la página e inténtalo de nuevo.',
 
     'home.errorNameRequired': 'Ponle un nombre a la sesión.',
     'home.errorYourNameRequired': 'Introduce tu nombre.',
@@ -1151,6 +1153,7 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'err.join.wrongPassword': 'Senha incorreta — tente novamente.',
     'err.join.sessionClosed': 'Esta sessão está fechada e não é mais possível entrar nela.',
     'err.join.sessionFull': 'Esta sessão está cheia — atingiu o limite de participantes.',
+    'err.join.wrongTool': 'Esse código pertence a outra ferramenta — recarregue a página e tente novamente.',
 
     'home.errorNameRequired': 'Dê um nome à sessão.',
     'home.errorYourNameRequired': 'Informe seu nome.',
@@ -1594,6 +1597,7 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'err.join.wrongPassword': 'Nieprawidłowe hasło — spróbuj ponownie.',
     'err.join.sessionClosed': 'Ta sesja jest zamknięta i nie można już do niej dołączyć.',
     'err.join.sessionFull': 'Ta sesja jest pełna — osiągnięto limit uczestników.',
+    'err.join.wrongTool': 'Ten kod należy do innego narzędzia — odśwież stronę i spróbuj ponownie.',
 
     'home.errorNameRequired': 'Nadaj nazwę sesji.',
     'home.errorYourNameRequired': 'Podaj swoje imię.',

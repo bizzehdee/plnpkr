@@ -123,7 +123,7 @@ public class RetroService
 
     public async Task<RetroJoinResult> JoinAsync(JoinSessionRequest request, CancellationToken ct = default)
     {
-        var outcome = await _rooms.JoinAsync(request, ct);
+        var outcome = await _rooms.JoinAsync(request, RoomTool.Retro, ct);
         if (outcome.Status != JoinStatus.Ok)
         {
             return new RetroJoinResult(outcome.Status, null, null, outcome.Error);

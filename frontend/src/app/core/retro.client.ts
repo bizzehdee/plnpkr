@@ -17,7 +17,7 @@ import {
   RetroTemplate,
   RetroVoteTarget,
 } from './models';
-import { ConnectionStatus, RoomClientBase } from './room.client';
+import { ConnectionStatus, RoomClientBase, RoomJoinResult } from './room.client';
 
 /**
  * Turns a wire retro board into the flat view model the components read (#21) — the retro
@@ -272,6 +272,17 @@ export class SignalrRetroClient extends RoomClientBase implements IRetroClient {
     }
 
     return result;
+  }
+
+  /** The room-level join contract (#32) — retro's own `joinBoard` with the snapshot dropped. */
+  joinRoom(
+    shortCode: string,
+    userId: string,
+    displayName: string,
+    role: ParticipantRole,
+    password: string | null = null,
+  ): Promise<RoomJoinResult> {
+    return this.joinBoard(shortCode, userId, displayName, role, password);
   }
 
   async joinBoard(

@@ -717,6 +717,32 @@ dropdown and collapse here is signal-driven markup, which is why the Esc handler
 hand-written. **Do not raise the budget** to make the warning go away; if the number still
 does not fit after the split, argue for the new number.
 
+## 32. Join a room over its own tool's hub — follow-up to §19/§31
+
+**What.** Make `/join/<code>` join over the hub belonging to the room's tool, and stop
+either tool service from seating a participant in a room it does not host.
+
+**Why.** The join page sent *every* join to the **poker** hub. For a retro room the room
+engine seated the participant and the poker service then threw projecting a snapshot for
+a room with no round — so the joiner saw "could not reach the server" while their seat had
+in fact been taken. Retro invite links did not work at all, and the failure blamed the
+server. §31 spotted it while looking at the bundle and left it as a behavioural question.
+
+**Touch points.** `RoomService.JoinAsync` (an expected-tool argument) and a new
+`JoinStatus.WrongTool`; `PokerService`/`RetroService` pass their own tool;
+`RoomClientBase` gains the room-level `joinRoom` contract both clients implement;
+`join.page.ts` resolves the client from the landing read's tool.
+
+**Approach.** Fix both halves. The **client** picks the right hub — it already reads the
+tool from the landing response to know where to navigate, so it has what it needs; the
+client is imported on demand, once the tool is known, which also gets the realtime
+transport out of the initial bundle that §31 could not move. The **server** refuses a
+cross-tool join *before* writing anything, in the room engine rather than in either tool,
+so the guarantee is one rule a third tool would inherit and not two rules that can drift.
+A refused join must leave no seat behind — that half-served state was the damaging part.
+The `/join` landing read stays tool-agnostic: it is what tells the client which tool it is
+dealing with.
+
 ---
 
 ## Cross-cutting notes

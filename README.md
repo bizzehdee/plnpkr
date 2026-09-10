@@ -141,14 +141,14 @@ Prerequisites: **.NET 10 SDK**, **Node 20+**, and (for the coverage gate) **Powe
 
 This runs the same checks as CI, so a green `test` locally means a clean build.
 
-### Backend (xUnit) — 633 tests across Core / Integrations / Data / Api
+### Backend (xUnit) — 638 tests across Core / Integrations / Data / Api
 
 ```bash
 cd backend
 dotnet test TeamTools.slnx                        # whole solution
 
 # One project at a time
-dotnet test tests/TeamTools.Core.Tests            # fast, no I/O (the bulk of the logic) — 509
+dotnet test tests/TeamTools.Core.Tests            # fast, no I/O (the bulk of the logic) — 514
 dotnet test tests/TeamTools.Integrations.Tests    # Jira/ADO adapters against stubbed HTTP — 40
 dotnet test tests/TeamTools.Data.Tests            # EfRoomStore + migrations against real SQLite — 35
 dotnet test tests/TeamTools.Api.Tests             # REST + SignalR + health over an in-memory server — 49
@@ -167,7 +167,7 @@ pwsh backend/coverage-gate.ps1                   # prints the numbers and fails 
 pwsh backend/coverage-gate.ps1 -Threshold 0.95   # try a stricter bar
 ```
 
-### Frontend (Vitest + Angular TestBed) — 222 specs across 13 files
+### Frontend (Vitest + Angular TestBed) — 226 specs across 13 files
 
 ```bash
 cd frontend

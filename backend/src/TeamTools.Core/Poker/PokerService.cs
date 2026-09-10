@@ -79,7 +79,7 @@ public class PokerService
 
     public async Task<JoinResult> JoinAsync(JoinSessionRequest request, CancellationToken ct = default)
     {
-        var outcome = await _rooms.JoinAsync(request, ct);
+        var outcome = await _rooms.JoinAsync(request, RoomTool.Poker, ct);
         if (outcome.Status != JoinStatus.Ok)
         {
             return new JoinResult(outcome.Status, null, null, outcome.Error);
