@@ -2,7 +2,7 @@ namespace TeamTools.Core.Models;
 
 /// <summary>
 /// Which tool a <see cref="Room"/> hosts. Chosen when the room is created and immutable afterwards —
-/// a room is a poker session, a retro board or a Lean Coffee, never more than one. See #19.
+/// a room hosts exactly one of these and cannot switch. See #19.
 /// </summary>
 public enum RoomTool
 {
@@ -10,6 +10,9 @@ public enum RoomTool
     Retro,
     /// <summary>Lean Coffee: propose topics, vote, work the ranked list under a timebox (#35).</summary>
     Coffee,
+
+    /// <summary>Async Standup: everyone answers in their own time, and reads once they have (#36).</summary>
+    Standup,
 }
 
 /// <summary>
@@ -105,4 +108,18 @@ public enum ExtendChoice
 {
     KeepGoing,
     MoveOn,
+}
+
+/// <summary>
+/// The default standup questions (#36). A room may replace them at creation; these are the three
+/// almost every team already asks.
+/// </summary>
+public static class StandupQuestions
+{
+    public static readonly string[] Default =
+    [
+        "What did you do since last time?",
+        "What are you doing next?",
+        "Anything in your way?",
+    ];
 }

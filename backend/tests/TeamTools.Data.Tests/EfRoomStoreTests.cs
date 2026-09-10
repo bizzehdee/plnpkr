@@ -624,4 +624,123 @@ public sealed class EfRoomStoreTests : IDisposable
         ctx.Set<CoffeeBoard>().Should().BeEmpty();
         ctx.Set<CoffeeTopic>().Should().BeEmpty();
     }
+
+    // --- Async Standup (#36) ----------------------------------------------
+
+    private static Room NewStandupRoom(string shortCode)
+    {
+        var id = Guid.NewGuid();
+        var questionId = Guid.NewGuid();
+        return new Room
+        {
+            Id = id,
+            ShortCode = shortCode,
+            Name = "Monday standup",
+            Tool = RoomTool.Standup,
+            OrganiserUserId = "u1",
+            CreatedAt = DateTimeOffset.UnixEpoch,
+            LastActivityAt = DateTimeOffset.UnixEpoch,
+            StandupBoard = new StandupBoard
+            {
+                RoomId = id,
+                PreviousBoardShortCode = "friday-standup",
+                Questions =
+                {
+                    new StandupQuestion
+                    {
+                        Id = questionId, BoardId = id, Text = "What did you do?", Order = 0,
+                    },
+                },
+                Entries =
+                {
+                    new StandupEntry
+                    {
+                        Id = Guid.NewGuid(), BoardId = id, QuestionId = questionId,
+                        AuthorUserId = "u1", Text = "Shipped the export",
+                        CreatedAt = DateTimeOffset.UnixEpoch,
+                    },
+                },
+                Blockers =
+                {
+                    new StandupBlocker
+                    {
+                        Id = Guid.NewGuid(), BoardId = id, AuthorUserId = "u1",
+                        Text = "Waiting on the platform team", OwnerName = "Dana",
+                        CreatedAt = DateTimeOffset.UnixEpoch,
+                    },
+                },
+            },
+            Participants =
+            {
+                new Participant
+                {
+                    UserId = "u1",
+                    DisplayName = "Alice",
+                    NormalizedName = "alice",
+                    IsOrganiser = true,
+                    Role = ParticipantRole.Voter,
+                    IsConnected = true,
+                },
+            },
+        };
+    }
+
+    [Fact]
+    public async Task A_standup_board_round_trips_with_its_questions_answers_and_blockers()
+    {
+        await new EfRoomStore(NewContext()).AddAsync(NewStandupRoom("standup-1"));
+
+        var loaded = await new EfRoomStore(NewContext()).FindByShortCodeAsync("standup-1");
+
+        loaded!.Tool.Should().Be(RoomTool.Standup);
+        loaded.StandupBoard!.PreviousBoardShortCode.Should().Be("friday-standup");
+        loaded.StandupBoard.Questions.Should().ContainSingle()
+            .Which.Text.Should().Be("What did you do?");
+        loaded.StandupBoard.Entries.Should().ContainSingle()
+            .Which.Text.Should().Be("Shipped the export");
+        loaded.StandupBoard.Blockers.Should().ContainSingle()
+            .Which.OwnerName.Should().Be("Dana");
+    }
+
+    [Fact]
+    public async Task A_round_tripped_standup_still_knows_who_has_posted()
+    {
+        // The post-to-read gate is derived from the entry rows rather than stored as a flag (#36),
+        // so it has to survive the trip through the database — including the reconnect that reads it.
+        await new EfRoomStore(NewContext()).AddAsync(NewStandupRoom("standup-2"));
+
+        var loaded = await new EfRoomStore(NewContext()).FindByShortCodeAsync("standup-2");
+
+        loaded!.StandupBoard!.HasPosted("u1").Should().BeTrue();
+        loaded.StandupBoard.HasPosted("someone-else").Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Deleting_a_standup_room_cascades_to_its_whole_board()
+    {
+        await new EfRoomStore(NewContext()).AddAsync(NewStandupRoom("cascade-standup-1"));
+
+        var store = new EfRoomStore(NewContext());
+        var loaded = await store.FindByShortCodeAsync("cascade-standup-1");
+        await store.RemoveAsync(loaded!);
+
+        using var ctx = NewContext();
+        ctx.Set<StandupBoard>().Should().BeEmpty();
+        ctx.Set<StandupQuestion>().Should().BeEmpty();
+        ctx.Set<StandupEntry>().Should().BeEmpty();
+        ctx.Set<StandupBlocker>().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task The_timebox_sweep_ignores_standups_which_have_no_timebox_at_all()
+    {
+        // #33/#36: the sweep's WHERE clause is what keeps a tool with no countdown out of a query
+        // that runs once a second.
+        await new EfRoomStore(NewContext()).AddAsync(NewStandupRoom("quiet-standup-1"));
+
+        var result = await new EfRoomStore(NewContext())
+            .GetRoomsWithExpiredTimeboxAsync(DateTimeOffset.UtcNow);
+
+        result.Should().BeEmpty();
+    }
 }

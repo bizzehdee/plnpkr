@@ -2,6 +2,7 @@ using TeamTools.Core.Coffee;
 using TeamTools.Core.Poker;
 using TeamTools.Core.Retro;
 using TeamTools.Core.Security;
+using TeamTools.Core.Standup;
 
 namespace TeamTools.Core.Tests.Fakes;
 
@@ -46,4 +47,15 @@ public static class TestServices
     public static CoffeeTimerService CoffeeTimers(
         FakeRoomStore store, IShortCodeGenerator shortCodes, IClock clock) =>
         new(store, store, Coffee(store, shortCodes, clock), clock);
+
+    /// <summary>
+    /// The Async Standup API (#36). Notice there is no tool-specific store port to pass: this tool
+    /// has no timer and no sweep, so nothing ever needs to find its boards without a short code.
+    /// </summary>
+    public static StandupService Standup(
+        FakeRoomStore store,
+        IShortCodeGenerator shortCodes,
+        IClock clock,
+        IPasswordHasher? passwordHasher = null) =>
+        new(store, Rooms(store, shortCodes, clock, passwordHasher), clock);
 }

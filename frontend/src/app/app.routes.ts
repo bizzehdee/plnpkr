@@ -7,7 +7,7 @@ import { JoinPage } from './pages/join/join.page';
  * than reshaping existing ones. `/session/:shortCode` is kept as a permanent redirect because
  * invite links to it are already sitting in people's calendars and chat history.
  *
- * **Each tool loads on demand (#31).** The two tools deliberately share nothing but the room engine,
+ * **Each tool loads on demand (#31).** The tools deliberately share nothing but the room engine,
  * so they are the natural split points: a visitor to a poker table has no use for the retro board's
  * grouping and dot-voting code, and vice versa. The picker and the `/join` landing stay eager —
  * they are the two cold entry points, and making an invite link wait on a chunk would put the
@@ -57,6 +57,19 @@ export const routes: Routes = [
     path: 'coffee/:shortCode',
     title: 'Lean Coffee',
     loadComponent: () => import('./pages/coffee/board/coffee.page').then((m) => m.CoffeePage),
+  },
+
+  // Async Standup.
+  {
+    path: 'standup/new',
+    title: 'New standup',
+    loadComponent: () =>
+      import('./pages/standup/create/standup-create.page').then((m) => m.StandupCreatePage),
+  },
+  {
+    path: 'standup/:shortCode',
+    title: 'Standup',
+    loadComponent: () => import('./pages/standup/board/standup.page').then((m) => m.StandupPage),
   },
 
   // Legacy single-tool paths.

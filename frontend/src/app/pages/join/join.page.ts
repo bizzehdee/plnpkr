@@ -12,7 +12,7 @@ import { resolveApiBase } from '../../core/app-config';
 import { ParticipantRole, RoomTool, SessionLanding } from '../../core/models';
 
 /**
- * The one invite-link shape both tools share (#19): `/join/<code>` resolves the short code to a
+ * The one invite-link shape every tool shares (#19): `/join/<code>` resolves the short code to a
  * room, gates on name and password, seats the joiner, and sends them to that tool's page.
  *
  * **The join goes over the room's own hub (#32).** A short code belongs to exactly one tool, and
@@ -23,7 +23,7 @@ import { ParticipantRole, RoomTool, SessionLanding } from '../../core/models';
  *
  * The client is imported on demand, once the tool is known. That keeps the realtime transport out
  * of the initial bundle (#31) on a page whose first act is an HTTP read, and it means this page
- * holds no compile-time knowledge of either tool beyond the route it navigates to.
+ * holds no compile-time knowledge of any tool beyond the route it navigates to.
  */
 @Component({
   selector: 'app-join',

@@ -736,8 +736,8 @@ into the TeamTools platform and add the second tool, Team Retro.
 
 # Phase 3 — the third and fourth tools
 
-§35 is **built**. §36 is a **spec only** — not a commitment to build it; it exists so the platform's
-constraints are confronted on paper first.
+Both are **built**. §36 was specced first, deliberately: it is the tool whose spec was mostly about
+what the platform would *not* do for it, and that was worth confronting on paper before writing any.
 
 | # | Task | Size | Depends on | Area |
 | --- | --- | --- | --- | --- |
@@ -800,23 +800,34 @@ constraints are confronted on paper first.
 > UI has no control for either — they are set at creation. Adding facilitator settings mid-session is
 > polish, and worth doing when someone asks for it rather than guessing at the panel.
 
-## 36. Async Standup  `M`  — depends on #34  📋 specced
-- [ ] `RoomTool.Standup` + `StandupBoard` (an entry per participant per question), EF migration ×3.
-- [ ] **Post-to-read, enforced in the projection** — you see others' answers once you have posted your own. Same principle as hidden collection (#23), same enforcement point as anonymity (#22): the per-recipient snapshot, never the client.
-- [ ] **No phase rail.** A standup opens, people post, it closes. This is the tool that shows the rail is a retro/coffee concern, not a platform one — do not reach for #35's extraction just because it exists.
-- [ ] Blockers are the only structured field, and can be promoted to an action item with an owner (#26).
-- [ ] Start today's room from yesterday's short code, copying the question set and unresolved blockers — #27's carry-over, not a new cross-room concept.
-- [ ] i18n ×4; ≥90% Core coverage.
+## 36. Async Standup  `M`  — depends on #34  ✅ done
+**The fourth tool, and the test of whether the platform could say no. It could.**
+- [x] `RoomTool.Standup` + `StandupBoard` (questions, an entry per person per question, blockers), EF migration ×3 — **purely additive**, no data motion.
+- [x] **Post-to-read, enforced in `StandupService.ToSnapshot`** — the fourth rule that projection carries, after retro anonymity (#22), retro hidden collection (#23) and coffee's hidden proposal (#35). One answer to any question counts as posting; clearing them all honestly takes you back to not having posted.
+- [x] **No phase rail, no countdown, no background sweep, no tool-specific store port.** `StandupService` takes only `IRoomStore`. The rail #35 extracted is a retro/coffee concern, and the point of a shared primitive is that a tool can decline it.
+- [x] Editable question set (up to 6), defaulting to the three almost every team already asks.
+- [x] Blockers with an owner who need not be in the room — **`ActionItemRules`' third consumer** — clearable after the standup closes, on #26's carve-out.
+- [x] Carry-over from yesterday's short code: questions plus unresolved blockers, copied not referenced, password-checked (#27's shape and #27's reasoning, resolved *before* the room is created so a failure leaves nothing behind).
+- [x] "N of the M people in this room have posted" — a count, never a name. Presence knows who opened the room, not who is on the team.
+- [x] **"Export it or lose it", stated on the board.** Markdown + CSV rendered from the snapshot the client already holds, because post-to-read has already removed everything the viewer may not read — so no second place a guard could be forgotten. Uses the shared `saveAsFile` (#28/#30).
+- [x] `StandupHub` — per-recipient broadcast, and deliberately no phase or timer methods.
+- [x] Frontend: `standup.client.ts`, `standup-export.service.ts`, create + board pages (lazy-loaded), launcher card, one new `tool-registry.ts` entry — **no page outside `pages/standup/` learned the tool exists**.
+- [x] i18n: 71 strings × 4 locales.
+- [x] Tests: 51 core (`StandupTests`) + 4 data + 30 frontend. Backend **798**, frontend **277**, coverage gate **95.3% line / 90.9% branch** — nothing lowered.
+- [x] Verified end to end in a browser: opened a standup, posted, raised a blocker, took it on and cleared it, carried forward into Tuesday's room, then joined as a second person over the invite link and confirmed the gate — no answers visible before posting, all of them after.
 
-> **This spec exists mostly to write down what the platform will *not* do for it.** A standup wants
-> recurrence, notifications and a roster; TeamTools has no scheduler, no addresses and no accounts.
-> So: each day is its own room; the invite link *is* the reminder; and the board says "N of the M
-> people in this room have posted", never "Dave is missing" — presence only knows who opened it.
+> **What the platform said no to.** Recurrence needs a scheduler, notifications need addresses, a
+> roster needs accounts — and each would change all four tools. So each day is its own room, the
+> invite link *is* the reminder, and absence is reported as a count. If any of that becomes a real
+> problem in use it is a platform decision, taken deliberately and once, not worked around here.
 
-> **Retention needs deciding up front, not discovering.** Idle rooms are evicted (#15), and a
-> standup room is idle by construction between mornings. The spec's answer is "export it or lose it",
-> stated in the UI — matching the platform rather than carving out a special window for one tool.
+> **Retention was decided rather than discovered**, as the spec asked. A standup room is idle by
+> construction between mornings, so #15 applies to it harder than to any other tool. The answer is
+> the platform's rule stated out loud on the board, not a window carved out for one tool — which
+> would have been the first place the platform bent to a tool instead of the other way round.
 
-> **If a constraint here becomes a real problem in use, it is a platform decision, not a per-tool
-> workaround.** Accounts, a team entity or a scheduler would change both shipped tools too, and
-> should be taken deliberately and once.
+> **The one place the spec's shape changed.** The spec said blockers "can be promoted to an action
+> item with an owner (#26)". They are not promoted into anything: a blocker *is* the action item,
+> sharing `ActionItemRules` and living in its own table like `RetroAction` and `CoffeeDecision`.
+> Promoting one row into another table would have been a cross-tool reference — the platform's one
+> structural rule — to save a field.

@@ -1,0 +1,293 @@
+<main class="container py-4">
+  @if (closed()) {
+    <div class="alert alert-warning" role="alert">
+      {{ 'standup.closedGone' | t }}
+      <a routerLink="/">{{ 'common.backHome' | t }}</a>
+    </div>
+  } @else if (board(); as b) {
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+      <div>
+        <h1 class="h4 mb-1">{{ b.name }}</h1>
+        <p class="text-body-secondary small mb-0">
+          <span id="standup-posted-count">{{ postedSummary() }}</span>
+          @if (b.previousBoardShortCode) {
+            &middot; {{ 'standup.carriedFrom' | t:{ code: b.previousBoardShortCode } }}
+          }
+        </p>
+      </div>
+
+      <div class="btn-group">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="download('md')">
+          {{ 'standup.export.markdown' | t }}
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="download('csv')">
+          {{ 'standup.export.csv' | t }}
+        </button>
+      </div>
+    </div>
+
+    <p class="text-body-secondary small" id="standup-retention">{{ 'standup.retention' | t }}</p>
+
+    @if (error()) {
+      <div class="alert alert-danger d-flex justify-content-between align-items-center" role="alert">
+        <span>{{ error() }}</span>
+        <button type="button" class="btn-close" [attr.aria-label]="'common.close' | t"
+          (click)="dismissError()"></button>
+      </div>
+    }
+
+    <p class="visually-hidden" role="status" aria-live="polite">{{ announcement() }}</p>
+
+    @if (b.isClosed) {
+      <div class="alert alert-secondary" role="alert">{{ 'standup.closed' | t }}</div>
+    }
+
+    <div class="row g-4">
+      <!-- My standup: the form, always mine to edit. -->
+      <section class="col-12 col-lg-5" aria-labelledby="standup-mine-heading">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h2 class="h6 card-title" id="standup-mine-heading">{{ 'standup.mine' | t }}</h2>
+
+            @for (q of questions(); track q.id) {
+              <div class="mb-3">
+                <label class="form-label" [attr.for]="'standup-answer-' + q.id">{{ q.text }}</label>
+                <textarea
+                  class="form-control"
+                  rows="2"
+                  [id]="'standup-answer-' + q.id"
+                  [name]="'standup-answer-' + q.id"
+                  [maxlength]="maxAnswerLength"
+                  [disabled]="!canWrite()"
+                  [ngModel]="draftFor(q.id)"
+                  (ngModelChange)="setDraft(q.id, $event)"
+                ></textarea>
+                <div class="d-flex justify-content-end mt-1">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    [disabled]="!canWrite() || saving() === q.id"
+                    (click)="saveAnswer(q)"
+                  >
+                    {{ saving() === q.id ? ('common.saving' | t) : ('standup.save' | t) }}
+                  </button>
+                </div>
+              </div>
+            }
+
+            <button
+              type="button"
+              class="btn btn-primary w-100"
+              id="standup-post-all"
+              [disabled]="!canWrite() || !anyDraftFilled()"
+              (click)="postAll()"
+            >
+              {{ 'standup.postAll' | t }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Everyone else's, once I have posted. -->
+      <section class="col-12 col-lg-7" aria-labelledby="standup-others-heading">
+        <h2 class="h6" id="standup-others-heading">{{ 'standup.others' | t }}</h2>
+
+        @if (!iHavePosted()) {
+          <div class="alert alert-info" id="standup-gate" role="note">
+            {{ 'standup.gate' | t }}
+          </div>
+        } @else if (others().length === 0) {
+          <p class="text-body-secondary" id="standup-nobody-else">
+            {{ 'standup.nobodyElseYet' | t }}
+          </p>
+        } @else {
+          @for (person of others(); track person.userId) {
+            <article class="card shadow-sm mb-3">
+              <div class="card-body">
+                <h3 class="h6 card-title d-flex justify-content-between align-items-baseline">
+                  <span>{{ person.displayName }}</span>
+                  @if (person.postedAt) {
+                    <span class="text-body-secondary fw-normal small">
+                      {{ formatPosted(person.postedAt) }}
+                    </span>
+                  }
+                </h3>
+
+                @for (q of questions(); track q.id) {
+                  @if (answerFor(person.userId, q.id); as answer) {
+                    <p class="mb-1 small text-body-secondary">{{ q.text }}</p>
+                    <p class="mb-3" style="white-space: pre-wrap">
+                      {{ answer }}
+                      @if (wasEdited(person.userId, q.id)) {
+                        <span class="badge text-bg-light">{{ 'standup.edited' | t }}</span>
+                      }
+                    </p>
+                  }
+                }
+              </div>
+            </article>
+          }
+        }
+      </section>
+    </div>
+
+    <!-- Blockers: visible before posting, because a request for help should reach whoever can help. -->
+    <section class="mt-4" aria-labelledby="standup-blockers-heading">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h6 mb-0" id="standup-blockers-heading">{{ 'standup.blockers' | t }}</h2>
+        @if (canWrite() && !blockerComposerOpen()) {
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            id="standup-add-blocker"
+            (click)="openBlockerComposer()"
+          >
+            {{ 'standup.addBlocker' | t }}
+          </button>
+        }
+      </div>
+
+      @if (blockerComposerOpen()) {
+        <div class="card mb-3">
+          <div class="card-body">
+            <label class="form-label" for="standup-blocker-text">
+              {{ 'standup.blockerText' | t }}
+            </label>
+            <input
+              id="standup-blocker-text"
+              name="standup-blocker-text"
+              class="form-control mb-2"
+              [maxlength]="maxBlockerLength"
+              [(ngModel)]="blockerText"
+            />
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-primary" (click)="addBlocker()">
+                {{ 'common.add' | t }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                (click)="closeBlockerComposer()"
+              >
+                {{ 'common.cancel' | t }}
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (openBlockers().length === 0 && resolvedBlockers().length === 0) {
+        <p class="text-body-secondary" id="standup-no-blockers">{{ 'standup.noBlockers' | t }}</p>
+      } @else {
+        <ul class="list-group" id="standup-blocker-list">
+          @for (blocker of openBlockers().concat(resolvedBlockers()); track blocker.id) {
+            <li class="list-group-item">
+              <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                <div>
+                  <span [class.text-decoration-line-through]="blocker.isResolved">
+                    {{ blocker.text }}
+                  </span>
+                  <div class="small text-body-secondary">
+                    {{ 'standup.raisedBy' | t:{ name: blocker.authorDisplayName } }}
+                    @if (blocker.ownerName) {
+                      &middot; {{ 'standup.ownedBy' | t:{ name: blocker.ownerName } }}
+                    }
+                    @if (blocker.carriedOver) {
+                      <span class="badge text-bg-light">{{ 'standup.carriedOver' | t }}</span>
+                    }
+                  </div>
+                </div>
+
+                <div class="btn-group btn-group-sm">
+                  @if (!blocker.ownerName) {
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary"
+                      (click)="takeBlocker(blocker)"
+                    >
+                      {{ 'standup.takeIt' | t }}
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    (click)="startAssign(blocker)"
+                  >
+                    {{ 'standup.assign' | t }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    (click)="toggleBlocker(blocker)"
+                  >
+                    {{ (blocker.isResolved ? 'standup.reopen' : 'standup.resolve') | t }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-danger"
+                    [attr.aria-label]="'standup.deleteBlocker' | t"
+                    (click)="deleteBlocker(blocker)"
+                  >
+                    &times;
+                  </button>
+                </div>
+              </div>
+
+              @if (assigning() === blocker.id) {
+                <div class="mt-2 border-top pt-2">
+                  <label class="form-label small" [attr.for]="'standup-owner-' + blocker.id">
+                    {{ 'standup.ownerInRoom' | t }}
+                  </label>
+                  <select
+                    class="form-select form-select-sm mb-2"
+                    [id]="'standup-owner-' + blocker.id"
+                    [name]="'standup-owner-' + blocker.id"
+                    [(ngModel)]="assignOwnerUserId"
+                  >
+                    <option value="">{{ 'standup.ownerNobody' | t }}</option>
+                    @for (p of b.participants; track p.userId) {
+                      <option [value]="p.userId">{{ p.displayName }}</option>
+                    }
+                  </select>
+
+                  <label class="form-label small" [attr.for]="'standup-owner-name-' + blocker.id">
+                    {{ 'standup.ownerElsewhere' | t }}
+                  </label>
+                  <input
+                    class="form-control form-control-sm mb-2"
+                    [id]="'standup-owner-name-' + blocker.id"
+                    [name]="'standup-owner-name-' + blocker.id"
+                    [(ngModel)]="assignOwnerName"
+                  />
+
+                  <div class="d-flex gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-primary"
+                      (click)="saveAssign(blocker)"
+                    >
+                      {{ 'common.save' | t }}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      (click)="cancelAssign()"
+                    >
+                      {{ 'common.cancel' | t }}
+                    </button>
+                  </div>
+                </div>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <p class="mt-4 small text-body-secondary">
+      {{ 'standup.inviteHint' | t:{ code: b.shortCode } }}
+    </p>
+  } @else {
+    <p class="text-body-secondary">{{ 'common.loading' | t }}</p>
+  }
+</main>

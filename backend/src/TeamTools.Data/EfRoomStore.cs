@@ -149,7 +149,13 @@ public class EfRoomStore : IRoomStore, IPokerRoundStore, IRetroBoardStore, ICoff
             .Include(r => r.CoffeeBoard)
                 .ThenInclude(b => b!.ExtendVotes)
             .Include(r => r.CoffeeBoard)
-                .ThenInclude(b => b!.Decisions);
+                .ThenInclude(b => b!.Decisions)
+            .Include(r => r.StandupBoard)
+                .ThenInclude(b => b!.Questions)
+            .Include(r => r.StandupBoard)
+                .ThenInclude(b => b!.Entries)
+            .Include(r => r.StandupBoard)
+                .ThenInclude(b => b!.Blockers);
 
     private async Task SaveAsync(CancellationToken cancellationToken)
     {

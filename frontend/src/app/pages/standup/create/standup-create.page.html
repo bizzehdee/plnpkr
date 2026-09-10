@@ -1,0 +1,154 @@
+<main class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h1 class="h5 mb-3">{{ 'standup.create.title' | t }}</h1>
+          <p class="text-body-secondary small">{{ 'standup.create.blurb' | t }}</p>
+
+          @if (error()) {
+            <div class="alert alert-danger" role="alert">{{ error() }}</div>
+          }
+
+          <form (ngSubmit)="create()">
+            <div class="mb-3">
+              <label class="form-label" for="standup-name">{{ 'standup.create.name' | t }}</label>
+              <input
+                id="standup-name"
+                name="standup-name"
+                class="form-control"
+                [placeholder]="'standup.create.namePlaceholder' | t"
+                [(ngModel)]="boardName"
+                required
+              />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="standup-your-name">
+                {{ 'standup.create.yourName' | t }}
+              </label>
+              <input
+                id="standup-your-name"
+                name="standup-your-name"
+                class="form-control"
+                [placeholder]="'standup.create.yourNamePlaceholder' | t"
+                [(ngModel)]="displayName"
+                required
+              />
+            </div>
+
+            <fieldset class="mb-3">
+              <legend class="form-label mb-1">{{ 'standup.create.questions' | t }}</legend>
+              <div class="form-text mb-2">{{ 'standup.create.questionsHelp' | t }}</div>
+
+              @for (q of questions; track $index) {
+                <div class="input-group mb-2">
+                  <input
+                    class="form-control"
+                    [attr.aria-label]="'standup.create.question' | t:{ n: $index + 1 }"
+                    [name]="'standup-question-' + $index"
+                    [ngModel]="q"
+                    (ngModelChange)="setQuestion($index, $event)"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    [disabled]="questions.length === 1"
+                    [attr.aria-label]="'standup.create.removeQuestion' | t"
+                    (click)="removeQuestion($index)"
+                  >
+                    &times;
+                  </button>
+                </div>
+              }
+
+              @if (canAddQuestion) {
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  (click)="addQuestion()"
+                >
+                  {{ 'standup.create.addQuestion' | t }}
+                </button>
+              }
+            </fieldset>
+
+            <div class="form-check mb-3">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="standup-facilitate"
+                name="standup-facilitate"
+                [(ngModel)]="facilitate"
+              />
+              <label class="form-check-label" for="standup-facilitate">
+                {{ 'standup.create.facilitate' | t }}
+              </label>
+              <div class="form-text">{{ 'standup.create.facilitateHelp' | t }}</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="standup-password">
+                {{ 'standup.create.password' | t }}
+              </label>
+              <input
+                id="standup-password"
+                name="standup-password"
+                type="password"
+                class="form-control"
+                autocomplete="new-password"
+                [placeholder]="'standup.create.passwordPlaceholder' | t"
+                [(ngModel)]="password"
+              />
+            </div>
+
+            <div class="mb-3">
+              <button
+                type="button"
+                class="btn btn-sm btn-link px-0"
+                id="standup-carry-over-toggle"
+                [attr.aria-expanded]="showCarryOver()"
+                (click)="toggleCarryOver()"
+              >
+                {{ 'standup.create.carryOverToggle' | t }}
+              </button>
+
+              @if (showCarryOver()) {
+                <div class="border rounded p-3 mt-2">
+                  <div class="form-text mb-2">{{ 'standup.create.carryOverHelp' | t }}</div>
+
+                  <label class="form-label" for="standup-previous-code">
+                    {{ 'standup.create.previousCode' | t }}
+                  </label>
+                  <input
+                    id="standup-previous-code"
+                    name="standup-previous-code"
+                    class="form-control mb-2"
+                    [placeholder]="'standup.create.previousCodePlaceholder' | t"
+                    [(ngModel)]="previousShortCode"
+                  />
+
+                  <label class="form-label" for="standup-previous-password">
+                    {{ 'standup.create.previousPassword' | t }}
+                  </label>
+                  <input
+                    id="standup-previous-password"
+                    name="standup-previous-password"
+                    type="password"
+                    class="form-control"
+                    autocomplete="off"
+                    [(ngModel)]="previousPassword"
+                  />
+                </div>
+              }
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100" [disabled]="busy()">
+              {{ busy() ? ('common.saving' | t) : ('standup.create.submit' | t) }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>

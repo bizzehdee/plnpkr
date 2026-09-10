@@ -595,6 +595,121 @@ namespace TeamTools.Data.Sqlite.Migrations
                     b.ToTable("RoundResult");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.StandupBlocker", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AuthorUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CarriedFromBoardId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OwnerName")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OwnerUserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("StandupBlocker");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.StandupBoard", b =>
+                {
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PreviousBoardShortCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("RoomId");
+
+                    b.ToTable("StandupBoard");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.StandupEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AuthorUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.HasIndex("BoardId", "AuthorUserId");
+
+                    b.ToTable("StandupEntry");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.StandupQuestion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("StandupQuestion");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.CoffeeBoard", b =>
                 {
                     b.HasOne("TeamTools.Core.Models.Room", "Room")
@@ -804,6 +919,50 @@ namespace TeamTools.Data.Sqlite.Migrations
                     b.Navigation("Round");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.StandupBlocker", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.StandupBoard", "Board")
+                        .WithMany("Blockers")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.StandupBoard", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.Room", "Room")
+                        .WithOne("StandupBoard")
+                        .HasForeignKey("TeamTools.Core.Models.StandupBoard", "RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.StandupEntry", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.StandupBoard", "Board")
+                        .WithMany("Entries")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.StandupQuestion", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.StandupBoard", "Board")
+                        .WithMany("Questions")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.CoffeeBoard", b =>
                 {
                     b.Navigation("Decisions");
@@ -852,6 +1011,17 @@ namespace TeamTools.Data.Sqlite.Migrations
                     b.Navigation("PokerRound");
 
                     b.Navigation("RetroBoard");
+
+                    b.Navigation("StandupBoard");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.StandupBoard", b =>
+                {
+                    b.Navigation("Blockers");
+
+                    b.Navigation("Entries");
+
+                    b.Navigation("Questions");
                 });
 #pragma warning restore 612, 618
         }

@@ -74,7 +74,7 @@ export interface IntegrationInfo {
   queue: QueuedTicketInfo[];
 }
 
-export type RoomTool = 'Poker' | 'Retro' | 'Coffee';
+export type RoomTool = 'Poker' | 'Retro' | 'Coffee' | 'Standup';
 
 /**
  * The room-level half of every tool snapshot (#19): identity, the participant list with presence
@@ -645,3 +645,135 @@ export interface CoffeeJoinResult {
 
 /** Longest a topic may be — mirrors CoffeeService.MaxTopicLength so the UI can cap the input. */
 export const COFFEE_MAX_TOPIC_LENGTH = 300;
+
+// --- Async Standup (#36) ----------------------------------------------------
+
+/**
+ * One of the questions a standup asks. Not fixed by the platform — a room can ask its own (#36).
+ */
+export interface StandupQuestionInfo {
+  id: string;
+  text: string;
+  order: number;
+}
+
+/** One answer, keyed by the question it answers. */
+export interface StandupAnswerInfo {
+  questionId: string;
+  text: string;
+  /** Set when it has been edited since posting, so a late edit is not invisible. */
+  updatedAt: string | null;
+}
+
+/** One person's standup. */
+export interface StandupPersonInfo {
+  userId: string;
+  displayName: string;
+  isMe: boolean;
+  answers: StandupAnswerInfo[];
+  postedAt: string | null;
+}
+
+/** Something in someone's way. Same shape as a retro action item and a coffee decision. */
+export interface StandupBlockerInfo {
+  id: string;
+  text: string;
+  authorUserId: string;
+  authorDisplayName: string;
+  ownerUserId: string | null;
+  ownerName: string | null;
+  isResolved: boolean;
+  /** Carried forward from yesterday's standup (#36) — shown as provenance. */
+  carriedOver: boolean;
+  createdAt: string;
+}
+
+/**
+ * The standup snapshot exactly as it arrives on the wire (#19/#36).
+ *
+ * **There is no phase here, deliberately.** A standup opens, people post, it closes — the phase rail
+ * the retro and the coffee share is a facilitated-ceremony concern, and this tool has no facilitator
+ * to move the room through anything.
+ */
+export interface StandupBoardSnapshotWire {
+  room: RoomSnapshot;
+  questions: StandupQuestionInfo[];
+  /** Whether this viewer has posted — and therefore whether `people` holds anyone else. */
+  iHavePosted: boolean;
+  /** How many have posted. Never a list of who has not (#36). */
+  postedCount: number;
+  participantCount: number;
+  people: StandupPersonInfo[];
+  blockers: StandupBlockerInfo[];
+  previousBoardShortCode: string | null;
+}
+
+/** The flat view model the components read; `room` is kept for fields with no alias. */
+export interface StandupBoardSnapshot {
+  room: RoomSnapshot;
+  id: string;
+  shortCode: string;
+  name: string;
+  organiserUserId: string | null;
+  reactionsEnabled: boolean;
+  allowRoleChange: boolean;
+  isClosed: boolean;
+  participants: ParticipantInfo[];
+  questions: StandupQuestionInfo[];
+  iHavePosted: boolean;
+  postedCount: number;
+  participantCount: number;
+  people: StandupPersonInfo[];
+  blockers: StandupBlockerInfo[];
+  previousBoardShortCode: string | null;
+}
+
+export type StandupActionStatus =
+  | 'Ok'
+  | 'BoardNotFound'
+  | 'NotParticipant'
+  | 'NotOrganiser'
+  | 'BoardClosed'
+  | 'QuestionNotFound'
+  | 'InvalidAnswer'
+  | 'BlockerNotFound'
+  | 'InvalidBlockerText'
+  | 'RateLimited';
+
+export interface StandupActionResult {
+  status: StandupActionStatus;
+  board: StandupBoardSnapshot | null;
+}
+
+export type CreateStandupStatus =
+  | 'Ok'
+  | 'InvalidName'
+  | 'InvalidQuestions'
+  | 'PreviousBoardNotFound'
+  | 'PreviousBoardPasswordRequired'
+  | 'RateLimited';
+
+export interface CreateStandupResult {
+  status: CreateStandupStatus;
+  board: StandupBoardSnapshot | null;
+  error: string | null;
+}
+
+export interface StandupJoinResult {
+  status: JoinStatus;
+  board: StandupBoardSnapshot | null;
+  participant: ParticipantInfo | null;
+  error: string | null;
+}
+
+/** Mirrors StandupService's limits so the UI can cap its inputs. */
+export const STANDUP_MAX_ANSWER_LENGTH = 1000;
+export const STANDUP_MAX_BLOCKER_LENGTH = 300;
+export const STANDUP_MAX_QUESTIONS = 6;
+
+/** The three questions almost every team already asks — mirrors `StandupQuestions.Default`. */
+export const STANDUP_DEFAULT_QUESTIONS = [
+  'What did you do since last time?',
+  'What are you doing next?',
+  'Anything in your way?',
+];

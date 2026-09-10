@@ -1,8 +1,9 @@
 # Architecture
 
-Design and architecture notes for **TeamTools** — a platform hosting three team-ceremony tools over
+Design and architecture notes for **TeamTools** — a platform hosting four team-ceremony tools over
 one shared room engine: **Planning Poker** (real-time estimation), **Team Retro** (real-time
-retrospectives) and **Lean Coffee** (agenda-less discussion).
+retrospectives), **Lean Coffee** (agenda-less discussion) and **Async Standup** (post-to-read, no
+meeting).
 
 Per-feature behaviour is tracked on the [GitHub issues board](https://github.com/bizzehdee/plnpkr/issues)
 and in [plan.md](./plan.md) / [tasks.md](./tasks.md); this document covers the cross-cutting design — the
@@ -26,7 +27,7 @@ tied to a single feature.
   stable per-browser `userId` live in browser `localStorage` and are pre-filled on return.
 - **Versions: .NET 10 LTS + Angular 21 LTS.**
 - **Deployment: a single host** (the .NET API serves the Angular SPA from the same origin).
-- **Three tools, one room engine.** A room is created as exactly one of a poker session, a retro board or a Lean Coffee, and
+- **Four tools, one room engine.** A room is created as exactly one of a poker session, a retro board, a Lean Coffee or a standup, and
   cannot switch. There is no team/workspace entity: the tools share the room engine and the front door,
   nothing else.
 
@@ -203,20 +204,20 @@ plus a lossless downgrade.
 
 ## Real-time contract (SignalR)
 
-Two hubs, one shape. One group per room, keyed by short code. A hub is a **thin adapter**: each method
+Four hubs, one shape — one per tool. One group per room, keyed by short code. A hub is a **thin adapter**: each method
 authenticates the caller's `userId`, calls a service method, and broadcasts the result. No business logic
 lives in a hub.
 
 ```
-PokerHub    (renamed from PlanningPokerHub)   RetroHub
-   ↘                                            ↙
-        RoomService  (join/leave/role/organiser/password/close/delete)
-   ↙                                            ↘
-   PokerService                                 RetroService
+PokerHub   RetroHub   CoffeeHub   StandupHub
+     ↘        ↘          ↙            ↙
+     RoomService  (join/leave/role/organiser/password/close/delete)
+     ↙        ↙          ↘            ↘
+PokerService  RetroService  CoffeeService  StandupService
 ```
 
 - **Shared `RoomSnapshot` fragment.** Each tool broadcasts its own full snapshot after every
-  mutation — `PokerSessionUpdated` / `RetroBoardUpdated` — and both embed the same `RoomSnapshot`
+  mutation — `PokerSessionUpdated` / `RetroBoardUpdated` / `BoardUpdated` — and all embed the same `RoomSnapshot`
   (short code, name, tool, participants with presence/roles/organiser flags, closed state). Room-level
   fields are defined once and never duplicated per tool.
 - **Shared events.** Ephemeral `ReactionReceived` (never persisted) and terminal `RoomClosed` are
@@ -231,10 +232,17 @@ PokerHub    (renamed from PlanningPokerHub)   RetroHub
   allow-participant-grouping; cast/withdraw dot vote, set vote budget; add/edit/delete action, toggle
   done; set password, reactions-enabled, allow-role-change; change role; promote/demote/transfer
   organiser; close/delete room; emoji `React`.
-- **Per-recipient projection, pushed per connection.** Both tools hide state that must not leak:
+- **Client → server (standup):** create (with its own questions, password, and an optional previous
+  standup to carry from)/join/leave; `Answer` (an empty string clears it); add/assign/toggle-resolved/
+  delete blocker; set password, reactions-enabled; promote/transfer organiser; close/delete room;
+  emoji `React`. **No phase methods and no timer methods** — see §"The fourth tool, and what it
+  refused".
+- **Per-recipient projection, pushed per connection.** Every tool hides state that must not leak:
   poker hides vote values before reveal; retro hides other participants' card text during Collect
-  (sending only a per-column count), authorship on an anonymous board, and dot totals during Vote.
-  This is done in the snapshot projection, never in the client.
+  (sending only a per-column count), authorship on an anonymous board, and dot totals during Vote;
+  coffee hides others' topics while proposing, totals while voting, and the extension split until it
+  resolves; standup hides everyone else's answers until you have posted your own. This is done in the
+  snapshot projection, never in the client.
 
   > **Design correction (found while implementing #22/#23).** A retro update cannot be a group
   > broadcast of one payload the way a poker update mostly can: during Collect *what each recipient
@@ -317,22 +325,72 @@ existed, and reused **unchanged**:
 What was actually **new**: a per-topic timebox rather than a per-phase one, and the extension vote.
 Everything else was assembly. That is the answer to the question #34 posed.
 
-> **The three tools' countdowns now differ deliberately, and the difference is the product.** Poker
+> **The tools' countdowns differ deliberately, and the difference is the product.** Poker
 > force-reveals on expiry, because a reveal is mechanical. A retro does nothing at all — it clears
 > the countdown and leaves the phase to the facilitator (#23). Lean Coffee sits between them: expiry
-> opens the keep-going vote and stops. Three behaviours over one `Countdown` primitive, which is why
-> #34 extracted the mechanism and left the actions alone.
+> opens the keep-going vote and stops. Async Standup has no countdown at all (#36). Four behaviours
+> over one `Countdown` primitive, which is why #34 extracted the mechanism and left the actions
+> alone.
 
 > **Shared logic, per-tool tables.** `RetroVote` and `CoffeeVote` both implement `IDotVote` and are
 > counted by the same code, but they live in their own tables and neither references the other — the
-> platform's one structural rule (§"The two tools never reference each other"). A shared room-level
-> artefact table would be tidier and is the obvious step if a fourth tool appears; it would also be a
-> hand-written data migration over shipped retro rows, which is why it was not done speculatively.
+> platform's one structural rule (§"The tools never reference each other"). A shared room-level
+> artefact table would be tidier; it would also be a hand-written data migration over shipped retro
+> rows, which is why it was not done speculatively.
+>
+> **The fourth tool arrived and the answer held (#36).** `StandupBlocker` is a third table on the same
+> pattern rather than the shared one, because a standup has no dot voting at all — the shared rules
+> (`ActionItemRules`) were what it needed, and those were already extracted. The table stays the
+> obvious consolidation if a tool ever needs to read another's artefacts, which none does.
 
 > **`core/tool-registry.ts` replaced two growing if/else chains.** The `/join` landing had one for
 > picking a hub client and another for picking a route (#32); a third tool would have meant editing
 > both. The registry maps `RoomTool` to a route and a lazily-imported client, so a fourth tool is one
-> entry — and the client stays out of the initial bundle (#31).
+> entry — and the client stays out of the initial bundle (#31). #36 was that one entry: no page outside
+> `pages/standup/` learned the tool existed.
+
+### The fourth tool, and what it refused (#36)
+
+Where Lean Coffee tested whether the room engine earned its keep, Async Standup tested whether the
+platform could say **no**. It is the thinnest tool service of the four, and most of that is deliberate
+absence:
+
+| Not used | Why not |
+| --- | --- |
+| `PhaseRail<TPhase>` | A standup opens, people post, it closes. There is nothing for a facilitator to move the room through. This is the tool that proves the rail is a retro/coffee concern, not a platform one. |
+| `Countdown` / `RoomSweepService` | No timebox, so no expiry, so no sweep — and nothing that has to find its boards without a short code. |
+| `DotBudget` | Nothing to rank. |
+| A tool-specific store port | The other three each needed one (`IPokerRoundStore`, `IRetroBoardStore`, `ICoffeeBoardStore`) to serve a background sweep. `StandupService` needs only `IRoomStore`. |
+
+What it *did* reuse: `RoomService` for everything room-level, `ActionItemRules` for blocker owners
+(its third consumer), the per-recipient projection for its one rule, and #27's carry-over shape.
+Reaching for the rail just because #34 and #35 had extracted one would have been the wrong kind of
+reuse — the point of a shared primitive is that a tool can decline it.
+
+> **Post-to-read is the fourth thing the per-recipient projection enforces**, after retro anonymity
+> (#22), retro hidden collection (#23) and the coffee's hidden proposal and extension split (#35).
+> Same reason each time: a client-side hide ships everyone's standup to every browser and hopes
+> nobody looks. `StandupService.ToSnapshot` is the single place it lives, so every read and every
+> broadcast passes through it — including the export, which is why that one renders from the snapshot
+> the client already holds rather than from a new server route. Neither of the other two exports could
+> do that; both read data their client was never sent.
+
+> **The count, not the names.** The board says "N of the M people in this room have posted" and never
+> names who has not. Presence knows who *opened* the room, which is not the same as who is on the
+> team: "Dave hasn't posted" would as often mean "Dave is on holiday". A real roster needs accounts,
+> and the platform has none — so the honest projection is a count.
+
+> **Retention was decided rather than discovered.** A standup room is idle by construction between
+> mornings, so #15's idle eviction applies to it more aggressively than to any other tool. The answer
+> is "export it or lose it", stated on the board — the platform's rule, not a per-tool carve-out. The
+> alternative, a retention window for one tool, would have been the first place the platform bent to a
+> tool rather than the other way round.
+
+> **The constraints this tool wants lifted are platform decisions.** Recurrence needs a scheduler,
+> notifications need addresses, a roster needs accounts — and each would change all four tools. So
+> each day is its own room, and the invite link is the reminder. If any of that becomes a real problem
+> in use, it should be taken deliberately and once, not worked around here.
+
 ### One deliberate cross-board link
 
 Retro **carry-over** (task #27) is the single connection between two rooms: a new board can pull the
@@ -355,7 +413,8 @@ projects; `Api` and `Data` are thin adapters.
                               #   password, presence, close/delete
     RoomMaintenanceService.cs # participant eviction + retention decisions (clock-driven)
     IRoomStore.cs             # room persistence abstraction (no EF types leak through it);
-                              #   each tool adds a one-method port: IPokerRoundStore, IRetroBoardStore
+                              #   a tool with a countdown sweep adds a one-method port: IPokerRoundStore,
+                              #   IRetroBoardStore, ICoffeeBoardStore. Standup needs none.
     IClock.cs                 # time abstraction for deterministic time-based tests
     Security/                 # PasswordHasher (PBKDF2)
     Integrations/             # provider-agnostic issue-tracker ports (IIssueTracker, etc.)
@@ -363,10 +422,14 @@ projects; `Api` and `Data` are thin adapters.
                               #   StatsCalculator, PokerTimerService, IntegrationService, OAuthService
     Retro/                    # Retrospective domain: RetroService, RetroTemplateCatalog,
                               #   phase state machine, grouping, dot-vote tallies, action items
+    Coffee/                   # Lean Coffee domain: CoffeeService, CoffeePhaseRules, per-topic
+                              #   timebox, the extension vote, CoffeeTimerService
+    Standup/                  # Async Standup domain: StandupService — post-to-read and blockers.
+                              #   No phase rail, no countdown, no sweep (#36)
   TeamTools.Data/             # EF Core adapter: TeamToolsDbContext, EfRoomStore, IDatabaseProvider
   TeamTools.Data.{Sqlite,SqlServer,PostgreSql}/   # one project per engine: driver + migrations
   TeamTools.Integrations/     # Jira/ADO/GitHub/GitLab HTTP adapters, OAuth flow, sanitizer, allowlist
-  TeamTools.Api/              # Host, thin PokerHub + RetroHub + MVC controllers + health checks
+  TeamTools.Api/              # Host, thin hub per tool + MVC controllers + health checks
 ```
 
 Key choices:
@@ -380,7 +443,8 @@ Key choices:
 - **A tool-specific query gets a tool-specific port.** `IPokerRoundStore` and `IRetroBoardStore` each
   carry exactly one method — the countdown sweep their tool's background service needs — and are kept
   off `IRoomStore` so the room engine has no knowledge of rounds or phases. One EF adapter implements
-  all three, because they share a `DbContext` and therefore a unit of work.
+  them all, because they share a `DbContext` and therefore a unit of work. **A tool with no countdown
+  gets no port at all** — `StandupService` takes only `IRoomStore` (#36).
 
   > **Both sweeps run once per second, so both narrow in SQL (#14/#33).** They load only the rooms
   > with a running countdown, and apply the `DateTimeOffset` deadline comparison in memory, because
@@ -390,8 +454,8 @@ Key choices:
   > countdown existed. Invisible on a small database and unbounded on a large one. The general
   > `GetAllAsync` remains, for the callers that genuinely need every room: idle eviction and the
   > retention purge, both on a one-minute cadence.
-- **The tools never reference each other.** `TeamTools.Core.Poker`, `TeamTools.Core.Retro` and `TeamTools.Core.Coffee`
-  all build on the room engine; a dependency between the tools is the failure mode this structure
+- **The tools never reference each other.** `TeamTools.Core.Poker`, `TeamTools.Core.Retro`, `TeamTools.Core.Coffee`
+  and `TeamTools.Core.Standup` all build on the room engine; a dependency between the tools is the failure mode this structure
   exists to prevent.
 
   > **Design correction (found while implementing #19).** This document originally specified

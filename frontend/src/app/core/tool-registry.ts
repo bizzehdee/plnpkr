@@ -39,6 +39,11 @@ export const TOOLS: Record<RoomTool, ToolEntry> = {
     nameKey: 'tool.coffee.name',
     client: async () => (await import('./coffee.client')).SignalrCoffeeClient,
   },
+  Standup: {
+    route: '/standup',
+    nameKey: 'tool.standup.name',
+    client: async () => (await import('./standup.client')).SignalrStandupClient,
+  },
 };
 
 /** The route a room of this tool lives at. */

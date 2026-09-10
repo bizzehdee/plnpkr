@@ -1,13 +1,14 @@
 # TeamTools
 
 **TeamTools** is a small platform for the ceremonies a team actually runs together, in real time and
-without accounts. It hosts three tools over one shared room engine:
+without accounts. It hosts four tools over one shared room engine:
 
 - **Planning Poker** — real-time Scrum estimation.
 - **Team Retro** — real-time retrospectives, from writing cards to agreeing actions.
 - **Lean Coffee** — an agenda-less discussion: propose topics, vote, then work the list.
+- **Async Standup** — the standup without the meeting: post in your own time, read the rest once you have.
 
-All three work the same way: someone creates a room, shares a short invite link, and everyone else joins
+All four work the same way: someone creates a room, shares a short invite link, and everyone else joins
 by picking a display name. No sign-up, no team setup, nothing to administer. .NET 10 backend +
 Angular 21 (Bootstrap 5) frontend, over SignalR (WebSockets); persistence via EF Core with a
 configurable provider (SQLite by default; SQL Server / PostgreSQL also supported).
@@ -64,6 +65,29 @@ configurable provider (SQLite by default; SQL Server / PostgreSQL also supported
 - Topics are **never anonymous**: proposing one means offering to talk about it, so the name is the
   useful part.
 
+## Async Standup
+
+- **Post-to-read.** You see everyone else's answers once you have posted your own. Enforced in the
+  per-recipient snapshot, not the UI — a standup you read first is a standup you write to match.
+- **Your own questions.** The usual three are the starting point, not the law; a room can ask up to
+  six of whatever it actually asks.
+- **Blockers are the only structured field**, because "who is unblocking this" is the only decision a
+  standup produces. Anyone can take one on, the owner need not be in the room, and it stays clearable
+  after the standup closes — it gets unblocked hours later, not during.
+- **Each day is its own room.** Start today's from yesterday's short code to copy the questions and
+  anything still in the way; the invite link *is* the reminder.
+- **A count, never a name.** The board says "3 of the 5 people in this room have posted" and never
+  "Dave is missing" — presence only knows who opened the room, so naming the absent would name the
+  wrong people.
+- **Export it or lose it**, stated on the board: idle rooms are evicted like any other, and a standup
+  room is idle by construction between mornings. The Markdown and CSV are rendered from the snapshot
+  you already hold, so the file is exactly what you were allowed to read.
+
+> **What this tool deliberately does not have:** no phase rail (a standup opens, people post, it
+> closes), no countdown, no recurrence, no notifications and no roster. Those would need a scheduler,
+> addresses or accounts — platform decisions that would change all four tools, and worth taking
+> deliberately and once rather than as a workaround for one.
+
 ## Shared by every tool
 
 - Roles: **voters** take part, **observers** watch; an optional **organiser** (the creator) drives.
@@ -86,12 +110,12 @@ configurable provider (SQLite by default; SQL Server / PostgreSQL also supported
 
 ```
 backend/    .NET 10 solution:
-              TeamTools.Core        room engine (tool-agnostic) + Poker/, Retro/ and Coffee/ namespaces
+              TeamTools.Core        room engine (tool-agnostic) + Poker/, Retro/, Coffee/ and Standup/ namespaces
               TeamTools.Data        EF Core model + DbContext, provider-agnostic
               TeamTools.Data.{Sqlite,SqlServer,PostgreSql}
                                     one project per engine: driver + migrations
               TeamTools.Integrations  Jira / Azure DevOps adapters
-              TeamTools.Api         host: PokerHub + RetroHub + CoffeeHub + REST + health checks
+              TeamTools.Api         host: PokerHub + RetroHub + CoffeeHub + StandupHub + REST + health checks
             plus a test project per layer
 frontend/   Angular 21 app (Bootstrap 5, @microsoft/signalr)
 deploy/     Terraform + shell scripts for an AWS deployment (EC2 + S3 + CloudFront)
@@ -159,16 +183,16 @@ Prerequisites: **.NET 10 SDK**, **Node 20+**, and (for the coverage gate) **Powe
 
 This runs the same checks as CI, so a green `test` locally means a clean build.
 
-### Backend (xUnit) — 743 tests across Core / Integrations / Data / Api
+### Backend (xUnit) — 798 tests across Core / Integrations / Data / Api
 
 ```bash
 cd backend
 dotnet test TeamTools.slnx                        # whole solution
 
 # One project at a time
-dotnet test tests/TeamTools.Core.Tests            # fast, no I/O (the bulk of the logic) — 607
+dotnet test tests/TeamTools.Core.Tests            # fast, no I/O (the bulk of the logic) — 658
 dotnet test tests/TeamTools.Integrations.Tests    # Jira/ADO adapters against stubbed HTTP — 40
-dotnet test tests/TeamTools.Data.Tests            # EfRoomStore + migrations against real SQLite — 44
+dotnet test tests/TeamTools.Data.Tests            # EfRoomStore + migrations against real SQLite — 48
 dotnet test tests/TeamTools.Api.Tests             # REST + SignalR + health over an in-memory server — 52
 
 # Run a single test or class by name
@@ -178,14 +202,14 @@ dotnet test tests/TeamTools.Core.Tests --filter "FullyQualifiedName~RetroVotingT
 dotnet watch test --project tests/TeamTools.Core.Tests
 ```
 
-### Coverage gate — Core must be ≥ 90% line + branch (currently ~96% / ~92%)
+### Coverage gate — Core must be ≥ 90% line + branch (currently ~95% / ~91%)
 
 ```bash
 pwsh backend/coverage-gate.ps1                   # prints the numbers and fails if under threshold
 pwsh backend/coverage-gate.ps1 -Threshold 0.95   # try a stricter bar
 ```
 
-### Frontend (Vitest + Angular TestBed) — 247 specs across 14 files
+### Frontend (Vitest + Angular TestBed) — 277 specs across 16 files
 
 ```bash
 cd frontend

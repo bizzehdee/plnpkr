@@ -54,6 +54,11 @@ public class TeamToolsDbContext : DbContext
                 .HasForeignKey<CoffeeBoard>(b => b.RoomId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            e.HasOne(r => r.StandupBoard)
+                .WithOne(b => b.Room!)
+                .HasForeignKey<StandupBoard>(b => b.RoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Soft delete (#26): a deleted room is hidden from every query.
             e.HasQueryFilter(r => r.DeletedAt == null);
         });
@@ -132,6 +137,62 @@ public class TeamToolsDbContext : DbContext
                 .WithOne(a => a.Board!)
                 .HasForeignKey(a => a.BoardId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- StandupBoard: the Async Standup payload (#36) ------------------
+        modelBuilder.Entity<StandupBoard>(e =>
+        {
+            e.HasKey(b => b.RoomId);
+            e.Property(b => b.PreviousBoardShortCode).HasMaxLength(64);
+
+            e.HasMany(b => b.Questions)
+                .WithOne(q => q.Board!)
+                .HasForeignKey(q => q.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(b => b.Entries)
+                .WithOne(x => x.Board!)
+                .HasForeignKey(x => x.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(b => b.Blockers)
+                .WithOne(x => x.Board!)
+                .HasForeignKey(x => x.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- StandupQuestion: what this standup asks (#36) ------------------
+        modelBuilder.Entity<StandupQuestion>(e =>
+        {
+            e.HasKey(q => q.Id);
+            e.Property(q => q.Id).ValueGeneratedNever(); // the domain assigns it — see RetroCard.Id
+            e.Property(q => q.Text).IsRequired().HasMaxLength(200);
+            e.HasIndex(q => q.BoardId);
+        });
+
+        // --- StandupEntry: one answer to one question (#36) -----------------
+        modelBuilder.Entity<StandupEntry>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever(); // the domain assigns it — see RetroCard.Id
+            e.Property(x => x.Text).IsRequired().HasMaxLength(1000);
+            e.Property(x => x.AuthorUserId).IsRequired().HasMaxLength(64);
+            e.HasIndex(x => x.BoardId);
+            // "Have I posted?" and "show me this person's standup" both key on (board, author).
+            e.HasIndex(x => new { x.BoardId, x.AuthorUserId });
+        });
+
+        // --- StandupBlocker: what is in someone's way (#36) -----------------
+        modelBuilder.Entity<StandupBlocker>(e =>
+        {
+            e.HasKey(b => b.Id);
+            e.Property(b => b.Id).ValueGeneratedNever(); // the domain assigns it — see RetroCard.Id
+            e.Property(b => b.Text).IsRequired().HasMaxLength(300);
+            e.Property(b => b.AuthorUserId).IsRequired().HasMaxLength(64);
+            e.Property(b => b.OwnerUserId).HasMaxLength(64);
+            e.Property(b => b.OwnerName).HasMaxLength(80);
+            e.Ignore(b => b.IsResolved); // computed from ResolvedAt
+            e.HasIndex(b => b.BoardId);
         });
 
         // --- CoffeeBoard: the Lean Coffee payload (#35) ---------------------

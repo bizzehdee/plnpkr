@@ -59,6 +59,9 @@ public class Room
     /// <summary>The Lean Coffee payload — non-null exactly when <see cref="Tool"/> is Coffee (#35).</summary>
     public CoffeeBoard? CoffeeBoard { get; set; }
 
+    /// <summary>The Async Standup payload — non-null exactly when <see cref="Tool"/> is Standup (#36).</summary>
+    public StandupBoard? StandupBoard { get; set; }
+
     /// <summary>True once the room has been closed into its frozen read-only state (#26).</summary>
     public bool IsClosed => ClosedAt is not null;
 }

@@ -13,7 +13,7 @@ interface ToolCard {
 }
 
 /**
- * The platform front door (#19/#20). TeamTools hosts two ceremony tools over one room engine, so
+ * The platform front door (#19/#20). TeamTools hosts four ceremony tools over one room engine, so
  * the landing page picks a tool rather than jumping straight into creating a poker session — the
  * poker create form moved to `/poker/new`.
  */
@@ -47,6 +47,14 @@ export class HomePage {
       bulletKeys: ['tool.coffee.point1', 'tool.coffee.point2', 'tool.coffee.point3'],
       icon: '☕',
       route: '/coffee/new',
+    },
+    {
+      id: 'standup',
+      titleKey: 'tool.standup.name',
+      blurbKey: 'tool.standup.blurb',
+      bulletKeys: ['tool.standup.point1', 'tool.standup.point2', 'tool.standup.point3'],
+      icon: '📝',
+      route: '/standup/new',
     },
   ];
 }

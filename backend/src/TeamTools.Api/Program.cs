@@ -10,6 +10,7 @@ using TeamTools.Api.Hubs;
 using TeamTools.Core.Poker;
 using TeamTools.Core.Coffee;
 using TeamTools.Core.Retro;
+using TeamTools.Core.Standup;
 using TeamTools.Core;
 using TeamTools.Core.Integrations;
 using TeamTools.Core.Security;
@@ -69,6 +70,7 @@ public class Program
         builder.Services.AddScoped<PokerService>();
         builder.Services.AddScoped<RetroService>();
         builder.Services.AddScoped<CoffeeService>(); // the third tool (#35)
+        builder.Services.AddScoped<StandupService>(); // the fourth tool (#36)
         builder.Services.AddScoped<RetroPhaseTimerService>();
         builder.Services.AddScoped<CoffeeTimerService>();
         builder.Services.AddScoped<RoomMaintenanceService>();
@@ -236,6 +238,7 @@ public class Program
         app.MapHub<PokerHub>("/hubs/poker");
         app.MapHub<RetroHub>("/hubs/retro"); // the second tool (#21)
         app.MapHub<CoffeeHub>("/hubs/coffee"); // the third tool (#35)
+        app.MapHub<StandupHub>("/hubs/standup"); // the fourth tool (#36)
 
         // SPA fallback: any unmatched non-API route returns index.html so Angular can route it.
         app.MapFallbackToFile("index.html");
