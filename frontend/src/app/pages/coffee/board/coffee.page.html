@@ -1,0 +1,418 @@
+<main class="container py-4">
+  <!-- Screen-reader announcements for board changes (#4). -->
+  <div class="visually-hidden" aria-live="polite" role="status">{{ announcement() }}</div>
+
+  @if (closed()) {
+    <div class="alert alert-warning" role="alert">{{ 'coffee.closedGone' | t }}</div>
+  } @else if (board(); as b) {
+    <header class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <h1 class="h4 mb-0">{{ b.name }}</h1>
+      <span class="badge text-bg-secondary">{{ 'tool.coffee.name' | t }}</span>
+      @if (b.isClosed) {
+        <span class="badge text-bg-warning">{{ 'coffee.readOnly' | t }}</span>
+      }
+      <span class="text-body-secondary small ms-auto">
+        {{ 'coffee.topicCount' | t }}: {{ b.topics.length + b.hiddenTopicCount }}
+      </span>
+      <span class="text-body-secondary small">
+        {{ 'coffee.participantCount' | t }}: {{ b.participants.length }}
+      </span>
+    </header>
+
+    @if (error()) {
+      <div class="alert alert-danger d-flex align-items-center gap-2" role="alert">
+        <span class="flex-grow-1">{{ error() }}</span>
+        <button type="button" class="btn-close" (click)="dismissError()"
+                [attr.aria-label]="'common.close' | t"></button>
+      </div>
+    }
+
+    <!--
+      The phase rail. An ordered list, so a screen reader announces "2 of 4" rather than leaving
+      the sequence implicit in the styling (#4).
+    -->
+    <nav class="mb-3" [attr.aria-label]="'coffee.phaseRail' | t">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <ol class="list-unstyled d-flex flex-wrap gap-1 mb-0">
+          @for (phase of phases; track phase) {
+            <li>
+              <span
+                class="badge"
+                [class.text-bg-primary]="phase === b.phase"
+                [class.text-bg-secondary]="phaseDone(phase)"
+                [class.text-bg-light]="phase !== b.phase && !phaseDone(phase)"
+                [attr.aria-current]="phase === b.phase ? 'step' : null"
+              >
+                {{ phaseLabelFor(phase) }}
+              </span>
+            </li>
+          }
+        </ol>
+
+        @if (timeLeft() !== null) {
+          <span class="badge text-bg-dark font-monospace" [attr.aria-label]="'coffee.timeLeft' | t">
+            {{ timeLeft() }}
+          </span>
+        }
+
+        @if (canFacilitate() && !b.isClosed) {
+          <div class="ms-auto d-flex gap-2">
+            @if (b.previousPhase) {
+              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="previousPhase()">
+                ← {{ phaseLabelFor(b.previousPhase) }}
+              </button>
+            }
+            @if (b.nextPhase) {
+              <button type="button" class="btn btn-sm btn-primary" (click)="advancePhase()">
+                {{ phaseLabelFor(b.nextPhase) }} →
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      @if (isProposing()) {
+        <p class="form-text mb-0">
+          {{ 'coffee.proposingHint' | t }}
+          @if (b.hiddenTopicCount > 0) {
+            {{ 'coffee.othersWriting' | t }}: {{ b.hiddenTopicCount }}
+          }
+        </p>
+      }
+
+      @if (isVoting()) {
+        <p class="form-text mb-0">
+          {{ 'coffee.votingHint' | t }}
+          <strong>{{ 'coffee.dotsLeft' | t }}: {{ b.myDotsRemaining }} / {{ b.voteBudget }}</strong>
+        </p>
+      }
+    </nav>
+
+    <!--
+      The current topic and its timebox — the centre of the room during Discuss.
+    -->
+    @if (isDiscussing()) {
+      <section class="card mb-3" aria-labelledby="current-topic-heading">
+        <div class="card-body">
+          @if (currentTopic(); as topic) {
+            <h2 class="h6 text-body-secondary" id="current-topic-heading">
+              {{ 'coffee.nowDiscussing' | t }}
+            </h2>
+            <p class="h5">{{ topic.text }}</p>
+            <p class="text-body-secondary small mb-3">
+              {{ 'coffee.proposedBy' | t }} {{ topic.authorDisplayName }}
+              @if (topic.extensions > 0) {
+                · {{ 'coffee.extendedTimes' | t:{ count: topic.extensions } }}
+              }
+            </p>
+
+            <!--
+              The extension vote (#35). Answers are hidden while it runs — only the count is sent —
+              so the room does not simply follow whoever clicked first.
+            -->
+            @if (b.extendVote; as vote) {
+              <div class="alert alert-info" role="group" [attr.aria-label]="'coffee.extendVote' | t">
+                <p class="mb-2"><strong>{{ 'coffee.timeUp' | t }}</strong> {{ 'coffee.keepGoingQuestion' | t }}</p>
+                <p class="small mb-2">
+                  {{ 'coffee.answered' | t }}: {{ vote.answered }} / {{ b.participants.length }}
+                  @if (vote.keepGoing !== null) {
+                    · {{ 'coffee.keepGoing' | t }} {{ vote.keepGoing }}
+                    · {{ 'coffee.moveOn' | t }} {{ vote.moveOn }}
+                  }
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    class="btn btn-sm"
+                    [class.btn-success]="vote.myChoice === 'KeepGoing'"
+                    [class.btn-outline-success]="vote.myChoice !== 'KeepGoing'"
+                    (click)="voteExtend('KeepGoing')"
+                  >
+                    {{ 'coffee.keepGoing' | t }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm"
+                    [class.btn-secondary]="vote.myChoice === 'MoveOn'"
+                    [class.btn-outline-secondary]="vote.myChoice !== 'MoveOn'"
+                    (click)="voteExtend('MoveOn')"
+                  >
+                    {{ 'coffee.moveOn' | t }}
+                  </button>
+                  @if (canFacilitate()) {
+                    <button type="button" class="btn btn-sm btn-primary ms-auto" (click)="resolveExtension()">
+                      {{ 'coffee.resolveVote' | t }}
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (canFacilitate() && !b.isClosed && !b.extendVote) {
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="nextTopic()">
+                {{ 'coffee.nextTopic' | t }} →
+              </button>
+            }
+          } @else {
+            <h2 class="h6 mb-1" id="current-topic-heading">{{ 'coffee.listWorked' | t }}</h2>
+            <p class="text-body-secondary small mb-0">{{ 'coffee.listWorkedHint' | t }}</p>
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Decisions: the reason to hold the meeting rather than just talk. -->
+    @if (b.decisions.length > 0 || canWriteDecisions()) {
+      <section class="mb-3" aria-labelledby="decisions-heading">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <h2 class="h6 mb-0" id="decisions-heading">{{ 'coffee.decisions' | t }}</h2>
+          <span class="badge text-bg-light">{{ b.decisions.length }}</span>
+          @if (canWriteDecisions() && !decisionComposerOpen()) {
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary ms-auto"
+              (click)="openDecisionComposer()"
+            >
+              + {{ 'coffee.addDecision' | t }}
+            </button>
+          }
+        </div>
+
+        @if (decisionComposerOpen()) {
+          <div class="card mb-2">
+            <div class="card-body">
+              <div class="row g-2">
+                <div class="col-12">
+                  <label class="form-label" for="decision-title">{{ 'coffee.decisionTitle' | t }}</label>
+                  <input
+                    id="decision-title"
+                    name="decision-title"
+                    class="form-control"
+                    [(ngModel)]="decisionTitle"
+                  />
+                </div>
+                <div class="col-12 col-sm-6">
+                  <label class="form-label" for="decision-owner">{{ 'coffee.decisionOwner' | t }}</label>
+                  <select
+                    id="decision-owner"
+                    name="decision-owner"
+                    class="form-select"
+                    [(ngModel)]="decisionOwnerUserId"
+                  >
+                    <option value="">{{ 'coffee.decisionOwnerNobody' | t }}</option>
+                    @for (p of b.participants; track p.userId) {
+                      <option [value]="p.userId">{{ p.displayName }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="col-12 col-sm-6">
+                  <label class="form-label" for="decision-owner-name">
+                    {{ 'coffee.decisionOwnerOther' | t }}
+                  </label>
+                  <input
+                    id="decision-owner-name"
+                    name="decision-owner-name"
+                    class="form-control"
+                    [placeholder]="'coffee.decisionOwnerOtherPlaceholder' | t"
+                    [(ngModel)]="decisionOwnerName"
+                  />
+                </div>
+                <div class="col-12 col-sm-6">
+                  <label class="form-label" for="decision-due">{{ 'coffee.decisionDue' | t }}</label>
+                  <input
+                    id="decision-due"
+                    name="decision-due"
+                    type="date"
+                    class="form-control"
+                    [(ngModel)]="decisionDue"
+                  />
+                </div>
+              </div>
+              <div class="d-flex gap-2 mt-2">
+                <button type="button" class="btn btn-sm btn-primary" (click)="saveDecision()">
+                  {{ 'common.save' | t }}
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="closeDecisionComposer()">
+                  {{ 'common.cancel' | t }}
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (b.decisions.length > 0) {
+          <ul class="list-group">
+            @for (d of b.decisions; track d.id) {
+              <li class="list-group-item d-flex flex-wrap align-items-center gap-2">
+                @if (canUpdateDecisions()) {
+                  <input
+                    class="form-check-input mt-0"
+                    type="checkbox"
+                    [checked]="d.isDone"
+                    (change)="toggleDecisionDone(d)"
+                    [attr.aria-label]="'coffee.markDecisionDone' | t"
+                  />
+                }
+                <span class="flex-grow-1" [class.text-decoration-line-through]="d.isDone">
+                  {{ d.title }}
+                </span>
+                @if (d.ownerName) {
+                  <span class="text-body-secondary small">
+                    {{ 'coffee.decisionOwner' | t }}: {{ d.ownerName }}
+                  </span>
+                }
+                @if (d.dueDate) {
+                  <span class="text-body-secondary small">
+                    {{ 'coffee.decisionDue' | t }}: {{ formatDue(d.dueDate) }}
+                  </span>
+                }
+                @if (canUpdateDecisions()) {
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    (click)="deleteDecision(d)"
+                  >
+                    {{ 'common.remove' | t }}
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    }
+
+    <!-- The topics. Ranked once the dots are visible, as-proposed before that. -->
+    <section aria-labelledby="topics-heading">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <h2 class="h6 mb-0" id="topics-heading">
+          {{ (b.voteTotalsVisible ? 'coffee.agenda' : 'coffee.topics') | t }}
+        </h2>
+        @if (isProposing() && !b.isClosed && !composing()) {
+          <button type="button" class="btn btn-sm btn-outline-primary ms-auto" (click)="openComposer()">
+            + {{ 'coffee.addTopic' | t }}
+          </button>
+        }
+      </div>
+
+      @if (composing()) {
+        <div class="card mb-2">
+          <div class="card-body">
+            <label class="form-label" for="topic-text">{{ 'coffee.topicText' | t }}</label>
+            <textarea
+              id="topic-text"
+              name="topic-text"
+              class="form-control"
+              rows="2"
+              [maxlength]="maxTopicLength"
+              [placeholder]="'coffee.topicPlaceholder' | t"
+              [(ngModel)]="draft"
+            ></textarea>
+            <div class="d-flex gap-2 mt-2">
+              <button type="button" class="btn btn-sm btn-primary" (click)="addTopic()">
+                {{ 'common.add' | t }}
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelComposer()">
+                {{ 'common.cancel' | t }}
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (visibleTopics().length === 0) {
+        <p class="text-body-secondary">{{ 'coffee.noTopics' | t }}</p>
+      } @else {
+        <ol class="list-group list-group-numbered">
+          @for (topic of visibleTopics(); track topic.id) {
+            <li
+              class="list-group-item"
+              [class.border-primary]="topic.id === b.currentTopicId"
+            >
+              @if (editing() === topic.id) {
+                <textarea
+                  class="form-control mb-2"
+                  rows="2"
+                  [maxlength]="maxTopicLength"
+                  [(ngModel)]="editDraft"
+                  [attr.aria-label]="'coffee.topicText' | t"
+                ></textarea>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-sm btn-primary" (click)="saveEdit(topic)">
+                    {{ 'common.save' | t }}
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEdit()">
+                    {{ 'common.cancel' | t }}
+                  </button>
+                </div>
+              } @else {
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                  <span class="flex-grow-1" [class.text-body-secondary]="topic.isDiscussed">
+                    {{ topic.text }}
+                  </span>
+
+                  @if (topic.totalDots !== null) {
+                    <span class="badge text-bg-primary">
+                      {{ topic.totalDots }}
+                      {{ (topic.totalDots === 1 ? 'coffee.dot' : 'coffee.dots') | t }}
+                    </span>
+                  }
+
+                  @if (isVoting()) {
+                    <div class="btn-group btn-group-sm" role="group">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        [disabled]="!canRemoveDot(topic)"
+                        (click)="removeDot(topic)"
+                        [attr.aria-label]="dotLabel(topic, false)"
+                      >
+                        −
+                      </button>
+                      <span class="btn btn-outline-secondary disabled">{{ topic.myDots }}</span>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        [disabled]="!canAddDot(topic)"
+                        (click)="addDot(topic)"
+                        [attr.aria-label]="dotLabel(topic, true)"
+                      >
+                        +
+                      </button>
+                    </div>
+                  }
+
+                  @if (topic.isDiscussed) {
+                    <span class="badge text-bg-secondary">
+                      {{ 'coffee.spent' | t }} {{ formatSpent(topic.discussedSeconds) }}
+                    </span>
+                  }
+
+                  @if (canModify(topic)) {
+                    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="startEdit(topic)">
+                      {{ 'common.edit' | t }}
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="deleteTopic(topic)">
+                      {{ 'common.remove' | t }}
+                    </button>
+                  }
+                </div>
+                <div class="text-body-secondary small">
+                  {{ 'coffee.proposedBy' | t }} {{ topic.authorDisplayName }}
+                </div>
+              }
+            </li>
+          }
+        </ol>
+      }
+    </section>
+
+    <div class="mt-3">
+      <a class="btn btn-sm btn-outline-secondary" [routerLink]="['/']">
+        {{ 'platform.allTools' | t }}
+      </a>
+    </div>
+  } @else {
+    <p class="text-body-secondary">{{ 'common.connecting' | t }}</p>
+  }
+</main>

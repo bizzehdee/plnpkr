@@ -22,6 +22,177 @@ namespace TeamTools.Data.PostgreSql.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeBoard", b =>
+                {
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AllowMultiplePerItem")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("CurrentTopicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ExtendVoteOpen")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset?>("PhaseDeadline")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("PhaseDurationSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("VoteBudget")
+                        .HasColumnType("integer");
+
+                    b.HasKey("RoomId");
+
+                    b.ToTable("CoffeeBoard");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeDecision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DoneAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OwnerName")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("OwnerUserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid?>("TopicId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("CoffeeDecision");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeExtendVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Choice")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("TopicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VoterUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("CoffeeExtendVote");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeTopic", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthorUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DiscussedSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Extensions")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("CoffeeTopic");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VoterUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.HasIndex("TargetId");
+
+                    b.HasIndex("BoardId", "VoterUserId");
+
+                    b.ToTable("CoffeeVote");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.Participant", b =>
                 {
                     b.Property<int>("Id")
@@ -431,6 +602,61 @@ namespace TeamTools.Data.PostgreSql.Migrations
                     b.ToTable("RoundResult");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeBoard", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.Room", "Room")
+                        .WithOne("CoffeeBoard")
+                        .HasForeignKey("TeamTools.Core.Models.CoffeeBoard", "RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeDecision", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.CoffeeBoard", "Board")
+                        .WithMany("Decisions")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeExtendVote", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.CoffeeBoard", "Board")
+                        .WithMany("ExtendVotes")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeTopic", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.CoffeeBoard", "Board")
+                        .WithMany("Topics")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeVote", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.CoffeeBoard", "Board")
+                        .WithMany("Votes")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.Participant", b =>
                 {
                     b.HasOne("TeamTools.Core.Models.Room", "Room")
@@ -585,6 +811,17 @@ namespace TeamTools.Data.PostgreSql.Migrations
                     b.Navigation("Round");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeBoard", b =>
+                {
+                    b.Navigation("Decisions");
+
+                    b.Navigation("ExtendVotes");
+
+                    b.Navigation("Topics");
+
+                    b.Navigation("Votes");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.PokerRound", b =>
                 {
                     b.Navigation("RoundResults");
@@ -615,6 +852,8 @@ namespace TeamTools.Data.PostgreSql.Migrations
 
             modelBuilder.Entity("TeamTools.Core.Models.Room", b =>
                 {
+                    b.Navigation("CoffeeBoard");
+
                     b.Navigation("Participants");
 
                     b.Navigation("PokerRound");

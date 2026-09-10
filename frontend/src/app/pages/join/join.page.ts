@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import type { RoomClientBase } from '../../core/room.client';
+import { clientFor, routeFor } from '../../core/tool-registry';
 import { IdentityService } from '../../core/identity.service';
 import { SessionMembershipService } from '../../core/session-membership.service';
 import { I18nService } from '../../core/i18n.service';
@@ -70,20 +70,6 @@ export class JoinPage implements OnInit {
     }
   }
 
-  /**
-   * The hub client for this room's tool, imported when it is needed rather than at startup (#32).
-   * `Injector.get` still resolves the same root-provided singleton the tool's own page injects, so
-   * the seat this takes is the seat that page finds on arrival.
-   */
-  private async clientFor(tool: RoomTool): Promise<RoomClientBase> {
-    if (tool === 'Retro') {
-      const { SignalrRetroClient } = await import('../../core/retro.client');
-      return this.injector.get(SignalrRetroClient);
-    }
-    const { SignalrRealtimeClient } = await import('../../core/poker.client');
-    return this.injector.get(SignalrRealtimeClient);
-  }
-
   protected async join(): Promise<void> {
     this.error.set(null);
     if (!this.displayName.trim()) {
@@ -93,7 +79,7 @@ export class JoinPage implements OnInit {
 
     this.busy.set(true);
     try {
-      const client = await this.clientFor(this.tool());
+      const client = await clientFor(this.injector, this.tool());
       await client.connect();
       this.identity.displayName = this.displayName.trim();
 
@@ -108,7 +94,7 @@ export class JoinPage implements OnInit {
       switch (result.status) {
         case 'Ok':
           this.membership.remember(this.shortCode, this.role);
-          await this.router.navigate([this.tool() === 'Retro' ? '/retro' : '/poker', this.shortCode]);
+          await this.router.navigate(routeFor(this.tool(), this.shortCode));
           break;
         case 'NameTaken':
           this.error.set(this.i18n.t('err.join.nameTaken'));

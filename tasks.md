@@ -734,32 +734,71 @@ into the TeamTools platform and add the second tool, Team Retro.
 
 ---
 
-# Phase 3 — candidate tools (specced, not committed)
+# Phase 3 — the third and fourth tools
 
-§35 and §36 are **specs only**. Nothing below is built, and neither is a commitment to
-build it; they exist so the next tool starts from a design rather than from a blank file,
-and so the platform's constraints are confronted on paper first.
+§35 is **built**. §36 is a **spec only** — not a commitment to build it; it exists so the platform's
+constraints are confronted on paper first.
 
 | # | Task | Size | Depends on | Area |
 | --- | --- | --- | --- | --- |
 | 35 | Lean Coffee — the third tool | M | 34 | BE + FE |
 | 36 | Async Standup — the fourth | M | 34 | BE + FE |
 
-## 35. Lean Coffee  `M`  — depends on #34  📋 specced
-- [ ] `RoomTool.Coffee` + `CoffeeBoard` (topics, dot votes, per-topic timings), EF migration ×3.
-- [ ] `CoffeeService` + `CoffeePhaseRules`: `Propose → Vote → Discuss → Done`.
-- [ ] **Generalise the retro's phase rail into the room engine** — this is the second consumer #34 deliberately waited for. Both retro and coffee then declare their own phases and gates against it.
-- [ ] Reuse unchanged: the server-enforced dot budget (#25), the ranked agenda (#25), hidden collection during Propose (#23), the per-recipient projection (#21), the countdown primitive + sweep loop (#34).
-- [ ] Per-topic timebox (the countdown restarts per topic) and a keep-going/move-on vote — one question, hidden until reveal, i.e. poker's mechanism with a two-card deck.
-- [ ] The discussion log is the output: time actually spent, extensions taken, decisions captured (reusing #26's action-item shape). Markdown export first (#28).
-- [ ] i18n ×4; a launcher card; ≥90% Core coverage.
+## 35. Lean Coffee  `M`  — depends on #34  ✅ done
+**The third tool, and the test of whether the room engine earned its keep. It did.**
+- [x] `RoomTool.Coffee` + `CoffeeBoard` (topics, dot votes, extension votes, decisions, per-topic timings), EF migration ×3 — **purely additive**, no data motion.
+- [x] `CoffeeService` + `CoffeePhaseRules`: `Propose → Vote → Discuss → Done`, with the gates per phase.
+- [x] **Generalised the retro's phase rail into `PhaseRail<TPhase>`** — the second consumer #34 waited for. Both tools now declare their own phases and gates against it.
+- [x] **Generalised dot voting into `DotBudget`** + `IDotVote`: budget from stored rows, the no-stacking rule, the ranking. `RetroTallyCalculator` delegates to it; what stays retro-specific is that a theme's total includes its cards'.
+- [x] **Generalised action-item rules into `ActionItemRules`** — title validation and owner resolution, shared by retro actions and coffee decisions.
+- [x] Reused unchanged: `Countdown` (#34), `RoomSweepService` (#34 — first tool that didn't write its own loop), `RoomService` (#19), the per-recipient projection (#21), rate limiting, a11y, i18n, retention.
+- [x] `CoffeeHub` + `CoffeeTimeboxBackgroundService`; `ICoffeeBoardStore` narrowed in SQL from the start (#33's lesson applied, not rediscovered).
+- [x] Frontend: `coffee.client.ts`, create + board pages (lazy-loaded), launcher card, `flattenCoffee`.
+- [x] **`core/tool-registry.ts`** — one map from `RoomTool` to a route and a lazily-imported client, replacing the two if/else chains `/join` had grown (#32). A fourth tool is one entry.
+- [x] i18n: 84 strings × 4 locales.
+- [x] Tests: 77 core (`CoffeeTests` + `CoffeeRoomOperationsTests`) + 4 data + 21 frontend. Backend **743**, frontend **247**, coverage gate **95.1% line / 90.7% branch**.
+- [x] Verified end to end in a browser: created a session, proposed a topic, spent a dot, advanced to Discuss with the 5:00 timebox running, and recorded a decision.
 
-> **No anonymity, deliberately.** A Lean Coffee topic is something you are volunteering to talk
-> about — attribution is the point, not a leak.
+> **What was actually new: two things.** A per-topic timebox rather than a per-phase one, and the
+> extension vote. Everything else was assembly over primitives that already existed. That is the
+> answer to the question #34 posed — if the third tool had cost as much as the second, the shared
+> core would not have been paying for itself.
 
-> **This tool is the test of whether the room engine earned its keep.** If the third tool is not
-> substantially cheaper to build than the second was, the shared core is not paying for itself, and
-> that is worth knowing.
+> **Expiry opens the vote; it does not move the room on.** The three tools' countdowns now differ
+> deliberately: poker force-reveals (mechanical), a retro does nothing (#23 — facilitation), and a
+> Lean Coffee asks the room. Three behaviours over one `Countdown`, which is exactly why #34
+> extracted the mechanism and deliberately left the actions alone.
+
+> **Extension answers are hidden until the facilitator closes the vote.** Only the *count* of
+> answers goes on the wire while it runs — the same anti-anchoring rule as hidden collection, in the
+> same enforcement point (the per-recipient projection). A tie moves on: keep-going has to *win*,
+> not merely draw, because the default is to respect the timebox the room agreed to.
+
+> **No anonymity, and no flag for it.** A retro card can be anonymous because criticism is easier
+> unsigned; a Lean Coffee topic is an offer to lead a conversation, so the name is the useful part.
+> Leaving the flag out entirely is cheaper and clearer than shipping one nobody should turn on.
+
+> **Shared logic, per-tool tables.** `RetroVote` and `CoffeeVote` both implement `IDotVote` and are
+> counted by identical code, but they live in their own tables and neither tool references the other
+> — the platform's one structural rule. A shared room-level artefact table is the obvious next step
+> if a fourth tool lands; it would also be a hand-written migration over shipped retro rows, so it
+> was not done speculatively.
+
+> **The branch-coverage gate caught a real gap rather than a formality.** Adding the tool dropped
+> Core branch coverage to 86.6%. The uncovered seams were the room-level projections every tool
+> service has to write (leave, presence, roles, organisers, password, close, delete) — thin, and
+> exactly where a tool can forget to project or project the wrong viewer's board.
+> `CoffeeRoomOperationsTests` covers them, as the retro's equivalent does (#21), and the gate is
+> back at 90.7% with nothing lowered.
+
+> **Two stale things the new tool exposed.** The home page's heading said "Two tools for your team
+> ceremonies" in all four locales, and its spec asserted `toBe(2)` twice. The heading is now
+> tool-count-free; the spec counts against the component's own list, so a fourth tool needs one route
+> assertion added rather than the numbers edited.
+
+> **Known gap, deliberately left:** the hub exposes `SetTimebox` and `SetVoteBudget`, but the board
+> UI has no control for either — they are set at creation. Adding facilitator settings mid-session is
+> polish, and worth doing when someone asks for it rather than guessing at the panel.
 
 ## 36. Async Standup  `M`  — depends on #34  📋 specced
 - [ ] `RoomTool.Standup` + `StandupBoard` (an entry per participant per question), EF migration ×3.

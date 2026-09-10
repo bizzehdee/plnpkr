@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using TeamTools.Core.Poker;
+using TeamTools.Core.Coffee;
 using TeamTools.Core.Retro;
 using TeamTools.Core;
 using TeamTools.Core.Models;
@@ -500,4 +501,127 @@ public sealed class EfRoomStoreTests : IDisposable
     }
 
     public void Dispose() => _connection.Dispose();
+
+    // --- The coffee timebox sweep (#35) -----------------------------------
+
+    private static Room NewCoffeeRoom(string shortCode, DateTimeOffset? deadline)
+    {
+        var id = Guid.NewGuid();
+        return new Room
+        {
+            Id = id,
+            ShortCode = shortCode,
+            Name = "Coffee",
+            Tool = RoomTool.Coffee,
+            OrganiserUserId = "u1",
+            CreatedAt = DateTimeOffset.UnixEpoch,
+            LastActivityAt = DateTimeOffset.UnixEpoch,
+            CoffeeBoard = new CoffeeBoard
+            {
+                RoomId = id,
+                Phase = CoffeePhase.Discuss,
+                PhaseDurationSeconds = 300,
+                PhaseDeadline = deadline,
+                Topics =
+                {
+                    new CoffeeTopic
+                    {
+                        Id = Guid.NewGuid(),
+                        BoardId = id,
+                        AuthorUserId = "u1",
+                        Text = "Flaky CI",
+                        Order = 0,
+                        CreatedAt = DateTimeOffset.UnixEpoch,
+                    },
+                },
+            },
+            Participants =
+            {
+                new Participant
+                {
+                    UserId = "u1",
+                    DisplayName = "Alice",
+                    NormalizedName = "alice",
+                    IsOrganiser = true,
+                    Role = ParticipantRole.Voter,
+                    IsConnected = true,
+                },
+            },
+        };
+    }
+
+    [Fact]
+    public async Task A_coffee_board_round_trips_with_its_topics_votes_and_decisions()
+    {
+        var room = NewCoffeeRoom("coffee-1", null);
+        var boardId = room.Id;
+        var topicId = room.CoffeeBoard!.Topics[0].Id;
+        room.CoffeeBoard.Votes.Add(new CoffeeVote
+        {
+            Id = Guid.NewGuid(), BoardId = boardId, VoterUserId = "u1", TargetId = topicId,
+        });
+        room.CoffeeBoard.ExtendVotes.Add(new CoffeeExtendVote
+        {
+            Id = Guid.NewGuid(), BoardId = boardId, TopicId = topicId,
+            VoterUserId = "u1", Choice = ExtendChoice.KeepGoing,
+        });
+        room.CoffeeBoard.Decisions.Add(new CoffeeDecision
+        {
+            Id = Guid.NewGuid(), BoardId = boardId, Title = "Quarantine it",
+            TopicId = topicId, OwnerName = "Dana", CreatedAt = DateTimeOffset.UnixEpoch,
+        });
+        await new EfRoomStore(NewContext()).AddAsync(room);
+
+        var loaded = await new EfRoomStore(NewContext()).FindByShortCodeAsync("coffee-1");
+
+        loaded!.Tool.Should().Be(RoomTool.Coffee);
+        loaded.CoffeeBoard!.Topics.Should().ContainSingle().Which.Text.Should().Be("Flaky CI");
+        loaded.CoffeeBoard.Votes.Should().ContainSingle();
+        loaded.CoffeeBoard.ExtendVotes.Should().ContainSingle()
+            .Which.Choice.Should().Be(ExtendChoice.KeepGoing);
+        loaded.CoffeeBoard.Decisions.Should().ContainSingle().Which.OwnerName.Should().Be("Dana");
+    }
+
+    [Fact]
+    public async Task GetRoomsWithExpiredTimebox_returns_only_boards_whose_timebox_has_elapsed()
+    {
+        var now = DateTimeOffset.UtcNow;
+        await new EfRoomStore(NewContext()).AddAsync(NewCoffeeRoom("due-box-1", now.AddSeconds(-1)));
+        await new EfRoomStore(NewContext()).AddAsync(NewCoffeeRoom("future-box-1", now.AddMinutes(5)));
+        await new EfRoomStore(NewContext()).AddAsync(NewCoffeeRoom("no-box-1", null));
+
+        var result = await new EfRoomStore(NewContext()).GetRoomsWithExpiredTimeboxAsync(now);
+
+        result.Should().ContainSingle().Which.ShortCode.Should().Be("due-box-1");
+        result[0].CoffeeBoard!.Topics.Should().ContainSingle(
+            "expiry accumulates the time spent on the current topic");
+    }
+
+    [Fact]
+    public async Task GetRoomsWithExpiredTimebox_ignores_the_other_tools()
+    {
+        // The sweep runs once a second against a database that may hold no coffee rooms at all.
+        var now = DateTimeOffset.UtcNow;
+        var retro = NewRetroRoom("retro-box-1", now.AddSeconds(-1));
+        await new EfRoomStore(NewContext()).AddAsync(retro);
+
+        var result = await new EfRoomStore(NewContext()).GetRoomsWithExpiredTimeboxAsync(now);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Deleting_a_coffee_room_cascades_to_its_whole_board()
+    {
+        var room = NewCoffeeRoom("cascade-coffee-1", null);
+        await new EfRoomStore(NewContext()).AddAsync(room);
+
+        var store = new EfRoomStore(NewContext());
+        var loaded = await store.FindByShortCodeAsync("cascade-coffee-1");
+        await store.RemoveAsync(loaded!);
+
+        using var ctx = NewContext();
+        ctx.Set<CoffeeBoard>().Should().BeEmpty();
+        ctx.Set<CoffeeTopic>().Should().BeEmpty();
+    }
 }

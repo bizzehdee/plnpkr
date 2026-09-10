@@ -22,6 +22,177 @@ namespace TeamTools.Data.SqlServer.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeBoard", b =>
+                {
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AllowMultiplePerItem")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("CurrentTopicId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("ExtendVoteOpen")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTimeOffset?>("PhaseDeadline")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("PhaseDurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VoteBudget")
+                        .HasColumnType("int");
+
+                    b.HasKey("RoomId");
+
+                    b.ToTable("CoffeeBoard");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeDecision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DoneAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DueDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("OwnerName")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("OwnerUserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid?>("TopicId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("CoffeeDecision");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeExtendVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Choice")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("TopicId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VoterUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("CoffeeExtendVote");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeTopic", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AuthorUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DiscussedSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Extensions")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("CoffeeTopic");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VoterUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.HasIndex("TargetId");
+
+                    b.HasIndex("BoardId", "VoterUserId");
+
+                    b.ToTable("CoffeeVote");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.Participant", b =>
                 {
                     b.Property<int>("Id")
@@ -431,6 +602,61 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.ToTable("RoundResult");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeBoard", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.Room", "Room")
+                        .WithOne("CoffeeBoard")
+                        .HasForeignKey("TeamTools.Core.Models.CoffeeBoard", "RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeDecision", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.CoffeeBoard", "Board")
+                        .WithMany("Decisions")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeExtendVote", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.CoffeeBoard", "Board")
+                        .WithMany("ExtendVotes")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeTopic", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.CoffeeBoard", "Board")
+                        .WithMany("Topics")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeVote", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.CoffeeBoard", "Board")
+                        .WithMany("Votes")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.Participant", b =>
                 {
                     b.HasOne("TeamTools.Core.Models.Room", "Room")
@@ -585,6 +811,17 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.Navigation("Round");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.CoffeeBoard", b =>
+                {
+                    b.Navigation("Decisions");
+
+                    b.Navigation("ExtendVotes");
+
+                    b.Navigation("Topics");
+
+                    b.Navigation("Votes");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.PokerRound", b =>
                 {
                     b.Navigation("RoundResults");
@@ -615,6 +852,8 @@ namespace TeamTools.Data.SqlServer.Migrations
 
             modelBuilder.Entity("TeamTools.Core.Models.Room", b =>
                 {
+                    b.Navigation("CoffeeBoard");
+
                     b.Navigation("Participants");
 
                     b.Navigation("PokerRound");

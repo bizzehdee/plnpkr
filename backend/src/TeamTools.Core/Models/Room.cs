@@ -6,7 +6,8 @@ namespace TeamTools.Core.Models;
 /// set, an optional join password, reactions, and the close/soft-delete lifecycle.
 /// <para>
 /// A room carries exactly one tool payload, fixed at creation by <see cref="Tool"/> and immutable
-/// thereafter: <see cref="PokerRound"/> for estimation, <see cref="RetroBoard"/> for a retro. The
+/// thereafter: <see cref="PokerRound"/> for estimation, <see cref="RetroBoard"/> for a retro,
+/// <see cref="CoffeeBoard"/> for a Lean Coffee. The
 /// split is what lets every room-level feature (rate limits #3, a11y #4, i18n #5, large-group #6,
 /// multi-organiser #7, retention #15) serve both tools from one implementation.
 /// </para>
@@ -54,6 +55,9 @@ public class Room
 
     /// <summary>The retrospective payload — non-null exactly when <see cref="Tool"/> is Retro.</summary>
     public RetroBoard? RetroBoard { get; set; }
+
+    /// <summary>The Lean Coffee payload — non-null exactly when <see cref="Tool"/> is Coffee (#35).</summary>
+    public CoffeeBoard? CoffeeBoard { get; set; }
 
     /// <summary>True once the room has been closed into its frozen read-only state (#26).</summary>
     public bool IsClosed => ClosedAt is not null;

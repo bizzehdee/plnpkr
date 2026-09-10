@@ -8,6 +8,7 @@ using TeamTools.Api;
 using TeamTools.Api.Health;
 using TeamTools.Api.Hubs;
 using TeamTools.Core.Poker;
+using TeamTools.Core.Coffee;
 using TeamTools.Core.Retro;
 using TeamTools.Core;
 using TeamTools.Core.Integrations;
@@ -63,10 +64,13 @@ public class Program
         builder.Services.AddScoped<IRoomStore>(sp => sp.GetRequiredService<EfRoomStore>());
         builder.Services.AddScoped<IPokerRoundStore>(sp => sp.GetRequiredService<EfRoomStore>());
         builder.Services.AddScoped<IRetroBoardStore>(sp => sp.GetRequiredService<EfRoomStore>());
+        builder.Services.AddScoped<ICoffeeBoardStore>(sp => sp.GetRequiredService<EfRoomStore>());
         builder.Services.AddScoped<RoomService>();
         builder.Services.AddScoped<PokerService>();
         builder.Services.AddScoped<RetroService>();
+        builder.Services.AddScoped<CoffeeService>(); // the third tool (#35)
         builder.Services.AddScoped<RetroPhaseTimerService>();
+        builder.Services.AddScoped<CoffeeTimerService>();
         builder.Services.AddScoped<RoomMaintenanceService>();
         builder.Services.AddScoped<PokerTimerService>();
         builder.Services.AddSingleton<ConnectionRegistry>();
@@ -96,6 +100,7 @@ public class Program
         builder.Services.AddHostedService<RoomEvictionService>();
         builder.Services.AddHostedService<RoundTimerService>(); // expires round timers → auto-reveal (#14)
         builder.Services.AddHostedService<RetroPhaseTimerBackgroundService>(); // retro phase countdowns (#23)
+        builder.Services.AddHostedService<CoffeeTimeboxBackgroundService>(); // coffee timeboxes (#35)
 
         // --- Issue-tracker integration (#4, optional, off unless configured) ---
         var integrationOptions = new IntegrationsOptions
@@ -230,6 +235,7 @@ public class Program
 
         app.MapHub<PokerHub>("/hubs/poker");
         app.MapHub<RetroHub>("/hubs/retro"); // the second tool (#21)
+        app.MapHub<CoffeeHub>("/hubs/coffee"); // the third tool (#35)
 
         // SPA fallback: any unmatched non-API route returns index.html so Angular can route it.
         app.MapFallbackToFile("index.html");

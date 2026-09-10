@@ -1,3 +1,5 @@
+using TeamTools.Core;
+
 namespace TeamTools.Core.Models;
 
 /// <summary>
@@ -174,7 +176,7 @@ public enum RetroVoteTarget
 /// withdrawing a single dot is a row delete and the budget is simply a row count — no arithmetic to
 /// get wrong, and no way for a client-supplied total to be believed.
 /// </summary>
-public class RetroVote
+public class RetroVote : IDotVote
 {
     public Guid Id { get; set; }
 

@@ -1,12 +1,13 @@
 # TeamTools
 
 **TeamTools** is a small platform for the ceremonies a team actually runs together, in real time and
-without accounts. It hosts two tools over one shared room engine:
+without accounts. It hosts three tools over one shared room engine:
 
 - **Planning Poker** — real-time Scrum estimation.
 - **Team Retro** — real-time retrospectives, from writing cards to agreeing actions.
+- **Lean Coffee** — an agenda-less discussion: propose topics, vote, then work the list.
 
-Both work the same way: someone creates a room, shares a short invite link, and everyone else joins
+All three work the same way: someone creates a room, shares a short invite link, and everyone else joins
 by picking a display name. No sign-up, no team setup, nothing to administer. .NET 10 backend +
 Angular 21 (Bootstrap 5) frontend, over SignalR (WebSockets); persistence via EF Core with a
 configurable provider (SQLite by default; SQL Server / PostgreSQL also supported).
@@ -46,7 +47,24 @@ configurable provider (SQLite by default; SQL Server / PostgreSQL also supported
 - **Export** the finished board as Markdown, CSV or JSON, plus a read-only summary page at
   `/retro/<code>/summary` that a reader can open without joining the room.
 
-## Shared by both tools
+## Lean Coffee
+
+- **Propose → Vote → Discuss → Done**, on the same one-step-at-a-time phase rail the retro uses.
+- **Hidden proposal:** during Propose you see your own topics and a count of how many others are
+  being written, so nobody writes "same as Ada's" instead of their own thought.
+- **Dot voting** with the same server-enforced budget as the retro; totals stay hidden while voting
+  is open, then become the ranked agenda.
+- **A timebox per topic**, not per phase — the countdown restarts for each one.
+- **A keep-going vote when time runs out.** Answers stay hidden until the facilitator closes the
+  vote, so the room does not just follow whoever clicked first; a majority to keep going restarts
+  the clock and counts an extension, a tie moves on.
+- **The discussion log is the output:** how long each topic actually got, how many extensions it
+  took, and the decisions recorded against it — with an owner and a due date, editable after the
+  session closes.
+- Topics are **never anonymous**: proposing one means offering to talk about it, so the name is the
+  useful part.
+
+## Shared by every tool
 
 - Roles: **voters** take part, **observers** watch; an optional **organiser** (the creator) drives.
 - Multiple organisers with automatic succession, so a facilitator dropping out doesn't strand a room.
@@ -68,12 +86,12 @@ configurable provider (SQLite by default; SQL Server / PostgreSQL also supported
 
 ```
 backend/    .NET 10 solution:
-              TeamTools.Core        room engine (tool-agnostic) + Poker/ and Retro/ namespaces
+              TeamTools.Core        room engine (tool-agnostic) + Poker/, Retro/ and Coffee/ namespaces
               TeamTools.Data        EF Core model + DbContext, provider-agnostic
               TeamTools.Data.{Sqlite,SqlServer,PostgreSql}
                                     one project per engine: driver + migrations
               TeamTools.Integrations  Jira / Azure DevOps adapters
-              TeamTools.Api         host: PokerHub + RetroHub + REST controllers + health checks
+              TeamTools.Api         host: PokerHub + RetroHub + CoffeeHub + REST + health checks
             plus a test project per layer
 frontend/   Angular 21 app (Bootstrap 5, @microsoft/signalr)
 deploy/     Terraform + shell scripts for an AWS deployment (EC2 + S3 + CloudFront)
@@ -114,7 +132,7 @@ different name.
 
 ### Or run it in Docker
 
-One container serves the API, both SignalR hubs, and the Angular SPA (the same single-artifact shape
+One container serves the API, every SignalR hub, and the Angular SPA (the same single-artifact shape
 as the production build below). SQLite is stored on a named volume so it survives restarts.
 
 ```bash
@@ -141,17 +159,17 @@ Prerequisites: **.NET 10 SDK**, **Node 20+**, and (for the coverage gate) **Powe
 
 This runs the same checks as CI, so a green `test` locally means a clean build.
 
-### Backend (xUnit) — 643 tests across Core / Integrations / Data / Api
+### Backend (xUnit) — 743 tests across Core / Integrations / Data / Api
 
 ```bash
 cd backend
 dotnet test TeamTools.slnx                        # whole solution
 
 # One project at a time
-dotnet test tests/TeamTools.Core.Tests            # fast, no I/O (the bulk of the logic) — 514
+dotnet test tests/TeamTools.Core.Tests            # fast, no I/O (the bulk of the logic) — 607
 dotnet test tests/TeamTools.Integrations.Tests    # Jira/ADO adapters against stubbed HTTP — 40
-dotnet test tests/TeamTools.Data.Tests            # EfRoomStore + migrations against real SQLite — 40
-dotnet test tests/TeamTools.Api.Tests             # REST + SignalR + health over an in-memory server — 49
+dotnet test tests/TeamTools.Data.Tests            # EfRoomStore + migrations against real SQLite — 44
+dotnet test tests/TeamTools.Api.Tests             # REST + SignalR + health over an in-memory server — 52
 
 # Run a single test or class by name
 dotnet test tests/TeamTools.Core.Tests --filter "FullyQualifiedName~RetroVotingTests"
@@ -167,7 +185,7 @@ pwsh backend/coverage-gate.ps1                   # prints the numbers and fails 
 pwsh backend/coverage-gate.ps1 -Threshold 0.95   # try a stricter bar
 ```
 
-### Frontend (Vitest + Angular TestBed) — 226 specs across 13 files
+### Frontend (Vitest + Angular TestBed) — 247 specs across 14 files
 
 ```bash
 cd frontend
@@ -239,7 +257,7 @@ Because they're now on different origins, three things must be wired up:
   ```js
   window.__PP_CONFIG__ = { apiBase: "https://teamtools-api.example.com" };
   ```
-  REST and both SignalR hubs derive their URL from this. Leave it `""` for the same-origin
+  REST and every SignalR hub derive their URL from this. Leave it `""` for the same-origin
   single-artifact build above. (The global keeps its `__PP_CONFIG__` name deliberately: it is set by
   a `config.js` that lives in *deployed* files, and renaming it would silently break any deployment
   whose config.js was not updated in the same breath as the bundle.)
@@ -309,7 +327,7 @@ az webapp deploy -g <resource-group> -n <appName> --src-path app.zip --type zip
 ```
 
 The app applies EF Core migrations and creates its SQLite directory automatically on startup, then
-serves the REST API, both SignalR hubs, and the Angular SPA from the one site.
+serves the REST API, every SignalR hub, and the Angular SPA from the one site.
 
 ## License & attribution
 

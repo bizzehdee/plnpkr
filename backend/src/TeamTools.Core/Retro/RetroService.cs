@@ -578,7 +578,7 @@ public class RetroService
             BoardId = board.RoomId,
             Title = trimmed,
             OwnerUserId = ownerUserId,
-            OwnerName = ResolveOwnerName(room!, ownerUserId, ownerName),
+            OwnerName = ActionItemRules.ResolveOwnerName(room!, ownerUserId, ownerName),
             DueDate = dueDate,
             SourceGroupId = sourceGroupId,
             CreatedAt = _clock.UtcNow,
@@ -606,7 +606,7 @@ public class RetroService
 
         action!.Title = trimmed;
         action.OwnerUserId = ownerUserId;
-        action.OwnerName = ResolveOwnerName(room!, ownerUserId, ownerName);
+        action.OwnerName = ActionItemRules.ResolveOwnerName(room!, ownerUserId, ownerName);
         action.DueDate = dueDate;
 
         return await CommitAsync(room!, userId, ct);
@@ -690,20 +690,6 @@ public class RetroService
     /// free text as typed. Storing the name means an action still reads correctly after the owner
     /// has left the room — or been evicted from it.
     /// </summary>
-    private static string? ResolveOwnerName(Room room, string? ownerUserId, string? ownerName)
-    {
-        if (ownerUserId is not null)
-        {
-            var participant = room.Participants.FirstOrDefault(p => p.UserId == ownerUserId);
-            if (participant is not null)
-            {
-                return participant.DisplayName;
-            }
-        }
-
-        var trimmed = ownerName?.Trim();
-        return string.IsNullOrEmpty(trimmed) ? null : Truncate(trimmed, MaxOwnerNameLength);
-    }
 
     // --- Dot voting (#25) --------------------------------------------------
 

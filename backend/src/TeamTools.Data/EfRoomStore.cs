@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TeamTools.Core;
 using TeamTools.Core.Models;
 using TeamTools.Core.Poker;
+using TeamTools.Core.Coffee;
 using TeamTools.Core.Retro;
 
 namespace TeamTools.Data;
@@ -16,7 +17,7 @@ namespace TeamTools.Data;
 /// persistence contracts, but they share a <see cref="DbContext"/> and therefore a unit of work.
 /// </para>
 /// </summary>
-public class EfRoomStore : IRoomStore, IPokerRoundStore, IRetroBoardStore
+public class EfRoomStore : IRoomStore, IPokerRoundStore, IRetroBoardStore, ICoffeeBoardStore
 {
     private readonly TeamToolsDbContext _db;
 
@@ -86,6 +87,21 @@ public class EfRoomStore : IRoomStore, IPokerRoundStore, IRetroBoardStore
         return running.Where(r => r.RetroBoard!.PhaseDeadline <= asOf).ToList();
     }
 
+
+    // Narrowed in SQL from the start, applying #33's lesson rather than rediscovering it: this pass
+    // runs once per second forever. Topics are included because expiry accumulates the time spent
+    // on the current one before opening the extension vote.
+    public async Task<IReadOnlyList<Room>> GetRoomsWithExpiredTimeboxAsync(
+        DateTimeOffset asOf, CancellationToken cancellationToken = default)
+    {
+        var running = await _db.Rooms
+            .Include(r => r.CoffeeBoard)
+                .ThenInclude(b => b!.Topics)
+            .Where(r => r.CoffeeBoard != null && r.CoffeeBoard.PhaseDeadline != null)
+            .ToListAsync(cancellationToken);
+
+        return running.Where(r => r.CoffeeBoard!.PhaseDeadline <= asOf).ToList();
+    }
     // Projected existence check: no Include, no tracking — never materialises the aggregate. The global
     // query filter excludes soft-deleted rooms. See #17.
     public Task<bool> AreReactionsEnabledAsync(string shortCode, CancellationToken cancellationToken = default) =>
@@ -125,7 +141,15 @@ public class EfRoomStore : IRoomStore, IPokerRoundStore, IRetroBoardStore
             .Include(r => r.RetroBoard)
                 .ThenInclude(b => b!.Votes)
             .Include(r => r.RetroBoard)
-                .ThenInclude(b => b!.Actions);
+                .ThenInclude(b => b!.Actions)
+            .Include(r => r.CoffeeBoard)
+                .ThenInclude(b => b!.Topics)
+            .Include(r => r.CoffeeBoard)
+                .ThenInclude(b => b!.Votes)
+            .Include(r => r.CoffeeBoard)
+                .ThenInclude(b => b!.ExtendVotes)
+            .Include(r => r.CoffeeBoard)
+                .ThenInclude(b => b!.Decisions);
 
     private async Task SaveAsync(CancellationToken cancellationToken)
     {

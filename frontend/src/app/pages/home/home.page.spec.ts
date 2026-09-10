@@ -11,45 +11,44 @@ describe('HomePage (tool picker)', () => {
     });
   });
 
-  function render(): HTMLElement {
+  function render(): { el: HTMLElement; tools: number } {
     const fixture = TestBed.createComponent(HomePage);
     fixture.detectChanges();
-    return fixture.nativeElement as HTMLElement;
+    const tools = (fixture.componentInstance as unknown as { tools: unknown[] }).tools.length;
+    return { el: fixture.nativeElement as HTMLElement, tools };
   }
 
-  it('offers both tools', () => {
-    const el = render();
+  it('offers every tool the platform hosts', () => {
+    const { el } = render();
 
     const text = el.textContent ?? '';
     expect(text).toContain('Planning Poker');
     expect(text).toContain('Team Retro');
+    expect(text).toContain('Lean Coffee');
   });
 
-  it('links Planning Poker to its create route', () => {
-    const el = render();
+  it.each([
+    ['Planning Poker', '/poker/new'],
+    ['Team Retro', '/retro/new'],
+    ['Lean Coffee', '/coffee/new'],
+  ])('links %s to its create route', (_name, href) => {
+    const { el } = render();
 
-    const link = el.querySelector<HTMLAnchorElement>('a[href="/poker/new"]');
-    expect(link).toBeTruthy();
-  });
-
-  it('links Team Retro to its create route now that the tool ships', () => {
-    // Was a disabled button with an explanation until #21 built the tool.
-    const el = render();
-
-    expect(el.querySelector<HTMLAnchorElement>('a[href="/retro/new"]')).toBeTruthy();
+    expect(el.querySelector<HTMLAnchorElement>(`a[href="${href}"]`)).toBeTruthy();
   });
 
   it('offers every tool as a real link, with nothing left unavailable', () => {
-    const el = render();
+    // Counted against the component's own list rather than a literal, so a fourth tool does not
+    // need this spec edited — only the route assertion above.
+    const { el, tools } = render();
 
-    expect(el.querySelectorAll('a.btn').length).toBe(2);
+    expect(el.querySelectorAll('a.btn').length).toBe(tools);
     expect(el.querySelector('button[disabled]')).toBeNull();
   });
 
   it('renders the tools as a list so their number is announced', () => {
-    const el = render();
+    const { el, tools } = render();
 
-    const items = el.querySelectorAll('ul.list-unstyled > li');
-    expect(items.length).toBe(2);
+    expect(el.querySelectorAll('ul.list-unstyled > li').length).toBe(tools);
   });
 });

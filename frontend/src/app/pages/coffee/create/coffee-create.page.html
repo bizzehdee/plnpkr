@@ -1,0 +1,88 @@
+<main class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h1 class="h5 mb-3">{{ 'coffee.create.title' | t }}</h1>
+          <p class="text-body-secondary small">{{ 'coffee.create.blurb' | t }}</p>
+
+          @if (error()) {
+            <div class="alert alert-danger" role="alert">{{ error() }}</div>
+          }
+
+          <form (ngSubmit)="create()">
+            <div class="mb-3">
+              <label class="form-label" for="coffee-name">{{ 'coffee.create.name' | t }}</label>
+              <input
+                id="coffee-name"
+                name="coffee-name"
+                class="form-control"
+                [placeholder]="'coffee.create.namePlaceholder' | t"
+                [(ngModel)]="boardName"
+                required
+              />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="coffee-your-name">{{ 'coffee.create.yourName' | t }}</label>
+              <input
+                id="coffee-your-name"
+                name="coffee-your-name"
+                class="form-control"
+                [placeholder]="'coffee.create.yourNamePlaceholder' | t"
+                [(ngModel)]="displayName"
+                required
+              />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="coffee-timebox">{{ 'coffee.create.timebox' | t }}</label>
+              <select
+                id="coffee-timebox"
+                name="coffee-timebox"
+                class="form-select"
+                [(ngModel)]="timeboxMinutes"
+              >
+                @for (m of timeboxOptions; track m) {
+                  <option [ngValue]="m">{{ 'coffee.create.minutes' | t:{ count: m } }}</option>
+                }
+              </select>
+              <div class="form-text">{{ 'coffee.create.timeboxHelp' | t }}</div>
+            </div>
+
+            <div class="form-check mb-3">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="coffee-facilitate"
+                name="coffee-facilitate"
+                [(ngModel)]="facilitate"
+              />
+              <label class="form-check-label" for="coffee-facilitate">
+                {{ 'coffee.create.facilitate' | t }}
+              </label>
+              <div class="form-text">{{ 'coffee.create.facilitateHelp' | t }}</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="coffee-password">{{ 'coffee.create.password' | t }}</label>
+              <input
+                id="coffee-password"
+                name="coffee-password"
+                type="password"
+                class="form-control"
+                autocomplete="new-password"
+                [placeholder]="'coffee.create.passwordPlaceholder' | t"
+                [(ngModel)]="password"
+              />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100" [disabled]="busy()">
+              {{ busy() ? ('common.saving' | t) : ('coffee.create.submit' | t) }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>

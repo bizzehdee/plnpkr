@@ -1,8 +1,8 @@
 # Architecture
 
-Design and architecture notes for **TeamTools** — a platform hosting two team-ceremony tools over one
-shared room engine: **Planning Poker** (real-time estimation) and **Team Retro** (real-time
-retrospectives).
+Design and architecture notes for **TeamTools** — a platform hosting three team-ceremony tools over
+one shared room engine: **Planning Poker** (real-time estimation), **Team Retro** (real-time
+retrospectives) and **Lean Coffee** (agenda-less discussion).
 
 Per-feature behaviour is tracked on the [GitHub issues board](https://github.com/bizzehdee/plnpkr/issues)
 and in [plan.md](./plan.md) / [tasks.md](./tasks.md); this document covers the cross-cutting design — the
@@ -26,7 +26,7 @@ tied to a single feature.
   stable per-browser `userId` live in browser `localStorage` and are pre-filled on return.
 - **Versions: .NET 10 LTS + Angular 21 LTS.**
 - **Deployment: a single host** (the .NET API serves the Angular SPA from the same origin).
-- **Two tools, one room engine.** A room is created as *either* a poker session *or* a retro board and
+- **Three tools, one room engine.** A room is created as exactly one of a poker session, a retro board or a Lean Coffee, and
   cannot switch. There is no team/workspace entity: the tools share the room engine and the front door,
   nothing else.
 
@@ -80,7 +80,7 @@ Room                          # the shared engine
   PokerRound?                 # exactly one payload is non-null, per Tool
   RetroBoard?
 
-Participant                   # shared by both tools
+Participant                   # shared by every tool
   UserId                      # stable per browser; survives reconnect
   DisplayName, NormalizedName # unique per room (case-insensitive)
   IsOrganiser (bool)          # a set, not a single organiser (#7); auto-succession on disconnect
@@ -220,7 +220,7 @@ PokerHub    (renamed from PlanningPokerHub)   RetroHub
   (short code, name, tool, participants with presence/roles/organiser flags, closed state). Room-level
   fields are defined once and never duplicated per tool.
 - **Shared events.** Ephemeral `ReactionReceived` (never persisted) and terminal `RoomClosed` are
-  common to both tools.
+  common to every tool.
 - **Client → server (poker):** create/join/leave; cast vote; reveal / reset-one / reset-all; set
   auto-reveal, story, story note, deck, password, reactions-enabled, allow-role-change; change role;
   promote/demote/transfer organiser; round-timer start/pause/resume/stop/set-duration; start/end
@@ -298,6 +298,41 @@ controller and the tests so there is a single answer to what the payload looks l
 its own PascalCase options — nothing parses that payload, and changing a shipped file format to match
 a convention nobody reads would be churn.
 
+
+### The third tool, and what it cost (#35)
+
+Lean Coffee was the test of whether the room engine earned its keep. What it needed that already
+existed, and reused **unchanged**:
+
+| Primitive | Where it came from |
+| --- | --- |
+| `PhaseRail<TPhase>` | the retro's rail, generalised here — this was its second consumer (#34) |
+| `DotBudget` | the retro's dot voting, generalised: budget enforced from stored rows |
+| `Countdown` | the deadline primitive both other tools use (#34) |
+| `ActionItemRules` | title validation and owner resolution, shared with retro action items |
+| `RoomSweepService` | the 1s sweep loop — the first tool that did not have to write one (#34) |
+| `RoomService` | join, roles, organisers, password, close/delete, presence (#19) |
+| Rate limiting, a11y, i18n, retention | room-level by construction (#3/#4/#5/#15) |
+
+What was actually **new**: a per-topic timebox rather than a per-phase one, and the extension vote.
+Everything else was assembly. That is the answer to the question #34 posed.
+
+> **The three tools' countdowns now differ deliberately, and the difference is the product.** Poker
+> force-reveals on expiry, because a reveal is mechanical. A retro does nothing at all — it clears
+> the countdown and leaves the phase to the facilitator (#23). Lean Coffee sits between them: expiry
+> opens the keep-going vote and stops. Three behaviours over one `Countdown` primitive, which is why
+> #34 extracted the mechanism and left the actions alone.
+
+> **Shared logic, per-tool tables.** `RetroVote` and `CoffeeVote` both implement `IDotVote` and are
+> counted by the same code, but they live in their own tables and neither references the other — the
+> platform's one structural rule (§"The two tools never reference each other"). A shared room-level
+> artefact table would be tidier and is the obvious step if a fourth tool appears; it would also be a
+> hand-written data migration over shipped retro rows, which is why it was not done speculatively.
+
+> **`core/tool-registry.ts` replaced two growing if/else chains.** The `/join` landing had one for
+> picking a hub client and another for picking a route (#32); a third tool would have meant editing
+> both. The registry maps `RoomTool` to a route and a lazily-imported client, so a fourth tool is one
+> entry — and the client stays out of the initial bundle (#31).
 ### One deliberate cross-board link
 
 Retro **carry-over** (task #27) is the single connection between two rooms: a new board can pull the
@@ -355,8 +390,8 @@ Key choices:
   > countdown existed. Invisible on a small database and unbounded on a large one. The general
   > `GetAllAsync` remains, for the callers that genuinely need every room: idle eviction and the
   > retention purge, both on a one-minute cadence.
-- **The two tools never reference each other.** `TeamTools.Core.Poker` and `TeamTools.Core.Retro`
-  both build on the room engine; a dependency between the tools is the failure mode this structure
+- **The tools never reference each other.** `TeamTools.Core.Poker`, `TeamTools.Core.Retro` and `TeamTools.Core.Coffee`
+  all build on the room engine; a dependency between the tools is the failure mode this structure
   exists to prevent.
 
   > **Design correction (found while implementing #19).** This document originally specified
@@ -490,9 +525,9 @@ Coverage is a guardrail; every test maps to a behaviour. The gate was also the s
 refactor, which landed with the suite green and no behavioural change. It runs in CI as well as
 locally (`./run.sh test`).
 
-As of task #33 that is **643 backend tests** (Core 514, Integrations 40, Data 40, Api 49) and **226
-frontend specs**, with `TeamTools.Core` at ~95% line / ~92% branch. The production bundle is 631 kB
-initial (127 kB transfer) against an 800 kB budget.
+As of task #35 that is **743 backend tests** (Core 607, Integrations 40, Data 44, Api 52) and **247
+frontend specs**, with `TeamTools.Core` at ~95% line / ~91% branch. The production bundle is 651 kB
+initial (130 kB transfer) against an 800 kB budget.
 
 ## Deployment & hosting
 

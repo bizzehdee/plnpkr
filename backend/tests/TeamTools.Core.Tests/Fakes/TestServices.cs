@@ -1,4 +1,6 @@
+using TeamTools.Core.Coffee;
 using TeamTools.Core.Poker;
+using TeamTools.Core.Retro;
 using TeamTools.Core.Security;
 
 namespace TeamTools.Core.Tests.Fakes;
@@ -31,4 +33,17 @@ public static class TestServices
 
     public static RoomMaintenanceService Maintenance(FakeRoomStore store, IClock clock) =>
         new(store, clock);
+
+    /// <summary>The Lean Coffee API (#35): the room engine plus the coffee service over it.</summary>
+    public static CoffeeService Coffee(
+        FakeRoomStore store,
+        IShortCodeGenerator shortCodes,
+        IClock clock,
+        IPasswordHasher? passwordHasher = null) =>
+        new(store, Rooms(store, shortCodes, clock, passwordHasher), clock);
+
+    /// <summary>The coffee timebox sweep, wired to the same store and clock.</summary>
+    public static CoffeeTimerService CoffeeTimers(
+        FakeRoomStore store, IShortCodeGenerator shortCodes, IClock clock) =>
+        new(store, store, Coffee(store, shortCodes, clock), clock);
 }

@@ -49,6 +49,11 @@ public class TeamToolsDbContext : DbContext
                 .HasForeignKey<RetroBoard>(b => b.RoomId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            e.HasOne(r => r.CoffeeBoard)
+                .WithOne(b => b.Room!)
+                .HasForeignKey<CoffeeBoard>(b => b.RoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Soft delete (#26): a deleted room is hidden from every query.
             e.HasQueryFilter(r => r.DeletedAt == null);
         });
@@ -127,6 +132,78 @@ public class TeamToolsDbContext : DbContext
                 .WithOne(a => a.Board!)
                 .HasForeignKey(a => a.BoardId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- CoffeeBoard: the Lean Coffee payload (#35) ---------------------
+        modelBuilder.Entity<CoffeeBoard>(e =>
+        {
+            e.HasKey(b => b.RoomId);
+            e.Property(b => b.Phase).HasConversion<string>().HasMaxLength(16);
+
+            e.HasMany(b => b.Topics)
+                .WithOne(t => t.Board!)
+                .HasForeignKey(t => t.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(b => b.Votes)
+                .WithOne(v => v.Board!)
+                .HasForeignKey(v => v.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(b => b.ExtendVotes)
+                .WithOne(v => v.Board!)
+                .HasForeignKey(v => v.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(b => b.Decisions)
+                .WithOne(d => d.Board!)
+                .HasForeignKey(d => d.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- CoffeeTopic: something to talk about (#35) ---------------------
+        modelBuilder.Entity<CoffeeTopic>(e =>
+        {
+            e.HasKey(t => t.Id);
+            e.Property(t => t.Id).ValueGeneratedNever(); // the domain assigns it — see RetroCard.Id
+            e.Property(t => t.Text).IsRequired().HasMaxLength(300);
+            e.Property(t => t.AuthorUserId).IsRequired().HasMaxLength(64);
+            e.Ignore(t => t.IsDiscussed); // computed from FinishedAt
+            e.HasIndex(t => t.BoardId);
+        });
+
+        // --- CoffeeVote: one row per dot (#35) ------------------------------
+        modelBuilder.Entity<CoffeeVote>(e =>
+        {
+            e.HasKey(v => v.Id);
+            e.Property(v => v.Id).ValueGeneratedNever(); // the domain assigns it — see RetroCard.Id
+            e.Property(v => v.VoterUserId).IsRequired().HasMaxLength(64);
+            e.HasIndex(v => v.BoardId);
+            // The budget check counts this voter's rows; the tallies count a topic's.
+            e.HasIndex(v => new { v.BoardId, v.VoterUserId });
+            e.HasIndex(v => v.TargetId);
+        });
+
+        // --- CoffeeExtendVote: keep going, or move on (#35) -----------------
+        modelBuilder.Entity<CoffeeExtendVote>(e =>
+        {
+            e.HasKey(v => v.Id);
+            e.Property(v => v.Id).ValueGeneratedNever(); // the domain assigns it — see RetroCard.Id
+            e.Property(v => v.VoterUserId).IsRequired().HasMaxLength(64);
+            e.Property(v => v.Choice).HasConversion<string>().HasMaxLength(16);
+            e.HasIndex(v => v.BoardId);
+        });
+
+        // --- CoffeeDecision: what the room decided (#35) --------------------
+        modelBuilder.Entity<CoffeeDecision>(e =>
+        {
+            e.HasKey(d => d.Id);
+            e.Property(d => d.Id).ValueGeneratedNever(); // the domain assigns it — see RetroCard.Id
+            e.Property(d => d.Title).IsRequired().HasMaxLength(300);
+            e.Property(d => d.OwnerUserId).HasMaxLength(64);
+            e.Property(d => d.OwnerName).HasMaxLength(80);
+            e.Ignore(d => d.IsDone); // computed from DoneAt
+            e.HasIndex(d => d.BoardId);
         });
 
         // --- RetroActionItem: what the team agreed to do (#26) --------------

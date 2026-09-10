@@ -47,6 +47,18 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/retro/board/retro.page').then((m) => m.RetroPage),
   },
 
+  // Lean Coffee.
+  {
+    path: 'coffee/new',
+    title: 'New Lean Coffee',
+    loadComponent: () => import('./pages/coffee/create/coffee-create.page').then((m) => m.CoffeeCreatePage),
+  },
+  {
+    path: 'coffee/:shortCode',
+    title: 'Lean Coffee',
+    loadComponent: () => import('./pages/coffee/board/coffee.page').then((m) => m.CoffeePage),
+  },
+
   // Legacy single-tool paths.
   { path: 'session/:shortCode', redirectTo: 'poker/:shortCode', pathMatch: 'full' },
 

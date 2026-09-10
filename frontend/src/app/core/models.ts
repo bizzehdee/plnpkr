@@ -74,7 +74,7 @@ export interface IntegrationInfo {
   queue: QueuedTicketInfo[];
 }
 
-export type RoomTool = 'Poker' | 'Retro';
+export type RoomTool = 'Poker' | 'Retro' | 'Coffee';
 
 /**
  * The room-level half of every tool snapshot (#19): identity, the participant list with presence
@@ -496,3 +496,152 @@ export interface RetroJoinResult {
 
 /** Longest a card may be — mirrors RetroService.MaxCardLength so the UI can cap the input. */
 export const RETRO_MAX_CARD_LENGTH = 500;
+
+// --- Lean Coffee (#35) ------------------------------------------------------
+
+/** `Propose → Vote → Discuss → Done`, on the shared phase rail. */
+export type CoffeePhase = 'Propose' | 'Vote' | 'Discuss' | 'Done';
+
+/** Keep talking, or move on. Hidden until the facilitator resolves the vote. */
+export type ExtendChoice = 'KeepGoing' | 'MoveOn';
+
+/** The phases in rail order, for rendering the rail. Mirrors `CoffeePhaseRules.Rail`. */
+export const COFFEE_PHASE_ORDER: CoffeePhase[] = ['Propose', 'Vote', 'Discuss', 'Done'];
+
+/** i18n key per phase, translated at render time. */
+export const COFFEE_PHASE_LABEL_KEYS: Record<CoffeePhase, string> = {
+  Propose: 'coffee.phase.propose',
+  Vote: 'coffee.phase.vote',
+  Discuss: 'coffee.phase.discuss',
+  Done: 'coffee.phase.done',
+};
+
+/** A topic as clients see it. Never anonymous — a topic is volunteered. */
+export interface CoffeeTopicInfo {
+  id: string;
+  text: string;
+  authorUserId: string;
+  authorDisplayName: string;
+  isMine: boolean;
+  order: number;
+  /** Null while voting is open, for the same anchoring reason the retro's are. */
+  totalDots: number | null;
+  myDots: number;
+  isDiscussed: boolean;
+  discussedSeconds: number;
+  extensions: number;
+}
+
+/** A running (or just-resolved) extension vote. */
+export interface CoffeeExtendVoteInfo {
+  topicId: string;
+  /** How many people have answered. Public while the vote runs; the split is not. */
+  answered: number;
+  myChoice: ExtendChoice | null;
+  keepGoing: number | null;
+  moveOn: number | null;
+}
+
+/** Something the room decided. Same shape as a retro action item. */
+export interface CoffeeDecisionInfo {
+  id: string;
+  title: string;
+  topicId: string | null;
+  ownerUserId: string | null;
+  ownerName: string | null;
+  dueDate: string | null;
+  isDone: boolean;
+  createdAt: string;
+}
+
+/** The coffee snapshot exactly as it arrives on the wire (#19/#35). */
+export interface CoffeeBoardSnapshotWire {
+  room: RoomSnapshot;
+  phase: CoffeePhase;
+  nextPhase: CoffeePhase | null;
+  previousPhase: CoffeePhase | null;
+  phaseDurationSeconds: number | null;
+  phaseDeadline: string | null;
+  voteBudget: number;
+  allowMultiplePerItem: boolean;
+  myDotsRemaining: number;
+  voteTotalsVisible: boolean;
+  topics: CoffeeTopicInfo[];
+  hiddenTopicCount: number;
+  agenda: CoffeeTopicInfo[];
+  currentTopicId: string | null;
+  extendVote: CoffeeExtendVoteInfo | null;
+  decisions: CoffeeDecisionInfo[];
+}
+
+/** The flat view model the components read; `room` is kept for fields with no alias. */
+export interface CoffeeBoardSnapshot {
+  room: RoomSnapshot;
+  id: string;
+  shortCode: string;
+  name: string;
+  organiserUserId: string | null;
+  reactionsEnabled: boolean;
+  allowRoleChange: boolean;
+  isClosed: boolean;
+  participants: ParticipantInfo[];
+  phase: CoffeePhase;
+  nextPhase: CoffeePhase | null;
+  previousPhase: CoffeePhase | null;
+  phaseDurationSeconds: number | null;
+  phaseDeadline: string | null;
+  voteBudget: number;
+  allowMultiplePerItem: boolean;
+  myDotsRemaining: number;
+  voteTotalsVisible: boolean;
+  topics: CoffeeTopicInfo[];
+  hiddenTopicCount: number;
+  agenda: CoffeeTopicInfo[];
+  currentTopicId: string | null;
+  extendVote: CoffeeExtendVoteInfo | null;
+  decisions: CoffeeDecisionInfo[];
+}
+
+export type CoffeeActionStatus =
+  | 'Ok'
+  | 'BoardNotFound'
+  | 'NotParticipant'
+  | 'NotOrganiser'
+  | 'BoardClosed'
+  | 'TopicNotFound'
+  | 'NotTopicAuthor'
+  | 'InvalidTopicText'
+  | 'WrongPhase'
+  | 'IllegalPhaseTransition'
+  | 'OutOfDots'
+  | 'AlreadyVotedForItem'
+  | 'NoVoteToWithdraw'
+  | 'InvalidVoteBudget'
+  | 'NoCurrentTopic'
+  | 'NoExtendVoteRunning'
+  | 'DecisionNotFound'
+  | 'InvalidDecisionTitle'
+  | 'RateLimited';
+
+export interface CoffeeActionResult {
+  status: CoffeeActionStatus;
+  board: CoffeeBoardSnapshot | null;
+}
+
+export type CreateCoffeeStatus = 'Ok' | 'InvalidName' | 'RateLimited';
+
+export interface CreateCoffeeResult {
+  status: CreateCoffeeStatus;
+  board: CoffeeBoardSnapshot | null;
+  error: string | null;
+}
+
+export interface CoffeeJoinResult {
+  status: JoinStatus;
+  board: CoffeeBoardSnapshot | null;
+  participant: ParticipantInfo | null;
+  error: string | null;
+}
+
+/** Longest a topic may be — mirrors CoffeeService.MaxTopicLength so the UI can cap the input. */
+export const COFFEE_MAX_TOPIC_LENGTH = 300;

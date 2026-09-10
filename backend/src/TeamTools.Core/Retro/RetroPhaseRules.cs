@@ -19,36 +19,30 @@ public static class RetroPhaseRules
     public const int MinPhaseSeconds = 30;
     public const int MaxPhaseSeconds = 3600;
 
-    private static readonly RetroPhase[] Order =
-    [
+    /// <summary>
+    /// The rail itself: the ordered sequence, and the one-step-at-a-time rule. Shared with Lean
+    /// Coffee since #35 — which phases exist stays here, the shape of a rail does not.
+    /// </summary>
+    public static readonly PhaseRail<RetroPhase> Rail = new(
         RetroPhase.Collect,
         RetroPhase.Group,
         RetroPhase.Vote,
         RetroPhase.Discuss,
         RetroPhase.Actions,
-        RetroPhase.Closed,
-    ];
+        RetroPhase.Closed);
 
     /// <summary>The phase after this one, or null at the end.</summary>
-    public static RetroPhase? Next(RetroPhase phase)
-    {
-        var i = Array.IndexOf(Order, phase);
-        return i >= 0 && i < Order.Length - 1 ? Order[i + 1] : null;
-    }
+    public static RetroPhase? Next(RetroPhase phase) => Rail.Next(phase);
 
     /// <summary>The phase before this one, or null at the start.</summary>
-    public static RetroPhase? Previous(RetroPhase phase)
-    {
-        var i = Array.IndexOf(Order, phase);
-        return i > 0 ? Order[i - 1] : null;
-    }
+    public static RetroPhase? Previous(RetroPhase phase) => Rail.Previous(phase);
 
     /// <summary>
     /// Whether a move is a legal transition: exactly one step forward or one step back. Anything
     /// else — a jump, or standing still — is rejected.
     /// </summary>
     public static bool IsLegalTransition(RetroPhase from, RetroPhase to) =>
-        Next(from) == to || Previous(from) == to;
+        Rail.IsLegalTransition(from, to);
 
     /// <summary>
     /// Clamps a requested countdown into the allowed range; null stays null. The clamp is the shared

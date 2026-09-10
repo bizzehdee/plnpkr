@@ -40,5 +40,13 @@ export class HomePage {
       icon: '🔄',
       route: '/retro/new',
     },
+    {
+      id: 'coffee',
+      titleKey: 'tool.coffee.name',
+      blurbKey: 'tool.coffee.blurb',
+      bulletKeys: ['tool.coffee.point1', 'tool.coffee.point2', 'tool.coffee.point3'],
+      icon: '☕',
+      route: '/coffee/new',
+    },
   ];
 }

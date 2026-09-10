@@ -1,5 +1,5 @@
 /** The tools' SignalR hubs — one per tool, both room-scoped (#19). */
-export type HubName = 'poker' | 'retro';
+export type HubName = 'poker' | 'retro' | 'coffee';
 
 /**
  * Resolves a SignalR hub URL.

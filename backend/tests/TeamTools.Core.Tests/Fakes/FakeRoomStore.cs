@@ -1,6 +1,7 @@
 using TeamTools.Core;
 using TeamTools.Core.Models;
 using TeamTools.Core.Poker;
+using TeamTools.Core.Coffee;
 using TeamTools.Core.Retro;
 
 namespace TeamTools.Core.Tests.Fakes;
@@ -11,7 +12,7 @@ namespace TeamTools.Core.Tests.Fakes;
 /// deterministic. Can be told to throw <see cref="DuplicateNameException"/> to simulate the DB
 /// unique-constraint race.
 /// </summary>
-public sealed class FakeRoomStore : IRoomStore, IPokerRoundStore, IRetroBoardStore
+public sealed class FakeRoomStore : IRoomStore, IPokerRoundStore, IRetroBoardStore, ICoffeeBoardStore
 {
     private readonly Dictionary<Guid, Room> _byId = new();
     private int _nextParticipantId = 1;
@@ -83,6 +84,13 @@ public sealed class FakeRoomStore : IRoomStore, IPokerRoundStore, IRetroBoardSto
         Task.FromResult<IReadOnlyList<Room>>(_byId.Values
             .Where(r => r.DeletedAt == null
                 && r.RetroBoard is { PhaseDeadline: { } deadline } && deadline <= asOf)
+            .ToList());
+
+    // Mirror the EF query: only coffee rooms mid-timebox, not deleted, deadline at/before asOf.
+    public Task<IReadOnlyList<Room>> GetRoomsWithExpiredTimeboxAsync(DateTimeOffset asOf, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Room>>(_byId.Values
+            .Where(r => r.DeletedAt == null
+                && r.CoffeeBoard is { PhaseDeadline: { } deadline } && deadline <= asOf)
             .ToList());
 
     // Mirror the EF projected check: exists, not soft-deleted, reactions on.

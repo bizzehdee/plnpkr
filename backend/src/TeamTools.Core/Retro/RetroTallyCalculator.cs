@@ -3,26 +3,31 @@ using TeamTools.Core.Models;
 namespace TeamTools.Core.Retro;
 
 /// <summary>
-/// Counts dots (#25) — the retro sibling of <c>StatsCalculator</c>. Pure and deterministic, so the
-/// ranking that orders the discussion can be tested exhaustively without a store.
+/// Counts dots on a retro board (#25) — the retro sibling of <c>StatsCalculator</c>.
+/// <para>
+/// The counting itself is the shared <see cref="DotBudget"/> primitive (#35); what is retro-specific
+/// is that a dot may be spent on a theme *or* a loose card, and that a theme's total includes the
+/// dots on the cards inside it. That rule is the reason grouping behaves sensibly without moving
+/// rows, and it is the part worth keeping here.
+/// </para>
 /// </summary>
 public static class RetroTallyCalculator
 {
     /// <summary>How many dots this voter has spent in total, across every item.</summary>
     public static int SpentBy(RetroBoard board, string voterUserId) =>
-        board.Votes.Count(v => v.VoterUserId == voterUserId);
+        DotBudget.SpentBy(board.Votes, voterUserId);
 
     /// <summary>Dots this voter has left to spend.</summary>
     public static int RemainingFor(RetroBoard board, string voterUserId) =>
-        Math.Max(0, board.VoteBudget - SpentBy(board, voterUserId));
+        DotBudget.RemainingFor(board.Votes, board.VoteBudget, voterUserId);
 
     /// <summary>This voter's dots on one item — what the UI shows back to them while voting.</summary>
     public static int MineOn(RetroBoard board, string voterUserId, RetroVoteTarget kind, Guid targetId) =>
-        board.Votes.Count(v => v.VoterUserId == voterUserId && v.TargetKind == kind && v.TargetId == targetId);
+        DotBudget.MineOn(board.Votes.Where(v => v.TargetKind == kind), voterUserId, targetId);
 
     /// <summary>Every dot on one card, from everyone.</summary>
     public static int TotalOnCard(RetroBoard board, Guid cardId) =>
-        board.Votes.Count(v => v.TargetKind == RetroVoteTarget.Card && v.TargetId == cardId);
+        DotBudget.TotalOn(board.Votes.Where(v => v.TargetKind == RetroVoteTarget.Card), cardId);
 
     /// <summary>
     /// Every dot on a theme: the dots spent on the theme itself **plus** the dots on the cards
@@ -36,9 +41,11 @@ public static class RetroTallyCalculator
     /// </summary>
     public static int TotalOnGroup(RetroBoard board, Guid groupId)
     {
-        var onGroup = board.Votes.Count(v => v.TargetKind == RetroVoteTarget.Group && v.TargetId == groupId);
+        var onGroup = DotBudget.TotalOn(
+            board.Votes.Where(v => v.TargetKind == RetroVoteTarget.Group), groupId);
         var cardIds = board.Cards.Where(c => c.GroupId == groupId).Select(c => c.Id).ToHashSet();
-        var onCards = board.Votes.Count(v => v.TargetKind == RetroVoteTarget.Card && cardIds.Contains(v.TargetId));
+        var onCards = board.Votes.Count(
+            v => v.TargetKind == RetroVoteTarget.Card && cardIds.Contains(v.TargetId));
         return onGroup + onCards;
     }
 
@@ -66,10 +73,8 @@ public static class RetroTallyCalculator
                 Dots: TotalOnCard(board, c.Id),
                 Order: c.Order));
 
-        return themes
-            .Concat(loose)
-            .OrderByDescending(x => x.Dots)
-            .ThenBy(x => x.Order)
+        return DotBudget
+            .Rank(themes.Concat(loose), x => x.Dots, x => x.Order)
             .Select(x => (x.Kind, x.Id, x.Label, x.Dots))
             .ToArray();
     }
