@@ -71,12 +71,17 @@ function board(over: Partial<RetroBoardSnapshot> = {}): RetroBoardSnapshot {
       participants: flat.participants,
     },
     template: 'WentWellToImprove',
+    phase: 'Collect',
+    nextPhase: 'Group',
+    previousPhase: null,
+    phaseDurationSeconds: null,
+    phaseDeadline: null,
     anonymous: false,
     canChangeAnonymity: false,
     columns: [
-      { id: 'col-1', title: 'Went well', order: 0, cards: [card()] },
-      { id: 'col-2', title: 'To improve', order: 1, cards: [] },
-      { id: 'col-3', title: 'Action items', order: 2, cards: [] },
+      { id: 'col-1', title: 'Went well', order: 0, cards: [card()], hiddenCardCount: 0 },
+      { id: 'col-2', title: 'To improve', order: 1, cards: [], hiddenCardCount: 0 },
+      { id: 'col-3', title: 'Action items', order: 2, cards: [], hiddenCardCount: 0 },
     ],
     ...over,
   };
@@ -97,6 +102,10 @@ class FakeRetroClient {
   deleteCard = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
   moveCard = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
   setAnonymous = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
+  advancePhase = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(
+    ok(board({ phase: 'Group', nextPhase: 'Vote', previousPhase: 'Collect' })),
+  );
+  previousPhase = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
 }
 
 type Cmp = {
@@ -111,6 +120,9 @@ type Cmp = {
   otherColumns(c: RetroCardInfo): { id: string }[];
   canModify(c: RetroCardInfo): boolean;
   toggleAnonymous(): Promise<void>;
+  advancePhase(): Promise<void>;
+  previousPhase(): Promise<void>;
+  canEditText(c: RetroCardInfo): boolean;
 };
 
 async function setup(fake: FakeRetroClient) {
@@ -290,6 +302,7 @@ describe('RetroPage', () => {
             title: 'Went well',
             order: 0,
             cards: [card({ authorUserId: null, authorDisplayName: null, isMine: true })],
+            hiddenCardCount: 0,
           },
         ],
       }),
@@ -345,5 +358,128 @@ describe('RetroPage', () => {
 
     const alert = (fixture.nativeElement as HTMLElement).querySelector('[role="alert"]');
     expect(alert?.textContent).toContain('locked once the board has cards');
+  });
+
+  // --- Phases (#23) -------------------------------------------------------
+
+  it('renders the phase rail with the current phase marked as the current step', async () => {
+    const fixture = await setup(new FakeRetroClient());
+    const el = fixture.nativeElement as HTMLElement;
+
+    const steps = el.querySelectorAll('nav ol li');
+    expect(steps.length).toBe(6);
+    const current = el.querySelector('[aria-current="step"]');
+    expect(current?.textContent?.trim()).toBe('Collect');
+  });
+
+  it('offers the facilitator a way forward but not back from the first phase', async () => {
+    const fixture = await setup(new FakeRetroClient());
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).toContain('Group →');
+    expect(el.textContent).not.toContain('← ');
+  });
+
+  it('advances the phase and announces the change', async () => {
+    const fake = new FakeRetroClient();
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.advancePhase();
+    fixture.detectChanges();
+
+    expect(fake.advancePhase).toHaveBeenCalledWith(CODE, ME, null);
+    const live = (fixture.nativeElement as HTMLElement).querySelector('[aria-live="polite"]');
+    expect(live?.textContent).toContain('Phase changed to Group');
+  });
+
+  it('offers a step back once past the first phase', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Vote', nextPhase: 'Discuss', previousPhase: 'Group' }));
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).toContain('← Group');
+  });
+
+  it('hides the phase controls from a non-facilitator', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(
+      board({
+        organiserUserId: 'someone-else',
+        participants: [
+          {
+            userId: ME,
+            displayName: 'Me',
+            isOrganiser: false,
+            role: 'Voter',
+            hasVoted: false,
+            changedAfterReveal: false,
+            vote: null,
+            isConnected: true,
+            isOutlier: false,
+          },
+        ],
+      }),
+    );
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).not.toContain('Group →');
+  });
+
+  it('reports other people writing during collect without showing what', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(
+      board({
+        columns: [
+          { id: 'col-1', title: 'Went well', order: 0, cards: [], hiddenCardCount: 3 },
+        ],
+      }),
+    );
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).toContain('Hidden until collecting ends');
+    expect(el.textContent).toContain('3');
+    expect(el.textContent).not.toContain('Nothing here yet');
+  });
+
+  it('closes the composer once collecting ends', async () => {
+    // Cards are Collect-only; leaving the composer up would offer a control the server refuses.
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Group', nextPhase: 'Vote', previousPhase: 'Collect' }));
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('button.btn-outline-primary')).toBeNull();
+  });
+
+  it('hides the edit control outside collect but keeps delete and move', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Group', nextPhase: 'Vote', previousPhase: 'Collect' }));
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    expect(cmp.canEditText(card({ isMine: true }))).toBe(false);
+    expect(cmp.canModify(card({ isMine: true }))).toBe(true);
+  });
+
+  it('shows a countdown when the phase has a running deadline', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(
+      board({ phaseDeadline: new Date(Date.now() + 90_000).toISOString(), phaseDurationSeconds: 120 }),
+    );
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    const badge = el.querySelector('.font-monospace');
+    expect(badge?.textContent).toMatch(/9\ds/);
+  });
+
+  it('shows no countdown when none is running', async () => {
+    const fixture = await setup(new FakeRetroClient());
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.font-monospace')).toBeNull();
   });
 });

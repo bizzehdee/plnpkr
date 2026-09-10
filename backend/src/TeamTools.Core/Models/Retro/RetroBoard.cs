@@ -27,6 +27,21 @@ public class RetroBoard
     /// </summary>
     public bool Anonymous { get; set; }
 
+    /// <summary>Where the facilitator has moved the retro to. See #23.</summary>
+    public RetroPhase Phase { get; set; } = RetroPhase.Collect;
+
+    /// <summary>
+    /// Configured phase-countdown length in seconds, or null for no countdown. See #23.
+    /// </summary>
+    public int? PhaseDurationSeconds { get; set; }
+
+    /// <summary>
+    /// UTC instant the running phase countdown expires; null when no countdown is running. Reuses
+    /// the deadline-broadcast pattern the poker round timer established (#14), so clients tick
+    /// locally against one server-authoritative instant.
+    /// </summary>
+    public DateTimeOffset? PhaseDeadline { get; set; }
+
     /// <summary>
     /// The board's columns, in display order. Materialised from the template at creation (rather than
     /// resolved on every read) because a card belongs to a column and a custom layout has to persist.

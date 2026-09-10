@@ -8,9 +8,13 @@ import { I18nService } from '../../../core/i18n.service';
 import { TranslatePipe } from '../../../core/translate.pipe';
 import {
   RETRO_MAX_CARD_LENGTH,
+  RETRO_PHASE_LABEL_KEYS,
+  RETRO_PHASE_ORDER,
   RETRO_TEMPLATE_LABEL_KEYS,
+  RetroActionResult,
   RetroCardInfo,
   RetroColumnInfo,
+  RetroPhase,
 } from '../../../core/models';
 
 /**
@@ -62,6 +66,74 @@ export class RetroPage implements OnInit, OnDestroy {
     (this.board()?.columns ?? []).reduce((total, c) => total + c.cards.length, 0),
   );
 
+  // --- Phases (#23) ------------------------------------------------------
+
+  protected readonly phases = RETRO_PHASE_ORDER;
+
+  protected readonly phaseLabel = computed(() => {
+    const board = this.board();
+    return board ? this.i18n.t(RETRO_PHASE_LABEL_KEYS[board.phase]) : '';
+  });
+
+  /** Cards other people have written but this viewer may not see yet, during Collect. */
+  protected readonly hiddenCardCount = computed(() =>
+    (this.board()?.columns ?? []).reduce((total, c) => total + c.hiddenCardCount, 0),
+  );
+
+  protected readonly isCollecting = computed(() => this.board()?.phase === 'Collect');
+
+  /** Ticks once a second so the countdown re-renders; the deadline itself is the server's. */
+  private readonly now = signal(Date.now());
+  private tick?: ReturnType<typeof setInterval>;
+
+  /** Whole seconds left on the phase countdown, or null when none is running. */
+  protected readonly secondsLeft = computed(() => {
+    const deadline = this.board()?.phaseDeadline;
+    if (!deadline) {
+      return null;
+    }
+    return Math.max(0, Math.ceil((new Date(deadline).getTime() - this.now()) / 1000));
+  });
+
+  protected phaseLabelFor(phase: RetroPhase): string {
+    return this.i18n.t(RETRO_PHASE_LABEL_KEYS[phase]);
+  }
+
+  protected phaseIndex(phase: RetroPhase): number {
+    return RETRO_PHASE_ORDER.indexOf(phase);
+  }
+
+  /** True for phases the retro has already been through, so the rail can show progress. */
+  protected phaseDone(phase: RetroPhase): boolean {
+    const board = this.board();
+    return !!board && this.phaseIndex(phase) < this.phaseIndex(board.phase);
+  }
+
+  protected async advancePhase(): Promise<void> {
+    const result = await this.retro.advancePhase(this.shortCode, this.myUserId, null);
+    this.afterPhaseChange(result);
+  }
+
+  protected async previousPhase(): Promise<void> {
+    const result = await this.retro.previousPhase(this.shortCode, this.myUserId);
+    this.afterPhaseChange(result);
+  }
+
+  private afterPhaseChange(result: RetroActionResult): void {
+    if (result.status === 'Ok' && result.board) {
+      // Announce it: a phase change silently rearranges what everyone can do (#4).
+      this.announce(
+        this.i18n
+          .t('retro.announce.phaseChanged')
+          .replace('{phase}', this.i18n.t(RETRO_PHASE_LABEL_KEYS[result.board.phase])),
+      );
+      this.cancelComposer();
+      this.cancelEdit();
+    } else {
+      this.error.set(this.statusMessage(result.status));
+    }
+  }
+
   /** An organiser (or anyone, on a board with no organiser) may moderate and change settings. */
   protected readonly canFacilitate = computed(() => {
     const board = this.board();
@@ -76,6 +148,9 @@ export class RetroPage implements OnInit, OnDestroy {
   });
 
   constructor() {
+    // One shared ticker drives the countdown display; the deadline is server-authoritative (#23).
+    this.tick = setInterval(() => this.now.set(Date.now()), 1000);
+
     // Remember (shortCode -> role) so a later full page reload can silently rejoin instead of
     // bouncing back to the join screen (F5 shouldn't kick you out). Same rule as the poker table.
     effect(() => {
@@ -131,6 +206,9 @@ export class RetroPage implements OnInit, OnDestroy {
   }
 
   async ngOnDestroy(): Promise<void> {
+    if (this.tick !== undefined) {
+      clearInterval(this.tick);
+    }
     // Leave the group but keep the seat: a page change is not the same as leaving the retro.
     await this.retro.disconnect().catch(() => {});
   }
@@ -227,8 +305,19 @@ export class RetroPage implements OnInit, OnDestroy {
     return columns.filter((c) => !c.cards.some((existing) => existing.id === card.id));
   }
 
+  /** May this viewer move or delete this card? Allowed in any phase — that is how a facilitator
+   * tidies the board during Group. */
   protected canModify(card: RetroCardInfo): boolean {
     return !this.board()?.isClosed && (card.isMine || this.canFacilitate());
+  }
+
+  /**
+   * May this viewer reword this card? Only during Collect: once grouping and voting are built on
+   * the words, changing them moves the ground under the team (#23). The server enforces it; the UI
+   * hides the control rather than offering one that fails.
+   */
+  protected canEditText(card: RetroCardInfo): boolean {
+    return this.canModify(card) && this.isCollecting();
   }
 
   /**
@@ -270,6 +359,10 @@ export class RetroPage implements OnInit, OnDestroy {
         return this.i18n.t('retro.err.boardClosed');
       case 'AnonymityLocked':
         return this.i18n.t('retro.err.anonymityLocked');
+      case 'WrongPhase':
+        return this.i18n.t('retro.err.wrongPhase');
+      case 'IllegalPhaseTransition':
+        return this.i18n.t('retro.err.illegalPhase');
       case 'RateLimited':
         return this.i18n.t('err.create.rateLimited');
       case 'CardNotFound':

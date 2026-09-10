@@ -45,6 +45,12 @@ public class RetroBoardTests
     private async Task<RetroBoardSnapshot> BoardAsync(string forUserId) =>
         (await _sut.GetByShortCodeAsync(Code, forUserId))!;
 
+    /// <summary>
+    /// Leaves Collect, where a participant sees only their own cards (#23). Cross-participant
+    /// visibility is only meaningful once collection has ended.
+    /// </summary>
+    private Task EndCollectionAsync() => _sut.AdvancePhaseAsync(Code, Facilitator);
+
     // --- Creation ----------------------------------------------------------
 
     [Fact]
@@ -193,6 +199,7 @@ public class RetroBoardTests
         await _sut.AddCardAsync(Code, Bob, column, "first");
         await _sut.AddCardAsync(Code, Facilitator, column, "second");
         await _sut.AddCardAsync(Code, Bob, column, "third");
+        await EndCollectionAsync();
 
         (await BoardAsync(Bob)).Columns[0].Cards.Select(c => c.Text)
             .Should().Equal("first", "second", "third");
@@ -205,6 +212,7 @@ public class RetroBoardTests
     {
         var board = await SeedAsync();
         await _sut.AddCardAsync(Code, Bob, FirstColumn(board), "Bob's card");
+        await EndCollectionAsync();
 
         (await BoardAsync(Bob)).Columns[0].Cards[0].IsMine.Should().BeTrue();
         (await BoardAsync(Facilitator)).Columns[0].Cards[0].IsMine.Should().BeFalse();
@@ -215,6 +223,7 @@ public class RetroBoardTests
     {
         var board = await SeedAsync();
         await _sut.AddCardAsync(Code, Bob, FirstColumn(board), "Bob's card");
+        await EndCollectionAsync();
 
         var card = (await BoardAsync(Facilitator)).Columns[0].Cards[0];
 

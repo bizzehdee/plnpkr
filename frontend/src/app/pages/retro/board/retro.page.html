@@ -49,6 +49,60 @@
       }
 
       <!--
+        The phase rail (#23). An ordered list, so a screen reader announces "3 of 6" rather than
+        leaving the sequence implicit in the styling.
+      -->
+      <nav class="mb-3" [attr.aria-label]="'retro.phaseRail' | t">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <ol class="list-unstyled d-flex flex-wrap gap-1 mb-0">
+            @for (phase of phases; track phase) {
+              <li>
+                <span
+                  class="badge"
+                  [class.text-bg-primary]="phase === b.phase"
+                  [class.text-bg-secondary]="phaseDone(phase)"
+                  [class.text-bg-light]="phase !== b.phase && !phaseDone(phase)"
+                  [attr.aria-current]="phase === b.phase ? 'step' : null"
+                >
+                  {{ phaseLabelFor(phase) }}
+                </span>
+              </li>
+            }
+          </ol>
+
+          @if (secondsLeft() !== null) {
+            <span class="badge text-bg-dark font-monospace" [attr.aria-label]="'retro.timeLeft' | t">
+              {{ secondsLeft() }}s
+            </span>
+          }
+
+          @if (canFacilitate() && !b.isClosed) {
+            <div class="ms-auto d-flex gap-2">
+              @if (b.previousPhase) {
+                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="previousPhase()">
+                  ← {{ phaseLabelFor(b.previousPhase) }}
+                </button>
+              }
+              @if (b.nextPhase) {
+                <button type="button" class="btn btn-sm btn-primary" (click)="advancePhase()">
+                  {{ phaseLabelFor(b.nextPhase) }} →
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+        @if (isCollecting()) {
+          <p class="form-text mb-0">
+            {{ 'retro.collectingHint' | t }}
+            @if (hiddenCardCount() > 0) {
+              {{ 'retro.othersWriting' | t }}: {{ hiddenCardCount() }}
+            }
+          </p>
+        }
+      </nav>
+
+      <!--
         The columns are a list of lists: a screen reader announces how many columns there are and
         how many cards each holds, which is the structure a sighted user gets from the layout (#4).
       -->
@@ -62,8 +116,15 @@
               </div>
 
               <div class="card-body d-flex flex-column gap-2">
-                @if (column.cards.length === 0) {
+                @if (column.cards.length === 0 && column.hiddenCardCount === 0) {
                   <p class="text-body-secondary small mb-0">{{ 'retro.emptyColumn' | t }}</p>
+                }
+
+                <!-- Hidden collection (#23): the count says the team is writing, not what. -->
+                @if (column.hiddenCardCount > 0) {
+                  <p class="text-body-secondary small fst-italic mb-0">
+                    {{ 'retro.hiddenCards' | t }}: {{ column.hiddenCardCount }}
+                  </p>
                 }
 
                 <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
@@ -101,13 +162,15 @@
 
                           @if (canModify(card)) {
                             <div class="ms-auto d-flex gap-1">
-                              <button
-                                type="button"
-                                class="btn btn-sm btn-link p-0"
-                                (click)="startEdit(card)"
-                              >
-                                {{ 'retro.editCard' | t }}
-                              </button>
+                              @if (canEditText(card)) {
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-link p-0"
+                                  (click)="startEdit(card)"
+                                >
+                                  {{ 'retro.editCard' | t }}
+                                </button>
+                              }
                               <button
                                 type="button"
                                 class="btn btn-sm btn-link p-0 text-danger"
@@ -145,7 +208,7 @@
                   }
                 </ul>
 
-                @if (!b.isClosed) {
+                @if (!b.isClosed && isCollecting()) {
                   <div class="mt-auto">
                     @if (composingIn() === column.id) {
                       <label class="visually-hidden" [attr.for]="'new-' + column.id">

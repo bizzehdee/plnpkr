@@ -141,6 +141,17 @@ namespace TeamTools.Data.PostgreSql.Migrations
                     b.Property<bool>("Anonymous")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset?>("PhaseDeadline")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("PhaseDurationSeconds")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Template")
                         .IsRequired()
                         .HasMaxLength(32)

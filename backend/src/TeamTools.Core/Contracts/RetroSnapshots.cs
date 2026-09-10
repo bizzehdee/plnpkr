@@ -15,6 +15,13 @@ namespace TeamTools.Core.Contracts;
 public record RetroBoardSnapshot(
     RoomSnapshot Room,
     RetroTemplate Template,
+    RetroPhase Phase,
+    /// <summary>Null at either end of the phase order — nothing to advance to or step back from.</summary>
+    RetroPhase? NextPhase,
+    RetroPhase? PreviousPhase,
+    /// <summary>Configured countdown length, and the running deadline clients tick against (#23).</summary>
+    int? PhaseDurationSeconds,
+    DateTimeOffset? PhaseDeadline,
     bool Anonymous,
     /// <summary>
     /// False once the first card exists: <see cref="Anonymous"/> is then locked, because flipping it
@@ -23,12 +30,20 @@ public record RetroBoardSnapshot(
     bool CanChangeAnonymity,
     IReadOnlyList<RetroColumnInfo> Columns);
 
-/// <summary>A column and the cards in it, in display order.</summary>
+/// <summary>
+/// A column and the cards in it that this recipient may see, in display order.
+/// <para>
+/// <see cref="HiddenCardCount"/> is how many cards in the column are *not* in <see cref="Cards"/>:
+/// during Collect a participant sees only their own, so the count is what tells them the rest of
+/// the team is writing without showing them what (#23).
+/// </para>
+/// </summary>
 public record RetroColumnInfo(
     Guid Id,
     string Title,
     int Order,
-    IReadOnlyList<RetroCardInfo> Cards);
+    IReadOnlyList<RetroCardInfo> Cards,
+    int HiddenCardCount);
 
 /// <summary>
 /// A card as one recipient may see it.
@@ -69,6 +84,10 @@ public enum RetroActionStatus
     InvalidCardText,
     /// <summary>Anonymity is locked because the board already has cards (#22).</summary>
     AnonymityLocked,
+    /// <summary>The action is not allowed in the board.s current phase (#23).</summary>
+    WrongPhase,
+    /// <summary>Not a legal phase transition — phases move one step at a time (#23).</summary>
+    IllegalPhaseTransition,
     /// <summary>The requested template is invalid (e.g. an empty custom layout).</summary>
     InvalidTemplate,
     /// <summary>Too many cards added too quickly (abuse throttle). See #3-abuse.</summary>
@@ -91,6 +110,9 @@ public record RetroActionResult(RetroActionStatus Status, RetroBoardSnapshot? Bo
     public static RetroActionResult NotCardAuthor() => new(RetroActionStatus.NotCardAuthor, null);
     public static RetroActionResult InvalidCardText() => new(RetroActionStatus.InvalidCardText, null);
     public static RetroActionResult AnonymityLocked() => new(RetroActionStatus.AnonymityLocked, null);
+    public static RetroActionResult WrongPhase() => new(RetroActionStatus.WrongPhase, null);
+    public static RetroActionResult IllegalPhaseTransition() =>
+        new(RetroActionStatus.IllegalPhaseTransition, null);
     public static RetroActionResult InvalidTemplate() => new(RetroActionStatus.InvalidTemplate, null);
     public static RetroActionResult RateLimited() => new(RetroActionStatus.RateLimited, null);
 }

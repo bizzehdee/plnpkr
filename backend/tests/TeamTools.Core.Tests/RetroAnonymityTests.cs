@@ -42,6 +42,12 @@ public class RetroAnonymityTests
     private async Task<RetroBoardSnapshot> BoardAsync(string forUserId) =>
         (await _sut.GetByShortCodeAsync(Code, forUserId))!;
 
+    /// <summary>
+    /// Leaves Collect, where a participant sees only their own cards (#23). Cross-participant
+    /// visibility is only meaningful once collection has ended.
+    /// </summary>
+    private Task EndCollectionAsync() => _sut.AdvancePhaseAsync(Code, Facilitator);
+
     // --- The guarantee -----------------------------------------------------
 
     [Fact]
@@ -49,6 +55,7 @@ public class RetroAnonymityTests
     {
         var board = await SeedAsync(anonymous: true);
         await _sut.AddCardAsync(Code, Bob, board.Columns[0].Id, "I felt rushed");
+        await EndCollectionAsync();
 
         var asSeenByAlice = (await BoardAsync(Facilitator)).Columns[0].Cards[0];
 
@@ -83,6 +90,7 @@ public class RetroAnonymityTests
         // to whom, so the cards are where the guarantee has to hold.
         var board = await SeedAsync(anonymous: true);
         await _sut.AddCardAsync(Code, Bob, board.Columns[0].Id, "I felt rushed");
+        await EndCollectionAsync();
 
         foreach (var viewer in new[] { Facilitator, Bob, "carol" })
         {
@@ -100,6 +108,7 @@ public class RetroAnonymityTests
         // Anonymity is opt-in; the default retro shows who said what.
         var board = await SeedAsync(anonymous: false);
         await _sut.AddCardAsync(Code, Bob, board.Columns[0].Id, "Deploys got faster");
+        await EndCollectionAsync();
 
         var card = (await BoardAsync(Facilitator)).Columns[0].Cards[0];
 
@@ -169,6 +178,7 @@ public class RetroAnonymityTests
         // product may retroactively break it — not even the facilitator.
         var board = await SeedAsync(anonymous: true);
         await _sut.AddCardAsync(Code, Bob, board.Columns[0].Id, "said in confidence");
+        await EndCollectionAsync();
 
         var result = await _sut.SetAnonymousAsync(Code, Facilitator, false);
 
@@ -183,6 +193,7 @@ public class RetroAnonymityTests
         // agreed to when they wrote them.
         var board = await SeedAsync(anonymous: false);
         await _sut.AddCardAsync(Code, Bob, board.Columns[0].Id, "happy to own this");
+        await EndCollectionAsync();
 
         var result = await _sut.SetAnonymousAsync(Code, Facilitator, true);
 

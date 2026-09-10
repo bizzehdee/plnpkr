@@ -271,6 +271,28 @@ export const DECK_LABEL_KEYS: Record<DeckType, string> = {
 // --- Team Retro (#21) -------------------------------------------------------
 // Mirrors TeamTools.Core.Contracts.RetroSnapshots.
 
+export type RetroPhase = 'Collect' | 'Group' | 'Vote' | 'Discuss' | 'Actions' | 'Closed';
+
+/** i18n catalog key for each phase's display label. */
+export const RETRO_PHASE_LABEL_KEYS: Record<RetroPhase, string> = {
+  Collect: 'retro.phase.collect',
+  Group: 'retro.phase.group',
+  Vote: 'retro.phase.vote',
+  Discuss: 'retro.phase.discuss',
+  Actions: 'retro.phase.actions',
+  Closed: 'retro.phase.closed',
+};
+
+/** The phases in facilitation order, for the phase rail. */
+export const RETRO_PHASE_ORDER: RetroPhase[] = [
+  'Collect',
+  'Group',
+  'Vote',
+  'Discuss',
+  'Actions',
+  'Closed',
+];
+
 export type RetroTemplate =
   | 'WentWellToImprove'
   | 'StartStopContinue'
@@ -307,12 +329,24 @@ export interface RetroColumnInfo {
   title: string;
   order: number;
   cards: RetroCardInfo[];
+  /**
+   * Cards in this column that this viewer may not see. During Collect a participant sees only
+   * their own, so the count is what tells them the team is writing without showing what (#23).
+   */
+  hiddenCardCount: number;
 }
 
 /** The retro board as it arrives on the wire: tool state plus the shared room fragment (#19). */
 export interface RetroBoardSnapshotWire {
   room: RoomSnapshot;
   template: RetroTemplate;
+  phase: RetroPhase;
+  /** Null at either end of the phase order — nothing to advance to or step back from (#23). */
+  nextPhase: RetroPhase | null;
+  previousPhase: RetroPhase | null;
+  phaseDurationSeconds: number | null;
+  /** ISO UTC instant the running phase countdown expires; clients tick locally against it. */
+  phaseDeadline: string | null;
   anonymous: boolean;
   /** False once the first card exists — anonymity is then locked (#22). */
   canChangeAnonymity: boolean;
@@ -331,6 +365,11 @@ export interface RetroBoardSnapshot {
   isClosed: boolean;
   participants: ParticipantInfo[];
   template: RetroTemplate;
+  phase: RetroPhase;
+  nextPhase: RetroPhase | null;
+  previousPhase: RetroPhase | null;
+  phaseDurationSeconds: number | null;
+  phaseDeadline: string | null;
   anonymous: boolean;
   canChangeAnonymity: boolean;
   columns: RetroColumnInfo[];
@@ -347,6 +386,8 @@ export type RetroActionStatus =
   | 'NotCardAuthor'
   | 'InvalidCardText'
   | 'AnonymityLocked'
+  | 'WrongPhase'
+  | 'IllegalPhaseTransition'
   | 'InvalidTemplate'
   | 'RateLimited';
 

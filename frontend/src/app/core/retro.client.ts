@@ -35,6 +35,11 @@ export function flattenBoard(wire: RetroBoardSnapshotWire): RetroBoardSnapshot {
     isClosed: wire.room.isClosed,
     participants: wire.room.participants,
     template: wire.template,
+    phase: wire.phase,
+    nextPhase: wire.nextPhase,
+    previousPhase: wire.previousPhase,
+    phaseDurationSeconds: wire.phaseDurationSeconds,
+    phaseDeadline: wire.phaseDeadline,
     anonymous: wire.anonymous,
     canChangeAnonymity: wire.canChangeAnonymity,
     columns: wire.columns,
@@ -87,6 +92,9 @@ export interface IRetroClient {
     customColumns: string | null,
   ): Promise<RetroActionResult>;
   setAnonymous(shortCode: string, userId: string, anonymous: boolean): Promise<RetroActionResult>;
+  advancePhase(shortCode: string, userId: string, seconds: number | null): Promise<RetroActionResult>;
+  previousPhase(shortCode: string, userId: string): Promise<RetroActionResult>;
+  setPhaseDuration(shortCode: string, userId: string, seconds: number | null): Promise<RetroActionResult>;
   closeBoard(shortCode: string, userId: string): Promise<RetroActionResult>;
   deleteBoard(shortCode: string, userId: string): Promise<RetroActionResult>;
   setPassword(shortCode: string, userId: string, password: string | null): Promise<RetroActionResult>;
@@ -264,6 +272,18 @@ export class SignalrRetroClient extends RoomClientBase implements IRetroClient {
 
   setAnonymous(shortCode: string, userId: string, anonymous: boolean) {
     return this.action('SetAnonymous', shortCode, userId, anonymous);
+  }
+
+  advancePhase(shortCode: string, userId: string, seconds: number | null) {
+    return this.action('AdvancePhase', shortCode, userId, seconds);
+  }
+
+  previousPhase(shortCode: string, userId: string) {
+    return this.action('PreviousPhase', shortCode, userId);
+  }
+
+  setPhaseDuration(shortCode: string, userId: string, seconds: number | null) {
+    return this.action('SetPhaseDuration', shortCode, userId, seconds);
   }
 
   closeBoard(shortCode: string, userId: string) {

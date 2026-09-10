@@ -123,6 +123,21 @@ public class RetroHub : Hub
     public Task<RetroActionResult> SetAnonymous(string shortCode, string userId, bool anonymous) =>
         MutateAndBroadcast(shortCode, () => _retro.SetAnonymousAsync(shortCode, userId, anonymous));
 
+    // --- Phases (#23), organiser-gated --------------------------------------
+
+    public Task<RetroActionResult> AdvancePhase(string shortCode, string userId, int? seconds) =>
+        MutateAndBroadcast(shortCode, () => _retro.AdvancePhaseAsync(shortCode, userId, seconds));
+
+    public Task<RetroActionResult> PreviousPhase(string shortCode, string userId) =>
+        MutateAndBroadcast(shortCode, () => _retro.PreviousPhaseAsync(shortCode, userId));
+
+    public Task<RetroActionResult> SetPhase(
+        string shortCode, string userId, RetroPhase phase, int? seconds) =>
+        MutateAndBroadcast(shortCode, () => _retro.SetPhaseAsync(shortCode, userId, phase, seconds));
+
+    public Task<RetroActionResult> SetPhaseDuration(string shortCode, string userId, int? seconds) =>
+        MutateAndBroadcast(shortCode, () => _retro.SetPhaseDurationAsync(shortCode, userId, seconds));
+
     // --- Room-level settings & lifecycle ------------------------------------
 
     public Task<RetroActionResult> SetReactionsEnabled(string shortCode, string userId, bool enabled) =>

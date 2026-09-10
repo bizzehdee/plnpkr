@@ -134,6 +134,17 @@ namespace TeamTools.Data.Sqlite.Migrations
                     b.Property<bool>("Anonymous")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("PhaseDeadline")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("PhaseDurationSeconds")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Template")
                         .IsRequired()
                         .HasMaxLength(32)

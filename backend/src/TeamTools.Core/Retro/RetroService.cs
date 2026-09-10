@@ -165,13 +165,20 @@ public class RetroService
             return error;
         }
 
+        var board = Board(room!);
+        if (!RetroPhaseRules.CardsWritable(board.Phase))
+        {
+            // Past Collect, a new card would invalidate the grouping and tallies built on top of
+            // the ones already there. See #23.
+            return RetroActionResult.WrongPhase();
+        }
+
         var trimmed = (text ?? string.Empty).Trim();
         if (trimmed.Length == 0 || trimmed.Length > MaxCardLength)
         {
             return RetroActionResult.InvalidCardText();
         }
 
-        var board = Board(room!);
         var column = board.Columns.FirstOrDefault(c => c.Id == columnId);
         if (column is null)
         {
@@ -201,6 +208,11 @@ public class RetroService
         if (error is not null)
         {
             return error;
+        }
+
+        if (!RetroPhaseRules.CardsWritable(Board(room!).Phase))
+        {
+            return RetroActionResult.WrongPhase();
         }
 
         var trimmed = (text ?? string.Empty).Trim();
@@ -351,6 +363,102 @@ public class RetroService
         return await CommitAsync(room!, userId, ct);
     }
 
+    // --- Phases (#23) ------------------------------------------------------
+
+    /// <summary>
+    /// Organiser-only: move the retro one phase forward. Optionally starts a countdown for the new
+    /// phase (<paramref name="seconds"/>, or the configured duration) using the same deadline
+    /// broadcast the poker round timer established (#14).
+    /// </summary>
+    public Task<RetroActionResult> AdvancePhaseAsync(
+        string shortCode, string userId, int? seconds = null, CancellationToken ct = default) =>
+        MovePhaseAsync(shortCode, userId, forward: true, seconds, ct);
+
+    /// <summary>
+    /// Organiser-only: step the retro back one phase. Facilitators mis-click, and the alternative is
+    /// a retro stuck in the wrong phase. One step only — arbitrary jumps are refused.
+    /// </summary>
+    public Task<RetroActionResult> PreviousPhaseAsync(
+        string shortCode, string userId, CancellationToken ct = default) =>
+        MovePhaseAsync(shortCode, userId, forward: false, seconds: null, ct);
+
+    /// <summary>
+    /// Organiser-only: move to a named phase. Still one step at a time — this exists so a client can
+    /// say where it thinks it is going rather than relying on the server's idea of "next", and it
+    /// rejects anything that is not adjacent.
+    /// </summary>
+    public async Task<RetroActionResult> SetPhaseAsync(
+        string shortCode, string userId, RetroPhase phase, int? seconds = null,
+        CancellationToken ct = default)
+    {
+        var (room, error) = await _rooms.LoadForControlAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return Project(error, userId);
+        }
+
+        var board = Board(room!);
+        if (!RetroPhaseRules.IsLegalTransition(board.Phase, phase))
+        {
+            return RetroActionResult.IllegalPhaseTransition();
+        }
+
+        ApplyPhase(board, phase, seconds);
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    /// <summary>Organiser-only: set or clear the configured phase-countdown length. See #23.</summary>
+    public async Task<RetroActionResult> SetPhaseDurationAsync(
+        string shortCode, string userId, int? seconds, CancellationToken ct = default)
+    {
+        var (room, error) = await _rooms.LoadForControlAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return Project(error, userId);
+        }
+
+        Board(room!).PhaseDurationSeconds = RetroPhaseRules.NormalizeDuration(seconds);
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    private async Task<RetroActionResult> MovePhaseAsync(
+        string shortCode, string userId, bool forward, int? seconds, CancellationToken ct)
+    {
+        var (room, error) = await _rooms.LoadForControlAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return Project(error, userId);
+        }
+
+        var board = Board(room!);
+        var target = forward ? RetroPhaseRules.Next(board.Phase) : RetroPhaseRules.Previous(board.Phase);
+        if (target is null)
+        {
+            // Already at one end of the order.
+            return RetroActionResult.IllegalPhaseTransition();
+        }
+
+        ApplyPhase(board, target.Value, seconds);
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    private void ApplyPhase(RetroBoard board, RetroPhase phase, int? seconds)
+    {
+        board.Phase = phase;
+
+        var duration = RetroPhaseRules.NormalizeDuration(seconds) ?? board.PhaseDurationSeconds;
+        if (duration is not null && phase != RetroPhase.Closed)
+        {
+            board.PhaseDurationSeconds = duration;
+            board.PhaseDeadline = _clock.UtcNow.AddSeconds(duration.Value);
+        }
+        else
+        {
+            // A new phase never inherits the old phase's running countdown.
+            board.PhaseDeadline = null;
+        }
+    }
+
     // --- Reads -------------------------------------------------------------
 
     /// <summary>
@@ -455,22 +563,41 @@ public class RetroService
         var board = Board(room);
         var names = room.Participants.ToDictionary(p => p.UserId, p => p.DisplayName);
 
+        // Hidden collection (#23): during Collect a participant sees only their own cards, plus a
+        // count of how many others exist. Filtering here — in the one projection every read and
+        // broadcast passes through — is what makes it a property of the wire; a client-side hide
+        // would ship everyone's words to every browser and hope nobody looked.
+        var othersVisible = RetroPhaseRules.OthersCardsVisible(board.Phase);
+
         var columns = board.Columns
             .OrderBy(c => c.Order)
-            .Select(c => new RetroColumnInfo(
-                c.Id,
-                c.Title,
-                c.Order,
-                board.Cards
+            .Select(c =>
+            {
+                var inColumn = board.Cards
                     .Where(card => card.ColumnId == c.Id)
                     .OrderBy(card => card.Order)
-                    .Select(card => ToCardInfo(card, forUserId, names, board.Anonymous))
-                    .ToArray()))
+                    .ToList();
+                var visible = othersVisible
+                    ? inColumn
+                    : inColumn.Where(card => card.AuthorUserId == forUserId).ToList();
+
+                return new RetroColumnInfo(
+                    c.Id,
+                    c.Title,
+                    c.Order,
+                    visible.Select(card => ToCardInfo(card, forUserId, names, board.Anonymous)).ToArray(),
+                    inColumn.Count - visible.Count);
+            })
             .ToArray();
 
         return new RetroBoardSnapshot(
             RoomProjection.ToSnapshot(room, RoomProjection.ToInfos(room, revealed: false)),
             board.Template,
+            board.Phase,
+            RetroPhaseRules.Next(board.Phase),
+            RetroPhaseRules.Previous(board.Phase),
+            board.PhaseDurationSeconds,
+            board.PhaseDeadline,
             board.Anonymous,
             board.Cards.Count == 0,
             columns);

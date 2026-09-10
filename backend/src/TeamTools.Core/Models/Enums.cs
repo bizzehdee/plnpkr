@@ -11,6 +11,22 @@ public enum RoomTool
 }
 
 /// <summary>
+/// The phases a facilitator moves a retro through (#23). Forward-only in normal use, with an
+/// organiser-only step back for mis-clicks. Cards stay hidden from other participants during
+/// <see cref="Collect"/> — the retro equivalent of hidden voting, so the first loud voice cannot
+/// anchor everyone.
+/// </summary>
+public enum RetroPhase
+{
+    Collect,
+    Group,
+    Vote,
+    Discuss,
+    Actions,
+    Closed,
+}
+
+/// <summary>
 /// The built-in retro column layouts a board can start from (#21). Resolved server-side by
 /// <c>RetroTemplateCatalog</c> so every client agrees, exactly as decks are.
 /// </summary>

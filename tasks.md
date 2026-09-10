@@ -347,15 +347,30 @@ into the TeamTools platform and add the second tool, Team Retro.
 > legitimately names everyone in the room. Who is in the retro is not secret; who wrote which card
 > is. The assertion is now scoped to the cards, which is where the guarantee actually lives.
 
-## 23. Facilitator-driven phases  `M`  — depends on #21, #22
-- [ ] `RetroPhase` (Collect → Group → Vote → Discuss → Actions → Closed) + explicit forward-only transitions in `RetroService`, with an organiser-only "back one phase".
-- [ ] `RetroHub.AdvancePhase`/`SetPhase`, organiser-gated (#7).
-- [ ] Collect hides other participants' cards; each participant sees their own plus a count of everyone else's (the #1 affordance).
-- [ ] Phase-gated mutations (no cards in Vote, no votes in Collect) returning friendly `SessionActionResult` failures.
-- [ ] Generalise `RoundTimerService` into a room-level phase timer reusing its deadline broadcast (#9's pattern).
-- [ ] EF migration ×3 (persisted phase enum + deadline).
-- [ ] a11y + i18n: phase changes announced via the #4 `aria-live` region; phase names in all catalogs.
-- [ ] Tests: every legal transition + rejection of illegal ones; Collect hides others' card text on the wire; phase-gate rejections; timer expiry behaviour.
+## 23. Facilitator-driven phases  `M`  — depends on #21, #22  ✅ done
+- [x] `RetroPhase` (Collect → Group → Vote → Discuss → Actions → Closed) + `RetroPhaseRules` (pure) and `AdvancePhaseAsync` / `PreviousPhaseAsync` / `SetPhaseAsync` in `RetroService`. Forward-only in normal use, with an organiser-only step **back one phase** — facilitators mis-click, and the alternative is a retro stuck in the wrong phase. Arbitrary jumps are refused.
+- [x] `RetroHub.AdvancePhase`/`PreviousPhase`/`SetPhase`/`SetPhaseDuration`, organiser-gated (#7).
+- [x] Collect hides other participants' cards **in the projection**; each column reports a `HiddenCardCount` so a participant knows the team is writing without seeing what.
+- [x] Phase-gated mutations: cards are add/edit-able only during Collect (a late card would invalidate the grouping and tallies built on the ones already there), while move and delete stay open — that is how a facilitator tidies during Group.
+- [x] `RetroPhaseTimerService` + `RetroPhaseTimerBackgroundService` reuse the poker round timer's deadline-broadcast pattern (#14/#9): one server-authoritative instant, clients ticking locally, a 1s sweep clearing elapsed ones.
+- [x] EF migration ×3 (three additive columns).
+- [x] a11y + i18n: the rail is an ordered list with `aria-current="step"` (so the sequence is announced, not just styled), phase changes go through the `aria-live` region, and the composer and edit control disappear when the phase forbids them rather than failing on use. 15 strings × 4 locales.
+- [x] Tests: 24 backend (`RetroPhaseTests`) + 10 frontend. Backend **493**, frontend **156**, coverage gate **94.6% line / 90.9% branch**.
+
+> **An elapsed countdown clears the timer; it does not advance the phase.** A retro is facilitated:
+> time running out is a prompt for the person running it, not a reason to move a room full of people
+> on mid-sentence. Poker can auto-reveal because a reveal is mechanical — "we are done grouping" is
+> a judgement call.
+
+> **The scaffolded migration would have broken every existing board.** `Phase` is a string-converted
+> enum, and EF's `AddColumn` default for a non-nullable string is `""` — unparseable, so every board
+> created under #21/#22 would have failed to load. Hand-set to `Collect` in all three providers: a
+> board that predates phases is, by definition, still collecting.
+
+> **Eight existing tests started failing, and they were right to.** They added a card as one
+> participant and read it as another — which hidden collection now forbids. The fix was to their
+> preconditions (end collection first), not to the feature: cross-participant visibility is only
+> meaningful once collecting has ended.
 
 ## 24. Grouping into themes  `M`  — depends on #23
 - [ ] `RetroGroup` + `RetroCard.GroupId`; `RetroHub.GroupCards`/`UngroupCard`/`RenameGroup`.

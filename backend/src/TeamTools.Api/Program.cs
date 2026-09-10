@@ -65,6 +65,7 @@ public class Program
         builder.Services.AddScoped<RoomService>();
         builder.Services.AddScoped<PokerService>();
         builder.Services.AddScoped<RetroService>();
+        builder.Services.AddScoped<RetroPhaseTimerService>();
         builder.Services.AddScoped<RoomMaintenanceService>();
         builder.Services.AddScoped<PokerTimerService>();
         builder.Services.AddSingleton<ConnectionRegistry>();
@@ -93,6 +94,7 @@ public class Program
         });
         builder.Services.AddHostedService<RoomEvictionService>();
         builder.Services.AddHostedService<RoundTimerService>(); // expires round timers → auto-reveal (#14)
+        builder.Services.AddHostedService<RetroPhaseTimerBackgroundService>(); // retro phase countdowns (#23)
 
         // --- Issue-tracker integration (#4, optional, off unless configured) ---
         var integrationOptions = new IntegrationsOptions
