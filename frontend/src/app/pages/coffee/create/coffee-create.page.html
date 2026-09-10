@@ -11,17 +11,13 @@
           }
 
           <form (ngSubmit)="create()">
-            <div class="mb-3">
-              <label class="form-label" for="coffee-name">{{ 'coffee.create.name' | t }}</label>
-              <input
-                id="coffee-name"
-                name="coffee-name"
-                class="form-control"
-                [placeholder]="'coffee.create.namePlaceholder' | t"
-                [(ngModel)]="boardName"
-                required
-              />
-            </div>
+            <app-room-name-field
+              controlId="coffee-name"
+              labelKey="coffee.create.name"
+              placeholderKey="coffee.create.namePlaceholder"
+              [(name)]="boardName"
+              [(appendDate)]="appendDate"
+            />
 
             <div class="mb-3">
               <label class="form-label" for="coffee-your-name">{{ 'coffee.create.yourName' | t }}</label>

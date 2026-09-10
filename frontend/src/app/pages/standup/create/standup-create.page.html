@@ -11,17 +11,13 @@
           }
 
           <form (ngSubmit)="create()">
-            <div class="mb-3">
-              <label class="form-label" for="standup-name">{{ 'standup.create.name' | t }}</label>
-              <input
-                id="standup-name"
-                name="standup-name"
-                class="form-control"
-                [placeholder]="'standup.create.namePlaceholder' | t"
-                [(ngModel)]="boardName"
-                required
-              />
-            </div>
+            <app-room-name-field
+              controlId="standup-name"
+              labelKey="standup.create.name"
+              placeholderKey="standup.create.namePlaceholder"
+              [(name)]="boardName"
+              [(appendDate)]="appendDate"
+            />
 
             <div class="mb-3">
               <label class="form-label" for="standup-your-name">

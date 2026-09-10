@@ -4,13 +4,15 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { SignalrRetroClient } from '../../../core/retro.client';
 import { IdentityService } from '../../../core/identity.service';
 import { I18nService } from '../../../core/i18n.service';
+import { RoomNameField } from '../../../core/room-name-field';
+import { RoomNameService } from '../../../core/room-name.service';
 import { TranslatePipe } from '../../../core/translate.pipe';
 import { RETRO_TEMPLATE_LABEL_KEYS, RetroTemplate } from '../../../core/models';
 
 /** Create a retro board (#21) — the retro counterpart of the poker create form. */
 @Component({
   selector: 'app-retro-create',
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, RoomNameField, TranslatePipe],
   templateUrl: './retro-create.page.html',
 })
 export class RetroCreatePage {
@@ -19,8 +21,13 @@ export class RetroCreatePage {
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
+  private readonly names = inject(RoomNameService);
 
-  protected boardName = '';
+  /** What this browser last created a retro as, and whether it was date-stamped. */
+  private readonly remembered = this.names.recall('Retro');
+
+  protected boardName = this.remembered.name;
+  protected appendDate = this.remembered.appendDate;
   protected displayName = this.identity.displayName;
   protected template: RetroTemplate = 'WentWellToImprove';
   protected customColumns = '';
@@ -70,7 +77,7 @@ export class RetroCreatePage {
       this.identity.displayName = this.displayName.trim();
 
       const result = await this.retro.createBoard(
-        this.boardName.trim(),
+        this.names.compose(this.boardName, this.appendDate),
         this.template,
         this.template === 'Custom' ? this.customColumns.trim() : null,
         this.identity.userId,
@@ -85,6 +92,8 @@ export class RetroCreatePage {
 
       switch (result.status) {
         case 'Ok':
+          // The name *as typed*: storing the stamped one would compound the date next time.
+          this.names.remember('Retro', this.boardName, this.appendDate);
           await this.router.navigate(['/retro', result.board!.shortCode]);
           break;
         case 'RateLimited':

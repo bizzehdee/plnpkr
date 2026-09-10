@@ -25,12 +25,14 @@ describe('HomePage (tool picker)', () => {
     expect(text).toContain('Planning Poker');
     expect(text).toContain('Team Retro');
     expect(text).toContain('Lean Coffee');
+    expect(text).toContain('Async Standup');
   });
 
   it.each([
     ['Planning Poker', '/poker/new'],
     ['Team Retro', '/retro/new'],
     ['Lean Coffee', '/coffee/new'],
+    ['Async Standup', '/standup/new'],
   ])('links %s to its create route', (_name, href) => {
     const { el } = render();
 

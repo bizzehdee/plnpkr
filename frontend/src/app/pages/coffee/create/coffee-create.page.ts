@@ -5,12 +5,14 @@ import { SignalrCoffeeClient } from '../../../core/coffee.client';
 import { IdentityService } from '../../../core/identity.service';
 import { SessionMembershipService } from '../../../core/session-membership.service';
 import { I18nService } from '../../../core/i18n.service';
+import { RoomNameField } from '../../../core/room-name-field';
+import { RoomNameService } from '../../../core/room-name.service';
 import { TranslatePipe } from '../../../core/translate.pipe';
 
 /** Create a Lean Coffee (#35) — the third tool's counterpart of the other two create forms. */
 @Component({
   selector: 'app-coffee-create',
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, RoomNameField, TranslatePipe],
   templateUrl: './coffee-create.page.html',
 })
 export class CoffeeCreatePage {
@@ -19,8 +21,13 @@ export class CoffeeCreatePage {
   private readonly membership = inject(SessionMembershipService);
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
+  private readonly names = inject(RoomNameService);
 
-  protected boardName = '';
+  /** What this browser last created a Lean Coffee as, and whether it was date-stamped. */
+  private readonly remembered = this.names.recall('Coffee');
+
+  protected boardName = this.remembered.name;
+  protected appendDate = this.remembered.appendDate;
   protected displayName = this.identity.displayName;
   protected facilitate = true;
   protected password = '';
@@ -53,7 +60,7 @@ export class CoffeeCreatePage {
       this.identity.displayName = this.displayName.trim();
 
       const result = await this.coffee.createBoard(
-        this.boardName.trim(),
+        this.names.compose(this.boardName, this.appendDate),
         this.identity.userId,
         this.displayName.trim(),
         this.facilitate,
@@ -63,6 +70,8 @@ export class CoffeeCreatePage {
       );
 
       if (result.status === 'Ok' && result.board) {
+        // The name *as typed*: storing the stamped one would compound the date next time.
+        this.names.remember('Coffee', this.boardName, this.appendDate);
         // Remember the seat, or a reload would bounce the creator to the join gate (#27's lesson).
         this.membership.remember(result.board.shortCode, 'Voter');
         await this.router.navigate(['/coffee', result.board.shortCode]);

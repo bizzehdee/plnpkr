@@ -831,3 +831,29 @@ what the platform would *not* do for it, and that was worth confronting on paper
 > sharing `ActionItemRules` and living in its own table like `RetroAction` and `CoffeeDecision`.
 > Promoting one row into another table would have been a cross-tool reference — the platform's one
 > structural rule — to save a field.
+
+---
+
+# Phase 4 — platform polish
+
+| # | Task | Size | Depends on | Area |
+| --- | --- | --- | --- | --- |
+| 37 | Remember each tool's room name, with an optional date stamp | S | 35, 36 | FE |
+
+## 37. The remembered room name  `S`  — depends on #35, #36  ✅ done
+**Asked for directly: "I want 'Team Dragon' as the title for all of mine, with a tickbox that dates it."**
+- [x] `RoomNameService` — each tool's last room name and stamp preference in localStorage, keyed by `RoomTool`. Same opt-in, per-browser, never-server-side mechanism as the display name (#34) and the saved decks (#11).
+- [x] `RoomNameField` — **one component all four create forms render**, so the field, the tickbox, the live preview and the label wiring exist once. A fifth tool drops it in.
+- [x] **The typed name and the stamp are stored separately.** Storing the composed name would compound the date: "Team Dragon 2026-09-10" recalled tomorrow becomes "Team Dragon 2026-09-10 2026-09-11". `compose` also replaces a trailing date rather than adding to one, so it is idempotent.
+- [x] **The stamp is the browser's date, not UTC's** — `toISOString()` would date a 9pm session in Sydney tomorrow, and "which day is this standup" is the question the stamp answers.
+- [x] Live preview of the composed name, rendered through the same `compose` that creates the room, so it cannot promise a name the create call would not produce.
+- [x] A blank name with the box ticked is still refused: the date is an append, not a name.
+- [x] i18n: 2 strings × 4 locales.
+- [x] Tests: 18 service + 12 field component + 36 wiring (9 × each of the four forms) = **66 new**; frontend **343**. Backend untouched.
+- [x] Verified in a browser on all four forms: created "Team Dragon 2026-09-10" from a typed "Team Dragon", reopened the form to find the name and tickbox remembered, created a second room with no date compounding, and confirmed poker's field stayed blank while standup's was remembered.
+
+> **Per tool, not per platform.** A poker session and a retro are rarely called the same thing, so
+> each tool remembers its own name. Only the storage and the field are shared.
+
+> **Not remembered on a failed create.** A name is stored once the room actually exists; a rejected
+> submission leaves the field holding it anyway, since the form does not navigate.

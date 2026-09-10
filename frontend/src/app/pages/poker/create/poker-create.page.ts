@@ -6,11 +6,13 @@ import { IdentityService } from '../../../core/identity.service';
 import { DeckStorageService } from '../../../core/deck-storage.service';
 import { DeckType, DECK_LABEL_KEYS, SavedDeck } from '../../../core/models';
 import { I18nService } from '../../../core/i18n.service';
+import { RoomNameField } from '../../../core/room-name-field';
+import { RoomNameService } from '../../../core/room-name.service';
 import { TranslatePipe } from '../../../core/translate.pipe';
 
 @Component({
   selector: 'app-poker-create',
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, RoomNameField, TranslatePipe],
   templateUrl: './poker-create.page.html',
 })
 export class PokerCreatePage {
@@ -19,12 +21,17 @@ export class PokerCreatePage {
   private readonly router = inject(Router);
   private readonly deckStorage = inject(DeckStorageService);
   private readonly i18n = inject(I18nService);
+  private readonly names = inject(RoomNameService);
+
+  /** What this browser last created a poker session as, and whether it was date-stamped. */
+  private readonly remembered = this.names.recall('Poker');
 
   protected readonly deckOptions = computed(() =>
     (Object.keys(DECK_LABEL_KEYS) as DeckType[]).map((id) => [id, this.i18n.t(DECK_LABEL_KEYS[id])] as [DeckType, string]),
   );
 
-  protected sessionName = '';
+  protected sessionName = this.remembered.name;
+  protected appendDate = this.remembered.appendDate;
   protected displayName = this.identity.displayName;
   protected deckType: DeckType = 'Fibonacci';
   protected customCards = '';
@@ -83,7 +90,7 @@ export class PokerCreatePage {
       this.identity.displayName = this.displayName.trim();
 
       const result = await this.realtime.createSession(
-        this.sessionName.trim(),
+        this.names.compose(this.sessionName, this.appendDate),
         this.deckType,
         this.deckType === 'Custom' ? this.customCards : null,
         this.identity.userId,
@@ -95,6 +102,8 @@ export class PokerCreatePage {
       );
 
       if (result.status === 'Ok' && result.session) {
+        // The name *as typed*: storing the stamped one would compound the date next time.
+        this.names.remember('Poker', this.sessionName, this.appendDate);
         await this.router.navigate(['/poker', result.session.shortCode]);
       } else if (result.status === 'RateLimited') {
         this.error.set(this.i18n.t('err.rateLimited'));

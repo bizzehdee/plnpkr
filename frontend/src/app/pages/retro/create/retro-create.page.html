@@ -10,17 +10,13 @@
           }
 
           <form (ngSubmit)="create()">
-            <div class="mb-3">
-              <label class="form-label" for="boardName">{{ 'retro.create.boardName' | t }}</label>
-              <input
-                id="boardName"
-                name="boardName"
-                class="form-control"
-                [(ngModel)]="boardName"
-                [placeholder]="'retro.create.boardNamePlaceholder' | t"
-                autocomplete="off"
-              />
-            </div>
+            <app-room-name-field
+              controlId="boardName"
+              labelKey="retro.create.boardName"
+              placeholderKey="retro.create.boardNamePlaceholder"
+              [(name)]="boardName"
+              [(appendDate)]="appendDate"
+            />
 
             <div class="mb-3">
               <label class="form-label" for="displayName">{{ 'retro.create.yourName' | t }}</label>

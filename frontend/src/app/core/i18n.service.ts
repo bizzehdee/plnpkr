@@ -388,6 +388,10 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'common.stop': 'Stop',
     'common.backHome': 'Back to the start',
 
+    // The room-name field every create form shares.
+    'room.appendDate': 'Add today’s date to the name',
+    'room.appendDatePreview': 'Creates “{name}”',
+
     'home.title': 'Start a planning session',
     'home.sessionName': 'Session name',
     'home.sessionNamePlaceholder': 'e.g. Sprint 24 backlog',
@@ -994,6 +998,10 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'common.resume': 'Reanudar',
     'common.stop': 'Detener',
     'common.backHome': 'Volver al inicio',
+
+    // The room-name field every create form shares.
+    'room.appendDate': 'Añadir la fecha de hoy al nombre',
+    'room.appendDatePreview': 'Se creará como «{name}»',
 
     'home.title': 'Iniciar una sesión de planificación',
     'home.sessionName': 'Nombre de la sesión',
@@ -1602,6 +1610,10 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'common.stop': 'Parar',
     'common.backHome': 'Voltar ao início',
 
+    // The room-name field every create form shares.
+    'room.appendDate': 'Acrescentar a data de hoje ao nome',
+    'room.appendDatePreview': 'Será criada como “{name}”',
+
     'home.title': 'Iniciar uma sessão de planejamento',
     'home.sessionName': 'Nome da sessão',
     'home.sessionNamePlaceholder': 'ex.: Backlog da Sprint 24',
@@ -2208,6 +2220,10 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'common.resume': 'Wznów',
     'common.stop': 'Zatrzymaj',
     'common.backHome': 'Powrót na start',
+
+    // The room-name field every create form shares.
+    'room.appendDate': 'Dodaj dzisiejszą datę do nazwy',
+    'room.appendDatePreview': 'Zostanie utworzone jako „{name}”',
 
     'home.title': 'Rozpocznij sesję planowania',
     'home.sessionName': 'Nazwa sesji',

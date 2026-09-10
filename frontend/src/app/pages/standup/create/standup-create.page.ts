@@ -5,6 +5,8 @@ import { IdentityService } from '../../../core/identity.service';
 import { SessionMembershipService } from '../../../core/session-membership.service';
 import { I18nService } from '../../../core/i18n.service';
 import { STANDUP_DEFAULT_QUESTIONS, STANDUP_MAX_QUESTIONS } from '../../../core/models';
+import { RoomNameField } from '../../../core/room-name-field';
+import { RoomNameService } from '../../../core/room-name.service';
 import { SignalrStandupClient } from '../../../core/standup.client';
 import { TranslatePipe } from '../../../core/translate.pipe';
 
@@ -18,7 +20,7 @@ import { TranslatePipe } from '../../../core/translate.pipe';
  */
 @Component({
   selector: 'app-standup-create',
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, RoomNameField, TranslatePipe],
   templateUrl: './standup-create.page.html',
 })
 export class StandupCreatePage {
@@ -27,8 +29,17 @@ export class StandupCreatePage {
   private readonly membership = inject(SessionMembershipService);
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
+  private readonly names = inject(RoomNameService);
 
-  protected boardName = '';
+  /**
+   * What this browser last opened a standup as, and whether it was date-stamped. This is the tool
+   * the stamp exists for: each day is its own room (#36), so "Team Dragon" plus today's date is how
+   * a daily standup gets a name at all.
+   */
+  private readonly remembered = this.names.recall('Standup');
+
+  protected boardName = this.remembered.name;
+  protected appendDate = this.remembered.appendDate;
   protected displayName = this.identity.displayName;
   protected facilitate = true;
   protected password = '';
@@ -95,7 +106,7 @@ export class StandupCreatePage {
 
       const carryFrom = this.previousShortCode.trim();
       const result = await this.standup.createBoard(
-        this.boardName.trim(),
+        this.names.compose(this.boardName, this.appendDate),
         this.identity.userId,
         this.displayName.trim(),
         this.facilitate,
@@ -107,6 +118,8 @@ export class StandupCreatePage {
       );
 
       if (result.status === 'Ok' && result.board) {
+        // The name *as typed*: storing the stamped one would compound the date next time.
+        this.names.remember('Standup', this.boardName, this.appendDate);
         // Remember the seat, or a reload would bounce the creator to the join gate (#27's lesson).
         this.membership.remember(result.board.shortCode, 'Voter');
         await this.router.navigate(['/standup', result.board.shortCode]);

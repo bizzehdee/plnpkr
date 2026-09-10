@@ -391,6 +391,30 @@ reuse — the point of a shared primitive is that a tool can decline it.
 > each day is its own room, and the invite link is the reminder. If any of that becomes a real problem
 > in use, it should be taken deliberately and once, not worked around here.
 
+### The remembered room name (#37)
+
+Every create form has a name field, and a team that runs the same ceremony weekly retypes the same
+name into it. `RoomNameService` remembers each tool's last name in the browser's localStorage — the
+same opt-in, per-browser, never-server-side mechanism as the display name and the saved decks — and
+`RoomNameField` is the one component all four forms render for it. Keyed by `RoomTool`, so a fifth
+tool needs no code in either.
+
+> **The stored name and the date stamp are separate fields, and that is the whole design.** Storing
+> the composed name would make the date compound: "Team Dragon 2026-09-10" recalled tomorrow and
+> stamped again is "Team Dragon 2026-09-10 2026-09-11". So `remember` takes the name *as typed* and
+> `compose` applies the stamp at creation time, which also lets the field preview the real result
+> through the same method that produces it. `compose` additionally replaces a trailing date rather
+> than appending to one, which makes it idempotent for the case where a name arrives already carrying
+> one.
+
+> **The stamp is the browser's date, not UTC's.** `toISOString()` would date a 9pm session in Sydney
+> as tomorrow and an 8am one in Los Angeles as yesterday. "Which day is this standup" is exactly the
+> question the stamp exists to answer, so it is answered in the organiser's own timezone.
+
+> **The date is an append, not a name.** A blank name with the box ticked is still refused by each
+> form's own validation rather than creating a room called "2026-09-10".
+
+
 ### One deliberate cross-board link
 
 Retro **carry-over** (task #27) is the single connection between two rooms: a new board can pull the
