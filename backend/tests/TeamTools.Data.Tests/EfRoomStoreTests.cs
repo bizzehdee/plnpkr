@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using TeamTools.Core.Poker;
+using TeamTools.Core.Retro;
 using TeamTools.Core;
 using TeamTools.Core.Models;
 using TeamTools.Data;
@@ -251,6 +252,122 @@ public sealed class EfRoomStoreTests : IDisposable
 
         result.Should().ContainSingle().Which.ShortCode.Should().Be("due-timer-1");
         result[0].Participants.Should().ContainSingle(); // participants are included for the snapshot
+    }
+
+    // --- The retro phase-countdown sweep (#33) ----------------------------
+
+    /// <summary>A retro room with one column, one card and one participant.</summary>
+    private static Room NewRetroRoom(string shortCode, DateTimeOffset? phaseDeadline)
+    {
+        var boardId = Guid.NewGuid();
+        return new Room
+        {
+            Id = boardId,
+            ShortCode = shortCode,
+            Name = "Retro",
+            Tool = RoomTool.Retro,
+            OrganiserUserId = "u1",
+            CreatedAt = DateTimeOffset.UnixEpoch,
+            LastActivityAt = DateTimeOffset.UnixEpoch,
+            RetroBoard = new RetroBoard
+            {
+                RoomId = boardId,
+                Template = RetroTemplate.MadSadGlad,
+                Phase = RetroPhase.Collect,
+                PhaseDeadline = phaseDeadline,
+                Columns = { new RetroColumn { Id = Guid.NewGuid(), BoardId = boardId, Title = "Mad", Order = 0 } },
+            },
+            Participants =
+            {
+                new Participant
+                {
+                    UserId = "u1",
+                    DisplayName = "Alice",
+                    NormalizedName = "alice",
+                    IsOrganiser = true,
+                    Role = ParticipantRole.Voter,
+                    IsConnected = true,
+                },
+            },
+        };
+    }
+
+    [Fact]
+    public async Task GetRoomsWithExpiredPhase_returns_only_boards_whose_countdown_has_elapsed()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        await new EfRoomStore(NewContext()).AddAsync(NewRetroRoom("due-phase-1", now.AddSeconds(-1)));
+        await new EfRoomStore(NewContext()).AddAsync(NewRetroRoom("future-phase-1", now.AddMinutes(5)));
+        await new EfRoomStore(NewContext()).AddAsync(NewRetroRoom("no-phase-1", null));
+
+        var result = await new EfRoomStore(NewContext()).GetRoomsWithExpiredPhaseAsync(now);
+
+        result.Should().ContainSingle().Which.ShortCode.Should().Be("due-phase-1");
+        result[0].RetroBoard.Should().NotBeNull("the caller clears the deadline on it");
+    }
+
+    [Fact]
+    public async Task GetRoomsWithExpiredPhase_ignores_poker_rooms()
+    {
+        // The sweep runs once per second against a database that may hold nothing but poker rooms.
+        var now = DateTimeOffset.UtcNow;
+        var poker = NewRoom("poker-phase-1", "u9");
+        poker.PokerRound!.TimerDeadline = now.AddSeconds(-30);
+        await new EfRoomStore(NewContext()).AddAsync(poker);
+
+        var result = await new EfRoomStore(NewContext()).GetRoomsWithExpiredPhaseAsync(now);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetRoomsWithExpiredPhase_does_not_load_the_board_collections()
+    {
+        // The point of #33: this replaced GetAllAsync, which pulled every room in the database with
+        // its participants, round history and the whole retro board graph — once a second, forever.
+        // Asserting on what is *not* loaded is the only way to keep that from creeping back.
+        var now = DateTimeOffset.UtcNow;
+        await new EfRoomStore(NewContext()).AddAsync(NewRetroRoom("lean-phase-1", now.AddSeconds(-1)));
+
+        var result = await new EfRoomStore(NewContext()).GetRoomsWithExpiredPhaseAsync(now);
+
+        var room = result.Should().ContainSingle().Subject;
+        room.RetroBoard!.Columns.Should().BeEmpty("columns are not included — the board is re-read to broadcast");
+        room.Participants.Should().BeEmpty("nor are participants");
+    }
+
+    [Fact]
+    public async Task GetRoomsWithExpiredPhase_returns_tracked_entities_so_clearing_the_deadline_persists()
+    {
+        // The sweep's whole job is to clear the deadline and save. A leaner Include must not become
+        // an AsNoTracking read, or the countdown would fire every second forever.
+        var now = DateTimeOffset.UtcNow;
+        await new EfRoomStore(NewContext()).AddAsync(NewRetroRoom("tracked-phase-1", now.AddSeconds(-1)));
+
+        var store = new EfRoomStore(NewContext());
+        var room = (await store.GetRoomsWithExpiredPhaseAsync(now)).Single();
+        room.RetroBoard!.PhaseDeadline = null;
+        await store.UpdateAsync(room);
+
+        var reloaded = await new EfRoomStore(NewContext()).FindByShortCodeAsync("tracked-phase-1");
+        reloaded!.RetroBoard!.PhaseDeadline.Should().BeNull();
+        (await new EfRoomStore(NewContext()).GetRoomsWithExpiredPhaseAsync(now)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetRoomsWithExpiredPhase_skips_a_soft_deleted_room()
+    {
+        // The global query filter, not an explicit clause — but worth pinning: an evicted retro must
+        // not keep the sweep busy.
+        var now = DateTimeOffset.UtcNow;
+        var deleted = NewRetroRoom("deleted-phase-1", now.AddSeconds(-1));
+        deleted.DeletedAt = now.AddDays(-1);
+        await new EfRoomStore(NewContext()).AddAsync(deleted);
+
+        var result = await new EfRoomStore(NewContext()).GetRoomsWithExpiredPhaseAsync(now);
+
+        result.Should().BeEmpty();
     }
 
     [Fact]

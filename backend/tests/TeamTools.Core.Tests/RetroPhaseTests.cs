@@ -319,7 +319,7 @@ public class RetroPhaseTests
         await _sut.AdvancePhaseAsync(Code, Facilitator, seconds: 60);
         _clock.Advance(TimeSpan.FromSeconds(61));
 
-        var expired = await new RetroPhaseTimerService(_store, _clock).ExpireDuePhaseTimersAsync();
+        var expired = await new RetroPhaseTimerService(_store, _store, _clock).ExpireDuePhaseTimersAsync();
 
         expired.Should().ContainSingle().Which.ShortCode.Should().Be(Code);
         var board = await BoardAsync(Facilitator);
@@ -334,7 +334,7 @@ public class RetroPhaseTests
         await _sut.AdvancePhaseAsync(Code, Facilitator, seconds: 300);
         _clock.Advance(TimeSpan.FromSeconds(30));
 
-        var expired = await new RetroPhaseTimerService(_store, _clock).ExpireDuePhaseTimersAsync();
+        var expired = await new RetroPhaseTimerService(_store, _store, _clock).ExpireDuePhaseTimersAsync();
 
         expired.Should().BeEmpty();
         (await BoardAsync(Facilitator)).PhaseDeadline.Should().NotBeNull();
@@ -345,7 +345,7 @@ public class RetroPhaseTests
     {
         await SeedAsync();
 
-        var expired = await new RetroPhaseTimerService(_store, _clock).ExpireDuePhaseTimersAsync();
+        var expired = await new RetroPhaseTimerService(_store, _store, _clock).ExpireDuePhaseTimersAsync();
 
         expired.Should().BeEmpty();
     }

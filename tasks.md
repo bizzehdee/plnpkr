@@ -174,6 +174,7 @@ into the TeamTools platform and add the second tool, Team Retro.
 | 30 | Password-guard the poker round history | S | 12, 28 | BE + FE |
 | 31 | Get the frontend bundle back under its budget | S | 29 | FE |
 | 32 | Join a room over its own tool's hub | S | 19, 31 | BE + FE |
+| 33 | Narrow the retro phase-countdown sweep | S | 23 | BE |
 
 > **Why this order.** The ease-before-dependents rule still applies, but four hard
 > constraints dominate.
@@ -643,3 +644,48 @@ into the TeamTools platform and add the second tool, Team Retro.
 > resolved while the later navigation read the resolved `'Retro'`. The old assertions could not see
 > the difference — they only checked where it navigated. The harness now awaits stability, which is
 > what the real page does by gating the form on `loading()`.
+
+## 33. Narrow the retro phase-countdown sweep  `S`  — follow-up to #23  ✅ done
+**Found by reading the EF command log of an idle server: two queries a second, one of them expensive.**
+- [x] New `IRetroBoardStore.GetRoomsWithExpiredPhaseAsync` — the retro sibling of `IPokerRoundStore`, kept off `IRoomStore` so the room engine carries no knowledge of countdowns. `EfRoomStore` now implements all three ports.
+- [x] `RetroPhaseTimerService` asks the store which boards are due instead of asking for every room and deciding in memory.
+- [x] Board only, **no collection includes**: the sweep clears the deadline and saves, and the background service re-reads each board per recipient anyway (#21).
+- [x] `FakeRoomStore` mirrors the query, as it already does for the poker sweep.
+- [x] Tests: 5 in `EfRoomStoreTests` — the narrowing, poker rooms ignored, soft-deleted rooms ignored, the collections **not** loaded, and that the entities come back tracked so clearing the deadline persists. Backend **643**, coverage gate **95.4% line / 91.6% branch**.
+
+> **What it was.** `RetroPhaseTimerService` called `IRoomStore.GetAllAsync()`, which is
+> `WithPayload(_db.Rooms)` — a nine-way `LEFT JOIN` across `Rooms`, `PokerRounds`, `RetroBoard`,
+> `Participants`, `RoundResult`, `RetroColumn`, `RetroCard`, `RetroGroup`, `RetroVote` and
+> `RetroActionItem`, with `WHERE "r"."DeletedAt" IS NULL` as its only narrowing — then filtered
+> `PhaseDeadline <= now` in memory. Once per second, forever, running or not.
+
+```
+- FROM "Rooms" LEFT JOIN PokerRounds, RetroBoard, Participants, RoundResult,
+-   RetroColumn, RetroCard, RetroGroup, RetroVote, RetroActionItem
+-   WHERE "r"."DeletedAt" IS NULL                                  -- every room, 5 collections
++ FROM "Rooms" LEFT JOIN "RetroBoard"
++   WHERE "r"."DeletedAt" IS NULL AND "r0"."RoomId" IS NOT NULL
++     AND "r0"."PhaseDeadline" IS NOT NULL                         -- only boards mid-countdown
+```
+
+> **Honest about the size of the win: on an idle dev database, invisible.** Both queries measure
+> 0–1 ms there, and the tick rate is unchanged at two queries a second — this fixes *what* each tick
+> costs, not how often it happens. The old query's cost grew with every room ever created and
+> multiplied across five collections; the new one returns one row per board with a countdown running,
+> which is normally none. It is a scaling fix, and the reason to make it now is that it was free.
+
+> **It also silenced EF's `MultipleCollectionIncludeWarning` for this query.** Five collection
+> includes in one statement fan out into a near-cartesian result set; EF logs the warning once per
+> query shape. Two remain, both from `WithPayload`'s legitimate callers — idle eviction and the
+> retention purge, which genuinely need the whole graph in order to delete it, and run once a minute.
+
+> **The asymmetry was the tell.** The poker sweep (#14) narrows in SQL and carries a comment
+> explaining both that and the in-memory `DateTimeOffset` comparison SQLite forces. The retro sweep,
+> added later in #23, reached for `GetAllAsync`. This is exactly the kind of drift the shared room
+> engine is supposed to prevent, and it slipped through because the two sweeps are separate services
+> by design — so the fix is to make the retro one the poker one's mirror image, port included.
+
+> **Left alone on purpose: the once-a-second cadence itself.** Scheduling against the next known
+> deadline would remove the idle queries entirely, but it trades one cheap indexed query per second
+> for a scheduler with its own failure modes (a missed reschedule is a countdown that never fires).
+> Recorded in plan.md §33 as out of scope rather than silently skipped.

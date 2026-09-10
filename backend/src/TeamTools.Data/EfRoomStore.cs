@@ -2,19 +2,21 @@ using Microsoft.EntityFrameworkCore;
 using TeamTools.Core;
 using TeamTools.Core.Models;
 using TeamTools.Core.Poker;
+using TeamTools.Core.Retro;
 
 namespace TeamTools.Data;
 
 /// <summary>
-/// EF Core implementation of <see cref="IRoomStore"/> and <see cref="IPokerRoundStore"/>. Loads the
-/// room aggregate with its participants and tool payload (tracked, so collection edits persist on
-/// save) and translates the unique-name constraint violation into <see cref="DuplicateNameException"/>.
+/// EF Core implementation of <see cref="IRoomStore"/>, <see cref="IPokerRoundStore"/> and
+/// <see cref="IRetroBoardStore"/>. Loads the room aggregate with its participants and tool payload
+/// (tracked, so collection edits persist on save) and translates the unique-name constraint
+/// violation into <see cref="DuplicateNameException"/>.
 /// <para>
-/// One adapter implements both ports (#19): the room engine and the poker tool have separate
+/// One adapter implements all three ports (#19): the room engine and each tool have separate
 /// persistence contracts, but they share a <see cref="DbContext"/> and therefore a unit of work.
 /// </para>
 /// </summary>
-public class EfRoomStore : IRoomStore, IPokerRoundStore
+public class EfRoomStore : IRoomStore, IPokerRoundStore, IRetroBoardStore
 {
     private readonly TeamToolsDbContext _db;
 
@@ -65,6 +67,23 @@ public class EfRoomStore : IRoomStore, IPokerRoundStore
             .ToListAsync(cancellationToken);
 
         return running.Where(r => r.PokerRound!.TimerDeadline <= asOf).ToList();
+    }
+
+    // Narrow to boards with a running phase countdown in SQL, so the 1s expiry pass loads those and
+    // nothing else. This used to call GetAllAsync — every room in the database, with participants,
+    // round history and the whole retro board graph, once a second, forever (#33). The DateTimeOffset
+    // deadline comparison is applied in memory for the same reason as the poker sweep: SQLite's EF
+    // provider can't translate DateTimeOffset ordering. Board only, no collections: the caller clears
+    // the deadline and saves, then re-reads per recipient to broadcast.
+    public async Task<IReadOnlyList<Room>> GetRoomsWithExpiredPhaseAsync(
+        DateTimeOffset asOf, CancellationToken cancellationToken = default)
+    {
+        var running = await _db.Rooms
+            .Include(r => r.RetroBoard)
+            .Where(r => r.RetroBoard != null && r.RetroBoard.PhaseDeadline != null)
+            .ToListAsync(cancellationToken);
+
+        return running.Where(r => r.RetroBoard!.PhaseDeadline <= asOf).ToList();
     }
 
     // Projected existence check: no Include, no tracking — never materialises the aggregate. The global

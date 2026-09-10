@@ -1,6 +1,7 @@
 using TeamTools.Core;
 using TeamTools.Core.Models;
 using TeamTools.Core.Poker;
+using TeamTools.Core.Retro;
 
 namespace TeamTools.Core.Tests.Fakes;
 
@@ -10,7 +11,7 @@ namespace TeamTools.Core.Tests.Fakes;
 /// deterministic. Can be told to throw <see cref="DuplicateNameException"/> to simulate the DB
 /// unique-constraint race.
 /// </summary>
-public sealed class FakeRoomStore : IRoomStore, IPokerRoundStore
+public sealed class FakeRoomStore : IRoomStore, IPokerRoundStore, IRetroBoardStore
 {
     private readonly Dictionary<Guid, Room> _byId = new();
     private int _nextParticipantId = 1;
@@ -75,6 +76,13 @@ public sealed class FakeRoomStore : IRoomStore, IPokerRoundStore
                 && r.PokerRound is { } round
                 && (round.State == SessionState.Voting || round.State == SessionState.Discussion)
                 && round.TimerDeadline is { } deadline && deadline <= asOf)
+            .ToList());
+
+    // Mirror the EF query: only retro rooms mid-countdown, not deleted, deadline at/before asOf.
+    public Task<IReadOnlyList<Room>> GetRoomsWithExpiredPhaseAsync(DateTimeOffset asOf, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Room>>(_byId.Values
+            .Where(r => r.DeletedAt == null
+                && r.RetroBoard is { PhaseDeadline: { } deadline } && deadline <= asOf)
             .ToList());
 
     // Mirror the EF projected check: exists, not soft-deleted, reactions on.

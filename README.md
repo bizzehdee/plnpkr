@@ -141,7 +141,7 @@ Prerequisites: **.NET 10 SDK**, **Node 20+**, and (for the coverage gate) **Powe
 
 This runs the same checks as CI, so a green `test` locally means a clean build.
 
-### Backend (xUnit) — 638 tests across Core / Integrations / Data / Api
+### Backend (xUnit) — 643 tests across Core / Integrations / Data / Api
 
 ```bash
 cd backend
@@ -150,7 +150,7 @@ dotnet test TeamTools.slnx                        # whole solution
 # One project at a time
 dotnet test tests/TeamTools.Core.Tests            # fast, no I/O (the bulk of the logic) — 514
 dotnet test tests/TeamTools.Integrations.Tests    # Jira/ADO adapters against stubbed HTTP — 40
-dotnet test tests/TeamTools.Data.Tests            # EfRoomStore + migrations against real SQLite — 35
+dotnet test tests/TeamTools.Data.Tests            # EfRoomStore + migrations against real SQLite — 40
 dotnet test tests/TeamTools.Api.Tests             # REST + SignalR + health over an in-memory server — 49
 
 # Run a single test or class by name

@@ -62,6 +62,7 @@ public class Program
         builder.Services.AddScoped<EfRoomStore>();
         builder.Services.AddScoped<IRoomStore>(sp => sp.GetRequiredService<EfRoomStore>());
         builder.Services.AddScoped<IPokerRoundStore>(sp => sp.GetRequiredService<EfRoomStore>());
+        builder.Services.AddScoped<IRetroBoardStore>(sp => sp.GetRequiredService<EfRoomStore>());
         builder.Services.AddScoped<RoomService>();
         builder.Services.AddScoped<PokerService>();
         builder.Services.AddScoped<RetroService>();

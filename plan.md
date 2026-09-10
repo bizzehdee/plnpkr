@@ -743,6 +743,39 @@ A refused join must leave no seat behind — that half-served state was the dama
 The `/join` landing read stays tool-agnostic: it is what tells the client which tool it is
 dealing with.
 
+## 33. Narrow the retro phase-countdown sweep — follow-up to §23
+
+**What.** Give the retro phase-countdown expiry pass its own narrowed store query, as the
+poker round timer already has, instead of loading every room in the database once a
+second.
+
+**Why.** `RetroPhaseTimerService` asked `IRoomStore.GetAllAsync()` which room was due —
+and `GetAllAsync` is `WithPayload(_db.Rooms)`: a nine-way `LEFT JOIN` pulling every room
+together with its participants, round history and the whole retro board graph (columns,
+cards, groups, votes, action items), with the `PhaseDeadline` comparison then applied in
+memory. That ran **once per second, forever**, whether or not any countdown existed. It
+also emitted EF's `MultipleCollectionIncludeWarning` — five collection includes fanned out
+into one near-cartesian result set. On an empty dev database it costs nothing visible,
+which is why it went unnoticed; the cost grows with every room ever created, not with the
+rooms that actually have a timer running.
+
+**Touch points.** A new `IRetroBoardStore` (the retro sibling of `IPokerRoundStore`);
+`EfRoomStore` implements it; `RetroPhaseTimerService` takes it; `Program.cs` registers it;
+`FakeRoomStore` mirrors the query as the poker one is mirrored.
+
+**Approach.** Copy the shape the poker sweep already established (§14) rather than invent
+a second one: narrow in SQL, keep the `DateTimeOffset` comparison in memory because
+SQLite's EF provider cannot translate `DateTimeOffset` ordering, and keep the port off
+`IRoomStore` so the room engine carries no knowledge of countdowns. Include the **board
+only** — no collections: the sweep clears the deadline and saves, and the background
+service re-reads each board per recipient anyway, because a retro snapshot is projected
+per viewer (§21). Tests must assert what is *not* loaded, or the includes creep back.
+
+**Not in scope.** Both sweeps still tick every second when nothing is running. Making
+them event-driven (schedule against the next known deadline) would remove the idle
+queries entirely, but it is a scheduling change with its own failure modes — and at one
+cheap indexed query per second it is not yet worth them.
+
 ---
 
 ## Cross-cutting notes

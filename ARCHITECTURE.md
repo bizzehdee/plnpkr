@@ -319,7 +319,8 @@ projects; `Api` and `Data` are thin adapters.
     RoomService.cs            # join, name-uniqueness, roles, organiser set + succession,
                               #   password, presence, close/delete
     RoomMaintenanceService.cs # participant eviction + retention decisions (clock-driven)
-    IRoomStore.cs             # persistence abstraction (no EF types leak through it)
+    IRoomStore.cs             # room persistence abstraction (no EF types leak through it);
+                              #   each tool adds a one-method port: IPokerRoundStore, IRetroBoardStore
     IClock.cs                 # time abstraction for deterministic time-based tests
     Security/                 # PasswordHasher (PBKDF2)
     Integrations/             # provider-agnostic issue-tracker ports (IIssueTracker, etc.)
@@ -341,6 +342,19 @@ Key choices:
 - **`IRoomStore`** hides EF Core; `Core.Tests` use an in-memory fake, `Data.Tests` verify the real
   `EfRoomStore` against SQLite. **`IClock`** makes time-based behaviour (eviction, retention, timer and
   phase expiry) deterministic.
+- **A tool-specific query gets a tool-specific port.** `IPokerRoundStore` and `IRetroBoardStore` each
+  carry exactly one method — the countdown sweep their tool's background service needs — and are kept
+  off `IRoomStore` so the room engine has no knowledge of rounds or phases. One EF adapter implements
+  all three, because they share a `DbContext` and therefore a unit of work.
+
+  > **Both sweeps run once per second, so both narrow in SQL (#14/#33).** They load only the rooms
+  > with a running countdown, and apply the `DateTimeOffset` deadline comparison in memory, because
+  > SQLite's EF provider cannot translate `DateTimeOffset` ordering. The retro sweep did not: until
+  > #33 it went through `GetAllAsync`, loading every room in the database with its participants,
+  > round history and the whole board graph — a nine-way join, once a second, whether or not any
+  > countdown existed. Invisible on a small database and unbounded on a large one. The general
+  > `GetAllAsync` remains, for the callers that genuinely need every room: idle eviction and the
+  > retention purge, both on a one-minute cadence.
 - **The two tools never reference each other.** `TeamTools.Core.Poker` and `TeamTools.Core.Retro`
   both build on the room engine; a dependency between the tools is the failure mode this structure
   exists to prevent.
@@ -476,8 +490,8 @@ Coverage is a guardrail; every test maps to a behaviour. The gate was also the s
 refactor, which landed with the suite green and no behavioural change. It runs in CI as well as
 locally (`./run.sh test`).
 
-As of task #32 that is **638 backend tests** (Core 514, Integrations 40, Data 35, Api 49) and **226
-frontend specs**, with `TeamTools.Core` at ~96% line / ~92% branch. The production bundle is 631 kB
+As of task #33 that is **643 backend tests** (Core 514, Integrations 40, Data 40, Api 49) and **226
+frontend specs**, with `TeamTools.Core` at ~95% line / ~92% branch. The production bundle is 631 kB
 initial (127 kB transfer) against an 800 kB budget.
 
 ## Deployment & hosting
