@@ -138,6 +138,9 @@ namespace TeamTools.Data.PostgreSql.Migrations
                     b.Property<Guid>("RoomId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AllowMultiplePerItem")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("AllowParticipantGrouping")
                         .HasColumnType("boolean");
 
@@ -159,6 +162,9 @@ namespace TeamTools.Data.PostgreSql.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
+
+                    b.Property<int>("VoteBudget")
+                        .HasColumnType("integer");
 
                     b.HasKey("RoomId");
 
@@ -250,6 +256,38 @@ namespace TeamTools.Data.PostgreSql.Migrations
                     b.HasIndex("BoardId");
 
                     b.ToTable("RetroGroup");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetKind")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<string>("VoterUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.HasIndex("BoardId", "VoterUserId");
+
+                    b.HasIndex("TargetKind", "TargetId");
+
+                    b.ToTable("RetroVote");
                 });
 
             modelBuilder.Entity("TeamTools.Core.Models.Room", b =>
@@ -467,6 +505,17 @@ namespace TeamTools.Data.PostgreSql.Migrations
                     b.Navigation("Board");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.RetroVote", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.RetroBoard", "Board")
+                        .WithMany("Votes")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.RoundResult", b =>
                 {
                     b.HasOne("TeamTools.Core.Models.PokerRound", "Round")
@@ -490,6 +539,8 @@ namespace TeamTools.Data.PostgreSql.Migrations
                     b.Navigation("Columns");
 
                     b.Navigation("Groups");
+
+                    b.Navigation("Votes");
                 });
 
             modelBuilder.Entity("TeamTools.Core.Models.RetroColumn", b =>

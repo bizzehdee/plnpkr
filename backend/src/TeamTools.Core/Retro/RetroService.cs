@@ -21,6 +21,10 @@ public class RetroService
     /// <summary>Longest a theme label may be — it is a heading, not a paragraph. See #24.</summary>
     public const int MaxGroupLabelLength = 120;
 
+    /// <summary>Bounds for the dot budget: at least one dot, few enough to force a choice. See #25.</summary>
+    public const int MinVoteBudget = 1;
+    public const int MaxVoteBudget = 20;
+
     private readonly IRoomStore _store;
     private readonly RoomService _rooms;
     private readonly IClock _clock;
@@ -365,6 +369,112 @@ public class RetroService
         board.Anonymous = anonymous;
         return await CommitAsync(room!, userId, ct);
     }
+
+    // --- Dot voting (#25) --------------------------------------------------
+
+    /// <summary>
+    /// Spends one dot on a card or a theme.
+    /// <para>
+    /// The budget is enforced **here**, from the stored rows — never from a client-supplied count.
+    /// A voter who has spent their allowance is refused, as is a second dot on the same item unless
+    /// the board allows stacking.
+    /// </para>
+    /// </summary>
+    public async Task<RetroActionResult> CastVoteAsync(
+        string shortCode, string userId, RetroVoteTarget kind, Guid targetId,
+        CancellationToken ct = default)
+    {
+        var (room, error) = await LoadForParticipantAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var board = Board(room!);
+        if (!RetroPhaseRules.VotingAllowed(board.Phase))
+        {
+            return RetroActionResult.WrongPhase();
+        }
+
+        if (!TargetExists(board, kind, targetId))
+        {
+            return kind == RetroVoteTarget.Group
+                ? RetroActionResult.GroupNotFound()
+                : RetroActionResult.CardNotFound();
+        }
+
+        if (RetroTallyCalculator.RemainingFor(board, userId) <= 0)
+        {
+            return RetroActionResult.OutOfDots();
+        }
+
+        if (!board.AllowMultiplePerItem
+            && RetroTallyCalculator.MineOn(board, userId, kind, targetId) > 0)
+        {
+            return RetroActionResult.AlreadyVotedForItem();
+        }
+
+        board.Votes.Add(new RetroVote
+        {
+            Id = Guid.NewGuid(),
+            BoardId = board.RoomId,
+            VoterUserId = userId,
+            TargetKind = kind,
+            TargetId = targetId,
+        });
+
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    /// <summary>Takes one of this voter's dots back off an item. Only ever their own.</summary>
+    public async Task<RetroActionResult> WithdrawVoteAsync(
+        string shortCode, string userId, RetroVoteTarget kind, Guid targetId,
+        CancellationToken ct = default)
+    {
+        var (room, error) = await LoadForParticipantAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var board = Board(room!);
+        if (!RetroPhaseRules.VotingAllowed(board.Phase))
+        {
+            return RetroActionResult.WrongPhase();
+        }
+
+        var mine = board.Votes.FirstOrDefault(v =>
+            v.VoterUserId == userId && v.TargetKind == kind && v.TargetId == targetId);
+        if (mine is null)
+        {
+            return RetroActionResult.NoVoteToWithdraw();
+        }
+
+        board.Votes.Remove(mine);
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    /// <summary>Organiser-only: set how many dots each participant gets. See #25.</summary>
+    public async Task<RetroActionResult> SetVoteBudgetAsync(
+        string shortCode, string userId, int budget, bool allowMultiplePerItem,
+        CancellationToken ct = default)
+    {
+        var (room, error) = await _rooms.LoadForControlAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return Project(error, userId);
+        }
+
+        var board = Board(room!);
+        board.VoteBudget = Math.Clamp(budget, MinVoteBudget, MaxVoteBudget);
+        board.AllowMultiplePerItem = allowMultiplePerItem;
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    private static bool TargetExists(RetroBoard board, RetroVoteTarget kind, Guid targetId) =>
+        kind == RetroVoteTarget.Group
+            ? board.Groups.Any(g => g.Id == targetId)
+            : board.Cards.Any(c => c.Id == targetId);
 
     // --- Grouping (#24) ----------------------------------------------------
 
@@ -759,6 +869,10 @@ public class RetroService
         // would ship everyone's words to every browser and hope nobody looked.
         var othersVisible = RetroPhaseRules.OthersCardsVisible(board.Phase);
 
+        // Dot totals stay hidden while voting is open, for the same anchoring reason cards do
+        // during Collect: a running total tells people where to put their remaining dots (#25).
+        var totalsVisible = RetroPhaseRules.VoteTotalsVisible(board.Phase);
+
         var columns = board.Columns
             .OrderBy(c => c.Order)
             .Select(c =>
@@ -775,7 +889,7 @@ public class RetroService
                     c.Id,
                     c.Title,
                     c.Order,
-                    visible.Select(card => ToCardInfo(card, forUserId, names, board.Anonymous)).ToArray(),
+                    visible.Select(card => ToCardInfo(card, forUserId, names, board, totalsVisible)).ToArray(),
                     inColumn.Count - visible.Count);
             })
             .ToArray();
@@ -791,8 +905,10 @@ public class RetroService
                 board.Cards
                     .Where(card => card.GroupId == g.Id && (othersVisible || card.AuthorUserId == forUserId))
                     .OrderBy(card => card.Order)
-                    .Select(card => ToCardInfo(card, forUserId, names, board.Anonymous))
-                    .ToArray()))
+                    .Select(card => ToCardInfo(card, forUserId, names, board, totalsVisible))
+                    .ToArray(),
+                RetroTallyCalculator.MineOn(board, forUserId, RetroVoteTarget.Group, g.Id),
+                totalsVisible ? RetroTallyCalculator.TotalOnGroup(board, g.Id) : null))
             .ToArray();
 
         return new RetroBoardSnapshot(
@@ -806,13 +922,24 @@ public class RetroService
             board.Anonymous,
             board.Cards.Count == 0,
             board.AllowParticipantGrouping,
+            board.VoteBudget,
+            board.AllowMultiplePerItem,
+            RetroTallyCalculator.RemainingFor(board, forUserId),
+            totalsVisible,
             columns,
-            groups);
+            groups,
+            totalsVisible
+                ? RetroTallyCalculator.Ranking(board)
+                    .Select(r => new RetroRankedItem(r.Kind, r.Id, r.Label, r.Dots))
+                    .ToArray()
+                : Array.Empty<RetroRankedItem>());
     }
 
     private static RetroCardInfo ToCardInfo(
-        RetroCard card, string forUserId, IReadOnlyDictionary<string, string> names, bool anonymous)
+        RetroCard card, string forUserId, IReadOnlyDictionary<string, string> names,
+        RetroBoard board, bool totalsVisible)
     {
+        var anonymous = board.Anonymous;
         var isMine = card.AuthorUserId == forUserId;
 
         return new RetroCardInfo(
@@ -825,6 +952,8 @@ public class RetroService
             anonymous ? null : names.GetValueOrDefault(card.AuthorUserId),
             isMine,
             card.Order,
-            card.CreatedAt);
+            card.CreatedAt,
+            RetroTallyCalculator.MineOn(board, forUserId, RetroVoteTarget.Card, card.Id),
+            totalsVisible ? RetroTallyCalculator.TotalOnCard(board, card.Id) : null);
     }
 }

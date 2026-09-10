@@ -395,14 +395,28 @@ into the TeamTools platform and add the second tool, Team Retro.
 > The relationship is `SetNull` rather than `Cascade`: deleting a theme must never take the team's
 > cards with it.
 
-## 25. Dot voting  `M`  — depends on #24
-- [ ] `RetroVote` (`{ BoardId, VoterUserId, TargetKind, TargetId }`) + `RetroBoard.VoteBudget`/`AllowMultiplePerItem`.
-- [ ] `RetroHub.CastRetroVote`/`WithdrawVote` with **server-side** budget enforcement.
-- [ ] Tally calculator (a `StatsCalculator` sibling); own dots always visible, others' totals only once Vote ends; Discuss reorders by score.
-- [ ] Votes follow their target through grouping: grouping sums dots, ungrouping returns each card's own.
-- [ ] EF migration ×3; snapshot + `core/models.ts`.
-- [ ] a11y + i18n: dot controls as real buttons with counts announced (#4); budget/remaining copy pluralised via `PluralPipe` (#5).
-- [ ] Tests: over-budget rejected server-side; totals absent from the wire during Vote; group/ungroup dot arithmetic; ranking order.
+## 25. Dot voting  `M`  — depends on #24  ✅ done
+- [x] `RetroVote` (`{ Id, BoardId, VoterUserId, TargetKind, TargetId }`) — **one row per dot**, so withdrawing is a row delete and the budget is a row count. No arithmetic to get wrong, and no client-supplied total to be believed.
+- [x] `RetroBoard.VoteBudget` (default 3) / `AllowMultiplePerItem` (off by default — spreading dots surfaces more of what the team cares about), settable by an organiser and clamped to 1–20.
+- [x] `RetroHub.CastRetroVote` / `WithdrawVote` / `SetVoteBudget`, with the budget and the no-stacking rule enforced **server-side from the stored rows**.
+- [x] `RetroTallyCalculator` (pure, the `StatsCalculator` sibling): own dots, totals, and the ranked agenda with ties broken on display order so the ranking is stable rather than arbitrary.
+- [x] Own dots always visible; totals and the ranking withheld until Discuss — a running total tells people where to put their remaining dots, the same anchoring argument as hidden collection (#23). A voter may only withdraw their own dot.
+- [x] EF migration ×3; snapshot + `core/models.ts`.
+- [x] a11y + i18n: every dot button carries an `aria-label` naming its item (a bare "+" tells a screen-reader user nothing about what they are voting for), remaining allowance announced after each dot, and the controls disable exactly where the server would refuse. 13 strings × 4 locales.
+- [x] Tests: 26 backend (`RetroVotingTests`) + 11 frontend. Backend **541**, frontend **179**, coverage gate **95.0% line / 91.2% branch**.
+
+> **Grouping needs no vote migration at all.** A theme's total is *its own dots plus the dots on the
+> cards inside it*. Grouping voted cards therefore sums them automatically; ungrouping hands each
+> card its own dots back, because they never moved. That matters because #23 lets a facilitator step
+> back from Vote to Group — so regrouping mid-retro is reachable, and it must not silently destroy
+> votes. Two tests cover exactly that round trip.
+
+> **Cards inside a theme are not listed separately in the ranking.** The theme is the unit of
+> discussion; listing its cards too would double-count the same dots.
+
+> **The scaffolded migration would have left existing boards unvotable**, defaulting `VoteBudget` to
+> 0. Hand-set to 3 in all three providers — the same class of bug as #23's `Phase` default, found
+> the same way: by reading the generated migration rather than trusting it.
 
 ## 26. Action items  `M`  — depends on #23
 - [ ] `RetroActionItem` (`{ Id, BoardId, Title, OwnerUserId, OwnerName, DueDate, DoneAt, SourceGroupId?, CarriedFromBoardId? }`).

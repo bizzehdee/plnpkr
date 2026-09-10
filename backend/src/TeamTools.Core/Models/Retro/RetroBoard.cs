@@ -54,6 +54,21 @@ public class RetroBoard
     /// <summary>The themes cards have been grouped into. See #24.</summary>
     public List<RetroGroup> Groups { get; set; } = new();
 
+    /// <summary>Every dot spent on this board. One row per dot. See #25.</summary>
+    public List<RetroVote> Votes { get; set; } = new();
+
+    /// <summary>How many dots each participant gets to spend. See #25.</summary>
+    public int VoteBudget { get; set; } = DefaultVoteBudget;
+
+    /// <summary>
+    /// Whether a voter may stack more than one dot on the same item. Off by default: spreading dots
+    /// surfaces more of what the team cares about, which is the point of dot voting.
+    /// </summary>
+    public bool AllowMultiplePerItem { get; set; }
+
+    /// <summary>Three dots is the usual facilitation default — enough to rank, few enough to force a choice.</summary>
+    public const int DefaultVoteBudget = 3;
+
     /// <summary>
     /// When true, any participant may group cards — not just an organiser (#24). Off by default:
     /// grouping is a facilitation act, and two people dragging the same card in opposite directions
@@ -135,4 +150,33 @@ public class RetroCard
 
     /// <summary>Position within its column, ascending.</summary>
     public int Order { get; set; }
+}
+
+/// <summary>What a dot can be spent on (#25). A theme and a loose card are both votable.</summary>
+public enum RetroVoteTarget
+{
+    Card,
+    Group,
+}
+
+/// <summary>
+/// One dot, spent by one participant on one item (#25). A row per dot rather than a count, so
+/// withdrawing a single dot is a row delete and the budget is simply a row count — no arithmetic to
+/// get wrong, and no way for a client-supplied total to be believed.
+/// </summary>
+public class RetroVote
+{
+    public Guid Id { get; set; }
+
+    public Guid BoardId { get; set; }
+
+    public RetroBoard? Board { get; set; }
+
+    /// <summary>Who spent it. Never sent to other participants — only tallies are. See #25.</summary>
+    public string VoterUserId { get; set; } = string.Empty;
+
+    public RetroVoteTarget TargetKind { get; set; }
+
+    /// <summary>The card or group id, per <see cref="TargetKind"/>.</summary>
+    public Guid TargetId { get; set; }
 }

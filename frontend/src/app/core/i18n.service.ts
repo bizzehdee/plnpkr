@@ -136,6 +136,20 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.ungrouped': 'Card removed from its theme.',
     'retro.announce.themeRenamed': 'Theme renamed.',
 
+    // Dot voting (#25).
+    'retro.votingHint': 'Spend your dots on what matters most.',
+    'retro.dotsLeft': 'Dots left',
+    'retro.spendDot': 'Spend a dot on',
+    'retro.takeBackDot': 'Take a dot back from',
+    'retro.agenda': 'Discussion order',
+    'retro.dot': 'dot',
+    'retro.dots': 'dots',
+    'retro.err.outOfDots': 'You have spent all your dots. Take one back to move it somewhere else.',
+    'retro.err.alreadyVoted': 'You already have a dot on that one — this retro asks you to spread them.',
+    'retro.err.noDotToTakeBack': 'You have no dot on that one to take back.',
+    'retro.announce.dotSpent': 'Dot spent. {left} left.',
+    'retro.announce.dotTakenBack': 'Dot taken back. {left} left.',
+
     'common.cancel': 'Cancel',
     'common.save': 'Save',
     'common.close': 'Close',
@@ -505,6 +519,20 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.grouped': 'Tarjetas agrupadas en un tema.',
     'retro.announce.ungrouped': 'Tarjeta quitada de su tema.',
     'retro.announce.themeRenamed': 'Tema renombrado.',
+
+    // Dot voting (#25).
+    'retro.votingHint': 'Reparte tus puntos en lo que más importa.',
+    'retro.dotsLeft': 'Puntos restantes',
+    'retro.spendDot': 'Dar un punto a',
+    'retro.takeBackDot': 'Quitar un punto de',
+    'retro.agenda': 'Orden de debate',
+    'retro.dot': 'punto',
+    'retro.dots': 'puntos',
+    'retro.err.outOfDots': 'Has gastado todos tus puntos. Quita uno para ponerlo en otro sitio.',
+    'retro.err.alreadyVoted': 'Ya tienes un punto en eso; esta retro pide repartirlos.',
+    'retro.err.noDotToTakeBack': 'No tienes ningún punto en eso que quitar.',
+    'retro.announce.dotSpent': 'Punto asignado. Quedan {left}.',
+    'retro.announce.dotTakenBack': 'Punto retirado. Quedan {left}.',
 
     'common.cancel': 'Cancelar',
     'common.save': 'Guardar',
@@ -876,6 +904,20 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.ungrouped': 'Cartão removido do seu tema.',
     'retro.announce.themeRenamed': 'Tema renomeado.',
 
+    // Dot voting (#25).
+    'retro.votingHint': 'Distribui os teus pontos no que mais importa.',
+    'retro.dotsLeft': 'Pontos restantes',
+    'retro.spendDot': 'Dar um ponto a',
+    'retro.takeBackDot': 'Retirar um ponto de',
+    'retro.agenda': 'Ordem da discussão',
+    'retro.dot': 'ponto',
+    'retro.dots': 'pontos',
+    'retro.err.outOfDots': 'Gastaste todos os teus pontos. Retira um para o colocar noutro lugar.',
+    'retro.err.alreadyVoted': 'Já tens um ponto nesse — esta retro pede que os distribuas.',
+    'retro.err.noDotToTakeBack': 'Não tens nenhum ponto nesse para retirar.',
+    'retro.announce.dotSpent': 'Ponto atribuído. Restam {left}.',
+    'retro.announce.dotTakenBack': 'Ponto retirado. Restam {left}.',
+
     'common.cancel': 'Cancelar',
     'common.save': 'Salvar',
     'common.close': 'Fechar',
@@ -1245,6 +1287,20 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.grouped': 'Karty zgrupowane w motyw.',
     'retro.announce.ungrouped': 'Karta usunięta z motywu.',
     'retro.announce.themeRenamed': 'Nazwa motywu zmieniona.',
+
+    // Dot voting (#25).
+    'retro.votingHint': 'Rozdaj swoje punkty na to, co najważniejsze.',
+    'retro.dotsLeft': 'Pozostałe punkty',
+    'retro.spendDot': 'Przyznaj punkt',
+    'retro.takeBackDot': 'Zabierz punkt z',
+    'retro.agenda': 'Kolejność dyskusji',
+    'retro.dot': 'punkt',
+    'retro.dots': 'punktów',
+    'retro.err.outOfDots': 'Wydałeś wszystkie punkty. Zabierz jeden, aby przenieść go w inne miejsce.',
+    'retro.err.alreadyVoted': 'Masz już punkt na tym elemencie — ta retrospektywa prosi o ich rozdzielenie.',
+    'retro.err.noDotToTakeBack': 'Nie masz tam punktu, który można zabrać.',
+    'retro.announce.dotSpent': 'Punkt przyznany. Pozostało {left}.',
+    'retro.announce.dotTakenBack': 'Punkt zabrany. Pozostało {left}.',
 
     'common.cancel': 'Anuluj',
     'common.save': 'Zapisz',

@@ -157,6 +157,21 @@ public class RetroHub : Hub
         MutateAndBroadcast(shortCode, () =>
             _retro.SetAllowParticipantGroupingAsync(shortCode, userId, allowed));
 
+    // --- Dot voting (#25) ---------------------------------------------------
+
+    public Task<RetroActionResult> CastRetroVote(
+        string shortCode, string userId, RetroVoteTarget kind, Guid targetId) =>
+        MutateAndBroadcast(shortCode, () => _retro.CastVoteAsync(shortCode, userId, kind, targetId));
+
+    public Task<RetroActionResult> WithdrawVote(
+        string shortCode, string userId, RetroVoteTarget kind, Guid targetId) =>
+        MutateAndBroadcast(shortCode, () => _retro.WithdrawVoteAsync(shortCode, userId, kind, targetId));
+
+    public Task<RetroActionResult> SetVoteBudget(
+        string shortCode, string userId, int budget, bool allowMultiplePerItem) =>
+        MutateAndBroadcast(shortCode, () =>
+            _retro.SetVoteBudgetAsync(shortCode, userId, budget, allowMultiplePerItem));
+
     // --- Room-level settings & lifecycle ------------------------------------
 
     public Task<RetroActionResult> SetReactionsEnabled(string shortCode, string userId, bool enabled) =>

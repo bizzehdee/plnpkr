@@ -116,6 +116,24 @@ public class TeamToolsDbContext : DbContext
                 .WithOne(g => g.Board!)
                 .HasForeignKey(g => g.BoardId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(b => b.Votes)
+                .WithOne(v => v.Board!)
+                .HasForeignKey(v => v.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- RetroVote: one row per dot (#25) -------------------------------
+        modelBuilder.Entity<RetroVote>(e =>
+        {
+            e.HasKey(v => v.Id);
+            e.Property(v => v.Id).ValueGeneratedNever(); // the domain assigns it — see RetroCard.Id
+            e.Property(v => v.VoterUserId).IsRequired().HasMaxLength(64);
+            e.Property(v => v.TargetKind).HasConversion<string>().HasMaxLength(8);
+            e.HasIndex(v => v.BoardId);
+            // The budget check counts this voter.s rows, and the tallies count an item.s.
+            e.HasIndex(v => new { v.BoardId, v.VoterUserId });
+            e.HasIndex(v => new { v.TargetKind, v.TargetId });
         });
 
         // --- RetroGroup: a theme (#24) --------------------------------------

@@ -28,6 +28,8 @@ function card(over: Partial<RetroCardInfo> = {}): RetroCardInfo {
     order: 0,
     createdAt: '2026-01-01T00:00:00Z',
     groupId: null,
+    myDots: 0,
+    totalDots: null,
     ...over,
   };
 }
@@ -75,6 +77,11 @@ function board(over: Partial<RetroBoardSnapshot> = {}): RetroBoardSnapshot {
     phase: 'Collect',
     allowParticipantGrouping: false,
     groups: [],
+    voteBudget: 3,
+    allowMultiplePerItem: false,
+    myDotsRemaining: 3,
+    voteTotalsVisible: false,
+    ranking: [],
     nextPhase: 'Group',
     previousPhase: null,
     phaseDurationSeconds: null,
@@ -115,6 +122,12 @@ class FakeRetroClient {
   setAllowParticipantGrouping = vi
     .fn<(...a: unknown[]) => Promise<RetroActionResult>>()
     .mockResolvedValue(ok(board()));
+  castVote = vi
+    .fn<(...a: unknown[]) => Promise<RetroActionResult>>()
+    .mockResolvedValue(ok(board({ myDotsRemaining: 2 })));
+  withdrawVote = vi
+    .fn<(...a: unknown[]) => Promise<RetroActionResult>>()
+    .mockResolvedValue(ok(board({ myDotsRemaining: 3 })));
 }
 
 type Cmp = {
@@ -139,6 +152,10 @@ type Cmp = {
   saveRename(g: { id: string; label: string }): Promise<void>;
   renameDraft: string;
   toggleParticipantGrouping(): Promise<void>;
+  canAddDot(item: { myDots: number }): boolean;
+  canRemoveDot(item: { myDots: number }): boolean;
+  addDot(kind: 'Card' | 'Group', item: { id: string; myDots: number }): Promise<void>;
+  removeDot(kind: 'Card' | 'Group', item: { id: string }): Promise<void>;
 };
 
 async function setup(fake: FakeRetroClient) {
@@ -520,6 +537,8 @@ describe('RetroPage grouping', () => {
             label: 'Slow feedback loop',
             order: 0,
             cards: [card({ id: 'c-1', text: 'CI is slow', groupId: 'g-1' })],
+            myDots: 0,
+            totalDots: null,
           },
         ],
       }),
@@ -545,7 +564,7 @@ describe('RetroPage grouping', () => {
     const fake = new FakeRetroClient();
     fake.board.set(
       grouping({
-        groups: [{ id: 'g-1', label: 'Slow feedback loop', order: 0, cards: [] }],
+        groups: [{ id: 'g-1', label: 'Slow feedback loop', order: 0, cards: [], myDots: 0, totalDots: null }],
       }),
     );
     const fixture = await setup(fake);
@@ -660,7 +679,7 @@ describe('RetroPage grouping', () => {
     fake.board.set(
       grouping({
         allowParticipantGrouping: false,
-        groups: [{ id: 'g-1', label: 'A theme', order: 0, cards: [] }],
+        groups: [{ id: 'g-1', label: 'A theme', order: 0, cards: [], myDots: 0, totalDots: null }],
       }),
     );
     const fixture = await setup(fake);
@@ -678,5 +697,143 @@ describe('RetroPage grouping', () => {
     const el = fixture.nativeElement as HTMLElement;
 
     expect(el.querySelector('li[draggable="true"]')).toBeTruthy();
+  });
+});
+
+// --- Dot voting (#25) -------------------------------------------------------
+
+describe('RetroPage dot voting', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  /** A board in the Vote phase, where dots may be spent. */
+  function voting(over: Partial<RetroBoardSnapshot> = {}): RetroBoardSnapshot {
+    return board({ phase: 'Vote', nextPhase: 'Discuss', previousPhase: 'Group', ...over });
+  }
+
+  it('shows how many dots this viewer has left', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(voting({ myDotsRemaining: 2, voteBudget: 3 }));
+    const fixture = await setup(fake);
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Dots left');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('2 / 3');
+  });
+
+  it('spends a dot on a loose card', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(voting());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.addDot('Card', { id: 'card-1', myDots: 0 });
+
+    expect(fake.castVote).toHaveBeenCalledWith(CODE, ME, 'Card', 'card-1');
+  });
+
+  it('takes a dot back', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(voting());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.removeDot('Card', { id: 'card-1' });
+
+    expect(fake.withdrawVote).toHaveBeenCalledWith(CODE, ME, 'Card', 'card-1');
+  });
+
+  it('announces the remaining allowance after each dot', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(voting());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.addDot('Card', { id: 'card-1', myDots: 0 });
+    fixture.detectChanges();
+
+    const live = (fixture.nativeElement as HTMLElement).querySelector('[aria-live="polite"]');
+    expect(live?.textContent).toContain('Dot spent. 2 left');
+  });
+
+  it('mirrors the server budget rule so the control disables instead of failing', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(voting({ myDotsRemaining: 0 }));
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    expect(cmp.canAddDot({ myDots: 0 })).toBe(false);
+  });
+
+  it('mirrors the no-stacking rule', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(voting({ allowMultiplePerItem: false }));
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    expect(cmp.canAddDot({ myDots: 0 })).toBe(true);
+    expect(cmp.canAddDot({ myDots: 1 })).toBe(false);
+  });
+
+  it('allows stacking when the board does', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(voting({ allowMultiplePerItem: true }));
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    expect(cmp.canAddDot({ myDots: 1 })).toBe(true);
+  });
+
+  it('offers no dot controls outside the vote phase', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Collect' }));
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    expect(cmp.canAddDot({ myDots: 0 })).toBe(false);
+    expect(cmp.canRemoveDot({ myDots: 1 })).toBe(false);
+  });
+
+  it('gives every dot control an accessible label naming its item', async () => {
+    // "+" alone tells a screen-reader user nothing about what they are voting for (#4).
+    const fake = new FakeRetroClient();
+    fake.board.set(voting());
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    const add = el.querySelector('button[aria-label^="Spend a dot on"]');
+    expect(add?.getAttribute('aria-label')).toContain('Deploys got faster');
+  });
+
+  it('shows no ranked agenda while voting is open', async () => {
+    // A ranking is a running total by another name.
+    const fake = new FakeRetroClient();
+    fake.board.set(voting({ ranking: [] }));
+    const fixture = await setup(fake);
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Discussion order');
+  });
+
+  it('shows the ranked agenda once totals are visible', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(
+      board({
+        phase: 'Discuss',
+        nextPhase: 'Actions',
+        previousPhase: 'Vote',
+        voteTotalsVisible: true,
+        ranking: [
+          { kind: 'Group', id: 'g-1', label: 'Slow feedback loop', dots: 4 },
+          { kind: 'Card', id: 'c-9', label: 'good docs', dots: 1 },
+        ],
+      }),
+    );
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).toContain('Discussion order');
+    const rows = el.querySelectorAll('ol.list-group-numbered > li');
+    expect(rows.length).toBe(2);
+    expect(rows[0].textContent).toContain('Slow feedback loop');
+    expect(rows[0].textContent).toContain('4 dots');
+    expect(rows[1].textContent).toContain('1 dot');
   });
 });

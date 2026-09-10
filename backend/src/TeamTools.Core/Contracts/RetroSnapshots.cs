@@ -30,9 +30,30 @@ public record RetroBoardSnapshot(
     bool CanChangeAnonymity,
     /// <summary>Whether any participant may group cards, or only an organiser (#24).</summary>
     bool AllowParticipantGrouping,
+    /// <summary>Dot-voting settings and this viewer.s remaining allowance (#25).</summary>
+    int VoteBudget,
+    bool AllowMultiplePerItem,
+    int MyDotsRemaining,
+    /// <summary>
+    /// Whether dot totals are being sent at all. False while voting is open — the same anchoring
+    /// argument as hidden collection — and true from Discuss on (#25).
+    /// </summary>
+    bool VoteTotalsVisible,
     IReadOnlyList<RetroColumnInfo> Columns,
     /// <summary>The themes on the board, in display order (#24).</summary>
-    IReadOnlyList<RetroGroupInfo> Groups);
+    IReadOnlyList<RetroGroupInfo> Groups,
+    /// <summary>
+    /// The discussion agenda: votable items ranked by dots, highest first. Empty until totals are
+    /// visible, because a ranking is a total by another name (#25).
+    /// </summary>
+    IReadOnlyList<RetroRankedItem> Ranking);
+
+/// <summary>One row of the ranked discussion agenda (#25).</summary>
+public record RetroRankedItem(
+    RetroVoteTarget Kind,
+    Guid Id,
+    string Label,
+    int Dots);
 
 /// <summary>
 /// A theme and the cards gathered into it (#24). Cards appear here *and* in their column, so a
@@ -42,7 +63,11 @@ public record RetroGroupInfo(
     Guid Id,
     string Label,
     int Order,
-    IReadOnlyList<RetroCardInfo> Cards);
+    IReadOnlyList<RetroCardInfo> Cards,
+    /// <summary>This viewer.s own dots on the theme — always visible to them (#25).</summary>
+    int MyDots,
+    /// <summary>Everyone.s dots, or null while voting is still open (#25).</summary>
+    int? TotalDots);
 
 /// <summary>
 /// A column and the cards in it that this recipient may see, in display order.
@@ -78,7 +103,11 @@ public record RetroCardInfo(
     string? AuthorDisplayName,
     bool IsMine,
     int Order,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    /// <summary>This viewer.s own dots on the card — always visible to them (#25).</summary>
+    int MyDots,
+    /// <summary>Everyone.s dots, or null while voting is still open (#25).</summary>
+    int? TotalDots);
 
 public enum RetroActionStatus
 {
@@ -108,6 +137,12 @@ public enum RetroActionStatus
     GroupNotFound,
     /// <summary>A theme label cannot be empty (#24).</summary>
     InvalidGroupLabel,
+    /// <summary>This voter has spent their whole dot budget (#25).</summary>
+    OutOfDots,
+    /// <summary>This voter already has a dot on that item, and the board forbids stacking (#25).</summary>
+    AlreadyVotedForItem,
+    /// <summary>There is no dot of this voter.s to take back off that item (#25).</summary>
+    NoVoteToWithdraw,
     /// <summary>The requested template is invalid (e.g. an empty custom layout).</summary>
     InvalidTemplate,
     /// <summary>Too many cards added too quickly (abuse throttle). See #3-abuse.</summary>
@@ -136,6 +171,11 @@ public record RetroActionResult(RetroActionStatus Status, RetroBoardSnapshot? Bo
     public static RetroActionResult GroupNotFound() => new(RetroActionStatus.GroupNotFound, null);
     public static RetroActionResult InvalidGroupLabel() =>
         new(RetroActionStatus.InvalidGroupLabel, null);
+    public static RetroActionResult OutOfDots() => new(RetroActionStatus.OutOfDots, null);
+    public static RetroActionResult AlreadyVotedForItem() =>
+        new(RetroActionStatus.AlreadyVotedForItem, null);
+    public static RetroActionResult NoVoteToWithdraw() =>
+        new(RetroActionStatus.NoVoteToWithdraw, null);
     public static RetroActionResult InvalidTemplate() => new(RetroActionStatus.InvalidTemplate, null);
     public static RetroActionResult RateLimited() => new(RetroActionStatus.RateLimited, null);
 }

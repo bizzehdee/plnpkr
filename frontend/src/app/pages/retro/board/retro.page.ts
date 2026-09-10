@@ -16,6 +16,7 @@ import {
   RetroColumnInfo,
   RetroGroupInfo,
   RetroPhase,
+  RetroVoteTarget,
 } from '../../../core/models';
 
 /**
@@ -321,6 +322,56 @@ export class RetroPage implements OnInit, OnDestroy {
     return this.canModify(card) && this.isCollecting();
   }
 
+  // --- Dot voting (#25) --------------------------------------------------
+
+  protected readonly isVoting = computed(() => this.board()?.phase === 'Vote');
+
+  /** Whether this viewer still has dots to spend. */
+  protected readonly hasDotsLeft = computed(() => (this.board()?.myDotsRemaining ?? 0) > 0);
+
+  /**
+   * Whether a dot may be added to this item right now: voting is open, the viewer has dots left,
+   * and either the board allows stacking or they have not already voted for it. Mirrors the
+   * server's rule so the button disables instead of failing on click.
+   */
+  protected canAddDot(item: { myDots: number }): boolean {
+    const board = this.board();
+    if (!board || board.isClosed || board.phase !== 'Vote' || board.myDotsRemaining <= 0) {
+      return false;
+    }
+    return board.allowMultiplePerItem || item.myDots === 0;
+  }
+
+  protected canRemoveDot(item: { myDots: number }): boolean {
+    return this.isVoting() && !this.board()?.isClosed && item.myDots > 0;
+  }
+
+  protected async addDot(kind: RetroVoteTarget, item: { id: string; myDots: number }): Promise<void> {
+    const result = await this.retro.castVote(this.shortCode, this.myUserId, kind, item.id);
+    if (result.status === 'Ok') {
+      this.announce(
+        this.i18n
+          .t('retro.announce.dotSpent')
+          .replace('{left}', String(result.board!.myDotsRemaining)),
+      );
+    } else {
+      this.error.set(this.statusMessage(result.status));
+    }
+  }
+
+  protected async removeDot(kind: RetroVoteTarget, item: { id: string }): Promise<void> {
+    const result = await this.retro.withdrawVote(this.shortCode, this.myUserId, kind, item.id);
+    if (result.status === 'Ok') {
+      this.announce(
+        this.i18n
+          .t('retro.announce.dotTakenBack')
+          .replace('{left}', String(result.board!.myDotsRemaining)),
+      );
+    } else {
+      this.error.set(this.statusMessage(result.status));
+    }
+  }
+
   // --- Grouping (#24) ----------------------------------------------------
 
   protected readonly isGrouping = computed(() => this.board()?.phase === 'Group');
@@ -507,6 +558,12 @@ export class RetroPage implements OnInit, OnDestroy {
         return this.i18n.t('retro.err.gone');
       case 'InvalidGroupLabel':
         return this.i18n.t('retro.err.invalidGroupLabel');
+      case 'OutOfDots':
+        return this.i18n.t('retro.err.outOfDots');
+      case 'AlreadyVotedForItem':
+        return this.i18n.t('retro.err.alreadyVoted');
+      case 'NoVoteToWithdraw':
+        return this.i18n.t('retro.err.noDotToTakeBack');
       case 'RateLimited':
         return this.i18n.t('err.create.rateLimited');
       case 'CardNotFound':

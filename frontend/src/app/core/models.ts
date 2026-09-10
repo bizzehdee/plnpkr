@@ -271,6 +271,16 @@ export const DECK_LABEL_KEYS: Record<DeckType, string> = {
 // --- Team Retro (#21) -------------------------------------------------------
 // Mirrors TeamTools.Core.Contracts.RetroSnapshots.
 
+export type RetroVoteTarget = 'Card' | 'Group';
+
+/** One row of the ranked discussion agenda (#25). */
+export interface RetroRankedItem {
+  kind: RetroVoteTarget;
+  id: string;
+  label: string;
+  dots: number;
+}
+
 export type RetroPhase = 'Collect' | 'Group' | 'Vote' | 'Discuss' | 'Actions' | 'Closed';
 
 /** i18n catalog key for each phase's display label. */
@@ -324,6 +334,10 @@ export interface RetroCardInfo {
   isMine: boolean;
   order: number;
   createdAt: string;
+  /** This viewer's own dots — always visible to them (#25). */
+  myDots: number;
+  /** Everyone's dots, or null while voting is still open (#25). */
+  totalDots: number | null;
 }
 
 /** A theme and the cards gathered into it (#24). */
@@ -332,6 +346,8 @@ export interface RetroGroupInfo {
   label: string;
   order: number;
   cards: RetroCardInfo[];
+  myDots: number;
+  totalDots: number | null;
 }
 
 export interface RetroColumnInfo {
@@ -362,8 +378,15 @@ export interface RetroBoardSnapshotWire {
   canChangeAnonymity: boolean;
   /** Whether any participant may group cards, or only a facilitator (#24). */
   allowParticipantGrouping: boolean;
+  voteBudget: number;
+  allowMultiplePerItem: boolean;
+  myDotsRemaining: number;
+  /** Whether dot totals are being sent at all — false while voting is open (#25). */
+  voteTotalsVisible: boolean;
   columns: RetroColumnInfo[];
   groups: RetroGroupInfo[];
+  /** The ranked discussion agenda; empty until totals are visible (#25). */
+  ranking: RetroRankedItem[];
 }
 
 /** The flat view model the retro components read; `room` is kept for fields with no flat alias. */
@@ -386,8 +409,15 @@ export interface RetroBoardSnapshot {
   anonymous: boolean;
   canChangeAnonymity: boolean;
   allowParticipantGrouping: boolean;
+  voteBudget: number;
+  allowMultiplePerItem: boolean;
+  myDotsRemaining: number;
+  /** Whether dot totals are being sent at all — false while voting is open (#25). */
+  voteTotalsVisible: boolean;
   columns: RetroColumnInfo[];
   groups: RetroGroupInfo[];
+  /** The ranked discussion agenda; empty until totals are visible (#25). */
+  ranking: RetroRankedItem[];
 }
 
 export type RetroActionStatus =
@@ -405,6 +435,9 @@ export type RetroActionStatus =
   | 'IllegalPhaseTransition'
   | 'GroupNotFound'
   | 'InvalidGroupLabel'
+  | 'OutOfDots'
+  | 'AlreadyVotedForItem'
+  | 'NoVoteToWithdraw'
   | 'InvalidTemplate'
   | 'RateLimited';
 

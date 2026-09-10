@@ -100,7 +100,35 @@
             }
           </p>
         }
+
+        @if (isVoting()) {
+          <p class="form-text mb-0">
+            {{ 'retro.votingHint' | t }}
+            <strong>{{ 'retro.dotsLeft' | t }}: {{ b.myDotsRemaining }} / {{ b.voteBudget }}</strong>
+          </p>
+        }
       </nav>
+
+      <!--
+        The ranked agenda (#25). Only present once totals are visible — while voting is open a
+        ranking would be a running total by another name, and would tell people where to put their
+        remaining dots.
+      -->
+      @if (b.ranking.length > 0) {
+        <section class="mb-3" aria-labelledby="agenda-heading">
+          <h2 class="h6" id="agenda-heading">{{ 'retro.agenda' | t }}</h2>
+          <ol class="list-group list-group-numbered">
+            @for (item of b.ranking; track item.id) {
+              <li class="list-group-item d-flex align-items-center gap-2">
+                <span class="flex-grow-1">{{ item.label }}</span>
+                <span class="badge text-bg-primary">
+                  {{ item.dots }} {{ (item.dots === 1 ? 'retro.dot' : 'retro.dots') | t }}
+                </span>
+              </li>
+            }
+          </ol>
+        </section>
+      }
 
       <!-- Themes (#24). Only meaningful once cards are grouped, so hidden until they are. -->
       @if (b.groups.length > 0) {
@@ -156,6 +184,33 @@
                     } @else {
                       <h3 class="h6 mb-0">{{ group.label }}</h3>
                       <span class="badge text-bg-light">{{ group.cards.length }}</span>
+
+                      <!-- Dot controls (#25): my own dots always shown, totals only once open. -->
+                      @if (isVoting() || group.totalDots !== null) {
+                        <span class="badge text-bg-primary">
+                          @if (group.totalDots !== null) {
+                            {{ group.totalDots }}
+                          } @else {
+                            {{ group.myDots }}
+                          }
+                        </span>
+                      }
+                      @if (canRemoveDot(group)) {
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-secondary py-0"
+                          (click)="removeDot('Group', group)"
+                          [attr.aria-label]="('retro.takeBackDot' | t) + ': ' + group.label"
+                        >−</button>
+                      }
+                      @if (canAddDot(group)) {
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-primary py-0"
+                          (click)="addDot('Group', group)"
+                          [attr.aria-label]="('retro.spendDot' | t) + ': ' + group.label"
+                        >+</button>
+                      }
                       @if (canGroup()) {
                         <button
                           type="button"
@@ -255,6 +310,33 @@
                           }
                           @if (card.isMine) {
                             <span class="badge text-bg-light">{{ 'retro.mine' | t }}</span>
+                          }
+
+                          <!-- Dot controls (#25) on a loose card; themes carry their own above. -->
+                          @if (!card.groupId && (isVoting() || card.totalDots !== null)) {
+                            <span class="badge text-bg-primary">
+                              @if (card.totalDots !== null) {
+                                {{ card.totalDots }}
+                              } @else {
+                                {{ card.myDots }}
+                              }
+                            </span>
+                          }
+                          @if (!card.groupId && canRemoveDot(card)) {
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-secondary py-0"
+                              (click)="removeDot('Card', card)"
+                              [attr.aria-label]="('retro.takeBackDot' | t) + ': ' + card.text"
+                            >−</button>
+                          }
+                          @if (!card.groupId && canAddDot(card)) {
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-primary py-0"
+                              (click)="addDot('Card', card)"
+                              [attr.aria-label]="('retro.spendDot' | t) + ': ' + card.text"
+                            >+</button>
                           }
 
                           @if (canModify(card)) {

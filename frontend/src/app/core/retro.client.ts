@@ -15,6 +15,7 @@ import {
   RetroBoardSnapshotWire,
   RetroJoinResult,
   RetroTemplate,
+  RetroVoteTarget,
 } from './models';
 import { ConnectionStatus, RoomClientBase } from './room.client';
 
@@ -43,8 +44,13 @@ export function flattenBoard(wire: RetroBoardSnapshotWire): RetroBoardSnapshot {
     anonymous: wire.anonymous,
     canChangeAnonymity: wire.canChangeAnonymity,
     allowParticipantGrouping: wire.allowParticipantGrouping,
+    voteBudget: wire.voteBudget,
+    allowMultiplePerItem: wire.allowMultiplePerItem,
+    myDotsRemaining: wire.myDotsRemaining,
+    voteTotalsVisible: wire.voteTotalsVisible,
     columns: wire.columns,
     groups: wire.groups,
+    ranking: wire.ranking,
   };
 }
 
@@ -106,6 +112,24 @@ export interface IRetroClient {
   ungroupCard(shortCode: string, userId: string, cardId: string): Promise<RetroActionResult>;
   renameGroup(shortCode: string, userId: string, groupId: string, label: string): Promise<RetroActionResult>;
   setAllowParticipantGrouping(shortCode: string, userId: string, allowed: boolean): Promise<RetroActionResult>;
+  castVote(
+    shortCode: string,
+    userId: string,
+    kind: RetroVoteTarget,
+    targetId: string,
+  ): Promise<RetroActionResult>;
+  withdrawVote(
+    shortCode: string,
+    userId: string,
+    kind: RetroVoteTarget,
+    targetId: string,
+  ): Promise<RetroActionResult>;
+  setVoteBudget(
+    shortCode: string,
+    userId: string,
+    budget: number,
+    allowMultiplePerItem: boolean,
+  ): Promise<RetroActionResult>;
   closeBoard(shortCode: string, userId: string): Promise<RetroActionResult>;
   deleteBoard(shortCode: string, userId: string): Promise<RetroActionResult>;
   setPassword(shortCode: string, userId: string, password: string | null): Promise<RetroActionResult>;
@@ -311,6 +335,18 @@ export class SignalrRetroClient extends RoomClientBase implements IRetroClient {
 
   setAllowParticipantGrouping(shortCode: string, userId: string, allowed: boolean) {
     return this.action('SetAllowParticipantGrouping', shortCode, userId, allowed);
+  }
+
+  castVote(shortCode: string, userId: string, kind: RetroVoteTarget, targetId: string) {
+    return this.action('CastRetroVote', shortCode, userId, kind, targetId);
+  }
+
+  withdrawVote(shortCode: string, userId: string, kind: RetroVoteTarget, targetId: string) {
+    return this.action('WithdrawVote', shortCode, userId, kind, targetId);
+  }
+
+  setVoteBudget(shortCode: string, userId: string, budget: number, allowMultiplePerItem: boolean) {
+    return this.action('SetVoteBudget', shortCode, userId, budget, allowMultiplePerItem);
   }
 
   closeBoard(shortCode: string, userId: string) {
