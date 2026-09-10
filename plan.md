@@ -689,6 +689,34 @@ fact. Moving both routes from GET to POST is a breaking API change in principle,
 SPA ships from the same artifact and changes in lockstep, and a GET that could carry a
 password in its query string is exactly what §28 refused.
 
+## 31. Get the frontend bundle back under its budget — follow-up to §29
+
+**What.** Bring the initial bundle back under the 800 kB budget it had been quietly
+exceeding, by loading each tool on demand and dropping what the app never used.
+
+**Why.** `ng build` had been printing "bundle initial exceeded maximum budget" for
+several tasks — 889 kB before §28's export UI, 910 kB after. CI runs the production
+build but does not fail on a budget warning, so nobody was stopped by it. Everything was
+eagerly imported: a visitor to a poker table downloaded the retro board's grouping and
+dot-voting code, and a visitor to the picker downloaded both tools plus the realtime
+transport. The two tools deliberately share nothing but the room engine, which makes them
+the natural split.
+
+**Touch points.** `app.routes.ts` (`loadComponent` per tool page); a new
+`core/connection-status.service.ts` so the shell's connection badge no longer injects both
+tool clients; `angular.json` (`scripts`).
+
+**Approach.** Three changes, measured one at a time so each earns its place. (1) Lazy
+routes for the five tool pages, with the picker and the `/join` landing kept **eager** —
+they are the two cold entry points, and making an invite link wait on a chunk would put
+the latency in the worst place. (2) The shell's badge reads a registry that each tool
+client registers itself with, rather than injecting both clients: the shell stops knowing
+how many tools exist, and stops pulling their transport into the initial graph. (3) Drop
+`bootstrap.bundle.min.js` — nothing in the app uses Bootstrap's JavaScript; every modal,
+dropdown and collapse here is signal-driven markup, which is why the Esc handler is
+hand-written. **Do not raise the budget** to make the warning go away; if the number still
+does not fit after the split, argue for the new number.
+
 ---
 
 ## Cross-cutting notes

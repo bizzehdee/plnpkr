@@ -1,6 +1,7 @@
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { Subject } from 'rxjs';
-import { signal } from '@angular/core';
+import { inject, signal } from '@angular/core';
+import { ConnectionStatus, ConnectionStatusService } from './connection-status.service';
 import {
   ParticipantRole,
   ReactionEvent,
@@ -8,7 +9,7 @@ import {
   SessionSnapshotWire,
 } from './models';
 
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
+export type { ConnectionStatus };
 
 export interface PingResponse {
   reply: string;
@@ -77,6 +78,14 @@ export abstract class RoomClientBase {
   /** Set when the server reports the current room has ended (deleted, or retention-evicted). */
   readonly closed = this._closed.asReadonly();
   readonly reactions$ = this._reactions.asObservable();
+
+  /**
+   * Registers this client's status with the shell's badge (#31). A thunk, not the signal, because a
+   * base constructor runs before the subclass's field initialisers — the read happens later.
+   */
+  protected constructor() {
+    inject(ConnectionStatusService).register(() => this._status());
+  }
 
   get isConnected(): boolean {
     return this.connection?.state === HubConnectionState.Connected;

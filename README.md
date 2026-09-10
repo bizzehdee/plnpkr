@@ -167,7 +167,7 @@ pwsh backend/coverage-gate.ps1                   # prints the numbers and fails 
 pwsh backend/coverage-gate.ps1 -Threshold 0.95   # try a stricter bar
 ```
 
-### Frontend (Vitest + Angular TestBed) — 219 specs across 13 files
+### Frontend (Vitest + Angular TestBed) — 222 specs across 13 files
 
 ```bash
 cd frontend

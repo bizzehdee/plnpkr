@@ -10,7 +10,7 @@
       @if (showToolSwitcher()) {
         <a class="btn btn-sm btn-outline-secondary" routerLink="/">{{ 'platform.allTools' | t }}</a>
       }
-      <span class="badge {{ statusClass() }}">{{ statusLabel() }}</span>
+      <span id="connection-status" class="badge {{ statusClass() }}">{{ statusLabel() }}</span>
       <select
         class="form-select form-select-sm w-auto"
         [(ngModel)]="locale"

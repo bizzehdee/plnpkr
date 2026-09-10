@@ -172,6 +172,7 @@ into the TeamTools platform and add the second tool, Team Retro.
 | 28 | Retro export | S–M | 24, 25, 26 | BE + FE |
 | 29 | `README.md` & deploy | S | 17–28 | Docs |
 | 30 | Password-guard the poker round history | S | 12, 28 | BE + FE |
+| 31 | Get the frontend bundle back under its budget | S | 29 | FE |
 
 > **Why this order.** The ease-before-dependents rule still applies, but four hard
 > constraints dominate.
@@ -527,9 +528,9 @@ into the TeamTools platform and add the second tool, Team Retro.
 > copy the gap. Fixing it was a behavioural change to a shipped feature rather than a docs task, so it
 > was recorded here instead of being smuggled into the last commit — and is now **closed by #30**.
 
-> **The bundle is over its 800 kB budget (906 kB).** Pre-existing and unrelated to #28/#29 — it was
-> 889 kB before the export UI. Worth a task of its own (lazy-load the two tools' routes), not a
-> silently raised budget.
+> **The bundle was over its 800 kB budget (906 kB).** Pre-existing and unrelated to #28/#29 — it was
+> 889 kB before the export UI. Worth a task of its own (lazy-load the two tools' routes) rather than a
+> silently raised budget — now **closed by #31**, at 690 kB.
 
 ## 30. Password-guard the poker round history  `S`  — follow-up to #12/#28  ✅ done
 **Found while implementing #28, deferred at #29, closed here.**
@@ -557,3 +558,47 @@ into the TeamTools platform and add the second tool, Team Retro.
 > **#12's export JSON keeps its PascalCase casing.** It was tempting to align it with #28's
 > camelCase while touching the file, but nothing parses that payload — changing a shipped file
 > format to match a convention no reader applies would be churn, not consistency.
+
+## 31. Get the frontend bundle back under its budget  `S`  — follow-up to #29  ✅ done
+**Recorded as over-budget at #29, closed here. Measured after each change, not once at the end.**
+
+| | initial raw | transfer |
+| --- | --- | --- |
+| before | **909.75 kB** | 181.54 kB |
+| + lazy tool routes | 775.40 kB | 161.43 kB |
+| + connection-status registry | 770.68 kB | 160.12 kB |
+| + drop Bootstrap's JS | **690.23 kB** | **138.52 kB** |
+
+- [x] `loadComponent` for the five tool pages; the picker and `/join/:shortCode` stay **eager** as the two cold entry points. Largest lazy chunk: the poker table at 74.9 kB.
+- [x] `core/connection-status.service.ts`: each tool client registers its status as it is constructed, so the shell's badge no longer injects both clients. The shell no longer knows how many tools exist.
+- [x] Dropped `bootstrap.bundle.min.js` from `angular.json` — **nothing used it**. No `data-bs-toggle`/`-dismiss`/`-target` anywhere, and no `bootstrap.*` JS API call; the only `data-bs-` in the repo is `data-bs-theme`, which is CSS. 80.45 kB raw / 21.60 kB transfer of dead weight.
+- [x] Budget left at 800 kB. Headroom is now ~110 kB.
+- [x] Verified in a real browser as well as by the suite: modal open, Esc-to-close, the header dropdown, the theme toggle, and the connection badge reading "connected" through the new registry. The shell spec grew from 3 specs to 6 — see below. 222 frontend specs.
+
+> **The Bootstrap JS bundle was 12% of the initial payload and was never called.** Every modal,
+> dropdown and collapse in this app is signal-driven markup — which is *why* the session page has a
+> hand-written `@HostListener('document:keydown.escape')`. Bootstrap's CSS is still needed and still
+> loaded; only the JS went.
+
+> **`@microsoft/signalr` is still in the initial bundle (57 kB), deliberately.** Lazy routes moved
+> both tool clients out, and the shell no longer pins them — but `/join/:shortCode` is eager and
+> joins the room over the poker hub before navigating, so it pulls the transport back in. Making the
+> join page lazy would trade a round-trip on the *high-intent* path (an invite link) for bytes on the
+> browsing path, which is the wrong direction. Left as-is.
+>
+> Noticed while looking: the join page joins **every** room over the *poker* hub, including retro
+> rooms, and then navigates to the retro board, which rejoins on arrival. That looks redundant at
+> best. Not touched here — it is a behavioural question about the join flow, not a bundle one.
+
+> **The i18n catalogs were left eager, on the numbers.** Four locales inline are 100 kB of source,
+> and splitting the three non-English ones behind dynamic imports was the obvious next cut. But
+> translation strings compress: those three are **76.3 kB raw and 17.9 kB gzipped**. Buying ~18 kB of
+> transfer would mean making `setLocale` async, awaiting a chunk before bootstrap for non-English
+> users, and giving the app's most-depended-on service a new failure mode (a failed fetch silently
+> renders English). Bad trade at this size. Revisit if a fifth and sixth locale land.
+
+> **The shell spec was passing for the wrong reason, and the registry exposed it.** It provided a
+> fake poker client and asserted the page's whole `textContent` contained `"connected"` — which is
+> true of `"disconnected"` too, and of `"desconectado"` for `"conectado"`. So it would have passed
+> whatever the badge said. It now asserts the badge element's exact text (via a new
+> `id="connection-status"`), and covers all three states including the multi-tool fold.

@@ -380,7 +380,9 @@ narrow, tested, and the only write permitted on a closed room.
                                    RoomClosed event, reactions — everything true of any tool's hub
              poker.client.ts       SignalrRealtimeClient : RoomClientBase, behind IRealtimeClient
              retro.client.ts       SignalrRetroClient    : RoomClientBase, behind IRetroClient
-             retro-export.service.ts  the export POST + object-URL download (#28)
+             connection-status.service.ts  the shell's badge, fed by whichever clients exist (#31)
+             export-transport.ts   the shared export POST + object-URL download (#28/#30)
+             retro-export.service.ts, session-export.service.ts   per-tool export payloads
              models.ts             wire types + the flat view models, with the mappers between them
              localStorage services (identity, membership, theme, decks, tracker), i18n service
   pages/     home     (platform tool picker)
@@ -394,10 +396,20 @@ Routes are `/`, `/join/:shortCode`, `/poker/:shortCode`, `/retro/:shortCode`,
 **permanent redirect** to `/poker/:shortCode` so invite links already sitting in people's calendars
 keep working.
 
+**Each tool loads on demand (#31).** The five tool pages are `loadComponent` routes; the picker and
+the `/join` landing stay eager, because they are the two cold entry points and making an invite link
+wait on a chunk would put the latency in the worst place. The tools sharing nothing but the room
+engine is what makes them clean split points — and it is why the shell's connection badge reads a
+**registry** each client registers itself with, rather than injecting every tool's client: otherwise
+the shell would have to know how many tools there are, and the picker would download a realtime
+transport it never uses.
+
 SignalR sits behind a per-tool interface (`IRealtimeClient` / `IRetroClient`) so components test
 against a fake, with no live socket. Component specs (Angular TestBed + fake client) assert
 user-visible behaviour. Zoneless, standalone components with Angular signals; Bootstrap 5 with native
-color modes for theming.
+color modes for theming — **its CSS only**: nothing here uses Bootstrap's JavaScript, so the bundle
+is not loaded (#31). Every modal, dropdown and collapse is signal-driven markup, which is why the
+session page has a hand-written Esc handler rather than relying on Bootstrap's.
 
 > **Design correction (#19–#21): there are no reducers, and the poker table did not move.** This
 > document specified "pure reducer functions (event + state → new state), unit-tested directly". The
@@ -452,8 +464,9 @@ Coverage is a guardrail; every test maps to a behaviour. The gate was also the s
 refactor, which landed with the suite green and no behavioural change. It runs in CI as well as
 locally (`./run.sh test`).
 
-As of task #30 that is **633 backend tests** (Core 509, Integrations 40, Data 35, Api 49) and **219
-frontend specs**, with `TeamTools.Core` at ~96% line / ~92% branch.
+As of task #31 that is **633 backend tests** (Core 509, Integrations 40, Data 35, Api 49) and **222
+frontend specs**, with `TeamTools.Core` at ~96% line / ~92% branch. The production bundle is 690 kB
+initial (138 kB transfer) against an 800 kB budget.
 
 ## Deployment & hosting
 

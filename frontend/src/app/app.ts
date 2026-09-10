@@ -3,9 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterOutlet, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
-import { SignalrRealtimeClient } from './core/poker.client';
-import { SignalrRetroClient } from './core/retro.client';
-import { ConnectionStatus } from './core/room.client';
+import { ConnectionStatusService } from './core/connection-status.service';
 import { ThemeService } from './core/theme.service';
 import { I18nService, Locale } from './core/i18n.service';
 import { TranslatePipe } from './core/translate.pipe';
@@ -17,22 +15,15 @@ import { TranslatePipe } from './core/translate.pipe';
   styleUrl: './app.scss',
 })
 export class App {
-  private readonly poker = inject(SignalrRealtimeClient);
-  private readonly retro = inject(SignalrRetroClient);
   private readonly theme = inject(ThemeService);
   private readonly i18n = inject(I18nService);
 
   /**
-   * The badge reports the tool the viewer is actually in. Each tool has its own hub connection
-   * (#21), so watching only poker's would read "disconnected" on a live retro board. Whichever
-   * client is doing something wins; on the picker neither is connected, which is the truth.
+   * The badge reports the tool the viewer is actually in. Each tool registers its own hub
+   * connection with the status service as its page loads (#21/#31), so the shell does not have to
+   * know how many tools there are — or pull their realtime transport into the initial bundle.
    */
-  protected readonly status = computed<ConnectionStatus>(() => {
-    const statuses = [this.poker.status(), this.retro.status()];
-    if (statuses.includes('connected')) return 'connected';
-    if (statuses.includes('connecting')) return 'connecting';
-    return 'disconnected';
-  });
+  protected readonly status = inject(ConnectionStatusService).status;
 
   protected readonly themePreference = this.theme.preference;
 
