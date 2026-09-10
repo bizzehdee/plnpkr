@@ -32,16 +32,18 @@ describe('HomePage (tool picker)', () => {
     expect(link).toBeTruthy();
   });
 
-  it('presents the unbuilt tool as unavailable rather than as a dead link', () => {
-    // A card that navigates nowhere is worse than one that says so. Until #21 ships the retro
-    // tool, its action is a real disabled button with an explanation, not a styled-dead anchor.
+  it('links Team Retro to its create route now that the tool ships', () => {
+    // Was a disabled button with an explanation until #21 built the tool.
     const el = render();
 
-    expect(el.querySelector('a[href^="/retro"]')).toBeNull();
-    const disabled = el.querySelector<HTMLButtonElement>('button[disabled]');
-    expect(disabled).toBeTruthy();
-    expect(disabled!.getAttribute('aria-describedby')).toBe('retro-unavailable');
-    expect(el.querySelector('#retro-unavailable')?.textContent).toContain('Not available yet');
+    expect(el.querySelector<HTMLAnchorElement>('a[href="/retro/new"]')).toBeTruthy();
+  });
+
+  it('offers every tool as a real link, with nothing left unavailable', () => {
+    const el = render();
+
+    expect(el.querySelectorAll('a.btn').length).toBe(2);
+    expect(el.querySelector('button[disabled]')).toBeNull();
   });
 
   it('renders the tools as a list so their number is announced', () => {

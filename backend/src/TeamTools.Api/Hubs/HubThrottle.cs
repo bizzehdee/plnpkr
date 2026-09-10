@@ -15,6 +15,8 @@ public sealed class HubThrottle
     {
         public int CreatePerMinute { get; init; } = 10;
         public int JoinPerMinute { get; init; } = 30;
+        /// <summary>Retro card adds (#21). Generous: a brainstorm is genuinely fast typing.</summary>
+        public int CardsPerMinute { get; init; } = 60;
     }
 
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
@@ -34,6 +36,9 @@ public sealed class HubThrottle
 
     /// <summary>Records a join attempt for the connection; false when over the per-minute limit.</summary>
     public bool TryJoin(string connectionId) => Try($"{connectionId}:join", _options.JoinPerMinute);
+
+    /// <summary>Records a retro card add; false when over the per-minute limit. See #21.</summary>
+    public bool TryAddCard(string connectionId) => Try($"{connectionId}:card", _options.CardsPerMinute);
 
     private bool Try(string key, int max)
     {
@@ -61,5 +66,6 @@ public sealed class HubThrottle
     {
         _hits.TryRemove($"{connectionId}:create", out _);
         _hits.TryRemove($"{connectionId}:join", out _);
+        _hits.TryRemove($"{connectionId}:card", out _);
     }
 }

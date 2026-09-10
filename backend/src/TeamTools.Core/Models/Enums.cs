@@ -10,6 +10,22 @@ public enum RoomTool
     Retro,
 }
 
+/// <summary>
+/// The built-in retro column layouts a board can start from (#21). Resolved server-side by
+/// <c>RetroTemplateCatalog</c> so every client agrees, exactly as decks are.
+/// </summary>
+public enum RetroTemplate
+{
+    /// <summary>Went well / To improve / Action items — the default.</summary>
+    WentWellToImprove,
+    StartStopContinue,
+    /// <summary>Liked / Learned / Lacked / Longed for.</summary>
+    FourLs,
+    MadSadGlad,
+    /// <summary>Columns supplied at creation.</summary>
+    Custom,
+}
+
 /// <summary>The built-in estimation card sets a poker round can use. See #32.</summary>
 public enum DeckType
 {

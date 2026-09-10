@@ -290,16 +290,37 @@ into the TeamTools platform and add the second tool, Team Retro.
 > action until #21 ships the tool. Listing it makes the platform's shape clear; linking it would
 > advertise something a visitor cannot use.
 
-## 21. Retro board: model, creation, cards  `L`  — depends on #19, #20
+## 21. Retro board: model, creation, cards  `L`  — depends on #19, #20  ✅ done
 **Foundation for #22–#28.**
-- [ ] `TeamTools.Retro`: `RetroBoard`, `RetroColumn`, `RetroCard`, `RetroTemplateCatalog` (Went well/To improve/Actions, Start-Stop-Continue, 4Ls, Mad-Sad-Glad, Custom — mirroring `DeckCatalog`), `RetroService`.
-- [ ] `RetroSnapshots.cs` embedding `RoomSnapshot`; mirror in `core/models.ts`.
-- [ ] `RetroHub`: `AddCard`, `EditCard`, `DeleteCard`, `MoveCard`, `SetTemplate`; author-or-organiser authz on edit/delete.
-- [ ] Card text length cap + adds rate-limited through the #3 token bucket.
-- [ ] EF migration ×3.
-- [ ] `pages/retro/retro.page.*` + `core/retro.client.ts`; inline card editing follows the #10 note conventions.
-- [ ] a11y + i18n: cards and column controls keyboard-operable (#4); template labels and all copy in the catalogs (#5).
-- [ ] Tests: card CRUD + move broadcast; non-author non-organiser cannot edit/delete; template catalog; custom columns.
+- [x] `Core/Models/Retro/RetroBoard.cs` (`RetroBoard`, `RetroColumn`, `RetroCard`) + `Core/Retro/RetroTemplateCatalog.cs` (Went well/To improve/Actions, Start-Stop-Continue, 4Ls, Mad-Sad-Glad, Custom — mirroring `DeckCatalog`) + `Core/Retro/RetroService.cs`. Columns are **materialised** from the template at creation, not resolved per read, because a card belongs to a column and a custom layout has to persist.
+- [x] `Contracts/RetroSnapshots.cs` embedding `RoomSnapshot`; mirrored in `core/models.ts` as `RetroBoardSnapshotWire` + the flat `RetroBoardSnapshot`.
+- [x] `RetroHub`: `AddCard`, `EditCard`, `DeleteCard`, `MoveCard`, `SetTemplate` (+ the room-level surface); author-or-organiser authz on edit/delete/move, so a facilitator can moderate.
+- [x] Card text capped at 500 chars (`RetroService.MaxCardLength`, enforced server-side and mirrored as the input's `maxlength`) and adds rate-limited by a new `HubThrottle.TryAddCard` window (#3) — cards are the one high-frequency write on a board.
+- [x] EF migration ×3 (purely additive: `RetroBoard`, `RetroColumn`, `RetroCard`).
+- [x] `pages/retro/create` + `pages/retro/board` + `core/retro.client.ts` (`flattenBoard`, sharing `RoomClientBase` with poker); the picker's retro card is now a live link.
+- [x] a11y + i18n: columns and cards render as nested lists (so counts are announced), changes go through an `aria-live` region, and **every card carries a keyboard "move to column" select** — the drag-and-drop in #24 lands on top of that, never instead of it. 47 strings × en/es/pt/pl.
+- [x] Tests: 49 new backend (`RetroBoardTests`, `RetroTemplateCatalogTests`, `RetroRoomOperationsTests`, 3 in `EfRoomStoreTests`) and 14 new frontend (`retro.page.spec.ts`). Backend **455**, frontend **141**, coverage gate **94.6% line / 90.9% branch**.
+
+> **Broadcasts are per connection, not per group.** A retro snapshot depends on who receives it —
+> authorship under anonymity (#22), hidden collection (#23) — so `RetroHub.BroadcastBoard` projects
+> the board per viewer and sends each connection its own copy, using a new
+> `ConnectionRegistry.InRoom`. That is the cost of making those properties of the wire rather than
+> of the UI, and it is why the retro event is `BoardUpdated` per client rather than a group send.
+
+> **Two bugs the unit tests could not have found**, both caught by driving the real app in a browser:
+> 1. **Every card add failed** with `DbUpdateConcurrencyException`. `RetroService` assigns card ids
+>    itself (it is pure, and the in-memory fake generates nothing), and without
+>    `ValueGeneratedNever()` EF reads a non-default `Guid` key on an entity added to an
+>    *already-tracked* room as proof the row exists — so it issued an `UPDATE` matching zero rows
+>    instead of an insert. Board *creation* hid it, because a brand-new graph is `Added` wholesale.
+>    Now configured explicitly and covered by an `EfRoomStoreTests` regression against real SQLite.
+> 2. **Creating a board bounced the facilitator to the join gate**, because the create flow never
+>    remembered the seat. The board page now short-circuits when it already holds the board (the
+>    poker table's rule) and remembers `shortCode → role` through an effect.
+>
+> Also fixed a smaller thing the split introduced: the shell's connection badge watched only the
+> poker client, so it read "disconnected" on a live retro board. It now reports whichever tool
+> client is actually connected.
 
 ## 22. Retro anonymity  `S–M`  — depends on #21
 **Before #23–#28: it is a snapshot-contract property, not a UI toggle.**

@@ -2,6 +2,8 @@ import { Routes } from '@angular/router';
 import { HomePage } from './pages/home/home.page';
 import { JoinPage } from './pages/join/join.page';
 import { PokerCreatePage } from './pages/poker/create/poker-create.page';
+import { RetroCreatePage } from './pages/retro/create/retro-create.page';
+import { RetroPage } from './pages/retro/board/retro.page';
 import { SessionPage } from './pages/session/session.page';
 
 /**
@@ -17,7 +19,9 @@ export const routes: Routes = [
   { path: 'poker/new', component: PokerCreatePage, title: 'New planning poker session' },
   { path: 'poker/:shortCode', component: SessionPage, title: 'Planning poker' },
 
-  // Team Retro routes land here in #21.
+  // Team Retro.
+  { path: 'retro/new', component: RetroCreatePage, title: 'New team retro' },
+  { path: 'retro/:shortCode', component: RetroPage, title: 'Team retro' },
 
   // Legacy single-tool paths.
   { path: 'session/:shortCode', redirectTo: 'poker/:shortCode', pathMatch: 'full' },

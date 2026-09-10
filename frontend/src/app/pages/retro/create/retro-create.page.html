@@ -1,0 +1,101 @@
+<main class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h1 class="h4 mb-3">{{ 'retro.create.title' | t }}</h1>
+
+          @if (error()) {
+            <div class="alert alert-danger" role="alert">{{ error() }}</div>
+          }
+
+          <form (ngSubmit)="create()">
+            <div class="mb-3">
+              <label class="form-label" for="boardName">{{ 'retro.create.boardName' | t }}</label>
+              <input
+                id="boardName"
+                name="boardName"
+                class="form-control"
+                [(ngModel)]="boardName"
+                [placeholder]="'retro.create.boardNamePlaceholder' | t"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="displayName">{{ 'retro.create.yourName' | t }}</label>
+              <input
+                id="displayName"
+                name="displayName"
+                class="form-control"
+                [(ngModel)]="displayName"
+                [placeholder]="'retro.create.yourNamePlaceholder' | t"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="template">{{ 'retro.create.template' | t }}</label>
+              <select id="template" name="template" class="form-select" [(ngModel)]="template">
+                @for (opt of templateOptions(); track opt[0]) {
+                  <option [value]="opt[0]">{{ opt[1] }}</option>
+                }
+              </select>
+            </div>
+
+            @if (template === 'Custom') {
+              <div class="mb-3">
+                <label class="form-label" for="customColumns">
+                  {{ 'retro.create.customColumns' | t }}
+                </label>
+                <input
+                  id="customColumns"
+                  name="customColumns"
+                  class="form-control"
+                  [(ngModel)]="customColumns"
+                  [placeholder]="'retro.create.customColumnsPlaceholder' | t"
+                  aria-describedby="customColumnsHelp"
+                  autocomplete="off"
+                />
+                <div id="customColumnsHelp" class="form-text">
+                  {{ 'retro.create.customColumnsHelp' | t }}
+                </div>
+              </div>
+            }
+
+            <div class="form-check mb-3">
+              <input
+                id="facilitate"
+                name="facilitate"
+                type="checkbox"
+                class="form-check-input"
+                [(ngModel)]="facilitate"
+              />
+              <label class="form-check-label" for="facilitate">
+                {{ 'retro.create.facilitate' | t }}
+              </label>
+              <div class="form-text">{{ 'retro.create.facilitateHelp' | t }}</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="password">{{ 'retro.create.password' | t }}</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                class="form-control"
+                [(ngModel)]="password"
+                [placeholder]="'retro.create.passwordPlaceholder' | t"
+                autocomplete="new-password"
+              />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100" [disabled]="busy()">
+              {{ (busy() ? 'common.connecting' : 'retro.create.submit') | t }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>

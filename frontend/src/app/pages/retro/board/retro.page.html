@@ -1,0 +1,179 @@
+<main class="container-fluid py-4">
+  <!-- Screen-reader announcements for board changes (#4). -->
+  <div class="visually-hidden" aria-live="polite" role="status">{{ announcement() }}</div>
+
+  @if (closed()) {
+    <div class="container">
+      <div class="alert alert-warning" role="alert">{{ 'retro.closedGone' | t }}</div>
+    </div>
+  } @else if (board(); as b) {
+    <div class="container-fluid px-0">
+      <header class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <h1 class="h4 mb-0">{{ b.name }}</h1>
+        <span class="badge text-bg-secondary">{{ templateLabel() }}</span>
+        @if (b.isClosed) {
+          <span class="badge text-bg-warning">{{ 'retro.readOnly' | t }}</span>
+        }
+        <span class="text-body-secondary small ms-auto">
+          {{ 'retro.cardCount' | t }}: {{ cardCount() }}
+        </span>
+        <span class="text-body-secondary small">
+          {{ 'retro.participantCount' | t }}: {{ b.participants.length }}
+        </span>
+      </header>
+
+      @if (error()) {
+        <div class="alert alert-danger d-flex align-items-center gap-2" role="alert">
+          <span class="flex-grow-1">{{ error() }}</span>
+          <button type="button" class="btn-close" (click)="dismissError()"
+                  [attr.aria-label]="'common.close' | t"></button>
+        </div>
+      }
+
+      <!--
+        The columns are a list of lists: a screen reader announces how many columns there are and
+        how many cards each holds, which is the structure a sighted user gets from the layout (#4).
+      -->
+      <ul class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 list-unstyled mb-0">
+        @for (column of b.columns; track column.id) {
+          <li class="col">
+            <section class="card h-100" [attr.aria-labelledby]="'col-' + column.id">
+              <div class="card-header d-flex align-items-center gap-2">
+                <h2 class="h6 mb-0" [id]="'col-' + column.id">{{ column.title }}</h2>
+                <span class="badge text-bg-light ms-auto">{{ column.cards.length }}</span>
+              </div>
+
+              <div class="card-body d-flex flex-column gap-2">
+                @if (column.cards.length === 0) {
+                  <p class="text-body-secondary small mb-0">{{ 'retro.emptyColumn' | t }}</p>
+                }
+
+                <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
+                  @for (card of column.cards; track card.id) {
+                    <li class="border rounded p-2">
+                      @if (editingCard() === card.id) {
+                        <label class="visually-hidden" [attr.for]="'edit-' + card.id">
+                          {{ 'retro.editCard' | t }}
+                        </label>
+                        <textarea
+                          [id]="'edit-' + card.id"
+                          class="form-control form-control-sm mb-2"
+                          rows="3"
+                          [maxlength]="maxCardLength"
+                          [(ngModel)]="editDraft"
+                          [name]="'edit-' + card.id"
+                        ></textarea>
+                        <div class="d-flex gap-2">
+                          <button type="button" class="btn btn-sm btn-primary" (click)="saveEdit(card)">
+                            {{ 'common.save' | t }}
+                          </button>
+                          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEdit()">
+                            {{ 'common.cancel' | t }}
+                          </button>
+                        </div>
+                      } @else {
+                        <p class="mb-1" style="white-space: pre-wrap">{{ card.text }}</p>
+                        <div class="d-flex align-items-center gap-2 small text-body-secondary">
+                          @if (card.authorDisplayName) {
+                            <span>{{ card.authorDisplayName }}</span>
+                          }
+                          @if (card.isMine) {
+                            <span class="badge text-bg-light">{{ 'retro.mine' | t }}</span>
+                          }
+
+                          @if (canModify(card)) {
+                            <div class="ms-auto d-flex gap-1">
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-link p-0"
+                                (click)="startEdit(card)"
+                              >
+                                {{ 'retro.editCard' | t }}
+                              </button>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-link p-0 text-danger"
+                                (click)="deleteCard(card)"
+                              >
+                                {{ 'retro.deleteCard' | t }}
+                              </button>
+                            </div>
+                          }
+                        </div>
+
+                        @if (canModify(card) && otherColumns(card).length > 0) {
+                          <!--
+                            The keyboard equivalent of dragging (#4). Present from the start, so the
+                            drag support added in #24 is an addition rather than the only way.
+                          -->
+                          <div class="mt-2">
+                            <label class="visually-hidden" [attr.for]="'move-' + card.id">
+                              {{ 'retro.moveTo' | t }}
+                            </label>
+                            <select
+                              [id]="'move-' + card.id"
+                              class="form-select form-select-sm"
+                              (change)="moveCard(card, $any($event.target).value); $any($event.target).value = ''"
+                            >
+                              <option value="" selected>{{ 'retro.moveTo' | t }}…</option>
+                              @for (target of otherColumns(card); track target.id) {
+                                <option [value]="target.id">{{ target.title }}</option>
+                              }
+                            </select>
+                          </div>
+                        }
+                      }
+                    </li>
+                  }
+                </ul>
+
+                @if (!b.isClosed) {
+                  <div class="mt-auto">
+                    @if (composingIn() === column.id) {
+                      <label class="visually-hidden" [attr.for]="'new-' + column.id">
+                        {{ 'retro.newCardIn' | t }} {{ column.title }}
+                      </label>
+                      <textarea
+                        [id]="'new-' + column.id"
+                        class="form-control form-control-sm mb-2"
+                        rows="3"
+                        [maxlength]="maxCardLength"
+                        [placeholder]="'retro.newCardPlaceholder' | t"
+                        [(ngModel)]="draft"
+                        [name]="'new-' + column.id"
+                      ></textarea>
+                      <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-primary" (click)="addCard(column)">
+                          {{ 'common.add' | t }}
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-secondary"
+                          (click)="cancelComposer()"
+                        >
+                          {{ 'common.close' | t }}
+                        </button>
+                      </div>
+                    } @else {
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-primary w-100"
+                        (click)="openComposer(column.id)"
+                      >
+                        + {{ 'retro.addCard' | t }}
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            </section>
+          </li>
+        }
+      </ul>
+    </div>
+  } @else {
+    <div class="container">
+      <p class="text-body-secondary">{{ 'common.loading' | t }}</p>
+    </div>
+  }
+</main>

@@ -38,9 +38,7 @@ export class HomePage {
       blurbKey: 'tool.retro.blurb',
       bulletKeys: ['tool.retro.point1', 'tool.retro.point2', 'tool.retro.point3'],
       icon: '🔄',
-      // Not yet built (#21–#28). Listed but not linked: a card that navigates nowhere useful is
-      // worse than one that says plainly it isn't ready.
-      route: null,
+      route: '/retro/new',
     },
   ];
 }

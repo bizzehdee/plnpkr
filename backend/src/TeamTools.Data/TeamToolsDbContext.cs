@@ -37,10 +37,16 @@ public class TeamToolsDbContext : DbContext
                 .HasForeignKey(p => p.RoomId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // The tool payload: one-to-one, sharing the room's primary key, cascading with the room.
+            // The tool payloads: one-to-one, sharing the room's primary key, cascading with the room.
+            // Exactly one is non-null, per Tool.
             e.HasOne(r => r.PokerRound)
                 .WithOne(p => p.Room!)
                 .HasForeignKey<PokerRound>(p => p.RoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(r => r.RetroBoard)
+                .WithOne(b => b.Room!)
+                .HasForeignKey<RetroBoard>(b => b.RoomId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Soft delete (#26): a deleted room is hidden from every query.
@@ -87,6 +93,57 @@ public class TeamToolsDbContext : DbContext
                 .WithOne(r => r.Round!)
                 .HasForeignKey(r => r.RoomId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- RetroBoard: the retrospective payload (#21) --------------------
+        modelBuilder.Entity<RetroBoard>(e =>
+        {
+            e.HasKey(b => b.RoomId);
+            e.Property(b => b.Template).HasConversion<string>().HasMaxLength(32);
+
+            e.HasMany(b => b.Columns)
+                .WithOne(c => c.Board!)
+                .HasForeignKey(c => c.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(b => b.Cards)
+                .WithOne(c => c.Board!)
+                .HasForeignKey(c => c.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RetroColumn>(e =>
+        {
+            e.HasKey(c => c.Id);
+            // The domain assigns these ids (RetroService), so EF must not treat a set key as proof
+            // the row already exists — see the note on RetroCard.Id below.
+            e.Property(c => c.Id).ValueGeneratedNever();
+            e.Property(c => c.Title).IsRequired().HasMaxLength(60);
+            e.HasIndex(c => c.BoardId);
+
+            // A card's column is set by the client, so the relationship is explicit. NoAction (not
+            // Cascade): the card already cascades from the board, and a second cascade path to the
+            // same rows is what SQL Server rejects as a multiple-cascade-path cycle.
+            e.HasMany(c => c.Cards)
+                .WithOne(card => card.Column!)
+                .HasForeignKey(card => card.ColumnId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<RetroCard>(e =>
+        {
+            e.HasKey(c => c.Id);
+            // `RetroService` assigns card ids itself (it is pure and testable against an in-memory
+            // store, which generates nothing). Without ValueGeneratedNever, EF sees a non-default
+            // Guid key on an entity added to an *already-tracked* room and infers the row exists,
+            // issuing an UPDATE that matches nothing — a DbUpdateConcurrencyException instead of an
+            // insert. Creation happened to work because a whole new graph is Added wholesale.
+            e.Property(c => c.Id).ValueGeneratedNever();
+            e.Property(c => c.AuthorUserId).IsRequired().HasMaxLength(64);
+            // Matches RetroService.MaxCardLength — the service rejects longer text before it gets here.
+            e.Property(c => c.Text).IsRequired().HasMaxLength(500);
+            e.HasIndex(c => c.BoardId);
+            e.HasIndex(c => c.ColumnId);
         });
 
         modelBuilder.Entity<RoundResult>(e =>

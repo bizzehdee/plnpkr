@@ -270,5 +270,117 @@ public sealed class EfRoomStoreTests : IDisposable
         (await store.AreReactionsEnabledAsync("nope-nope-9")).Should().BeFalse();
     }
 
+    // --- Retro boards (#21) -------------------------------------------------
+
+    private static Room NewRetroRoom(string shortCode)
+    {
+        var roomId = Guid.NewGuid();
+        return new Room
+        {
+            Id = roomId,
+            ShortCode = shortCode,
+            Name = "Sprint 24 retro",
+            Tool = RoomTool.Retro,
+            OrganiserUserId = "u1",
+            CreatedAt = DateTimeOffset.UnixEpoch,
+            LastActivityAt = DateTimeOffset.UnixEpoch,
+            Participants =
+            {
+                new Participant
+                {
+                    UserId = "u1",
+                    DisplayName = "Alice",
+                    NormalizedName = "alice",
+                    IsOrganiser = true,
+                    Role = ParticipantRole.Observer,
+                    IsConnected = true,
+                },
+            },
+            RetroBoard = new RetroBoard
+            {
+                RoomId = roomId,
+                Template = RetroTemplate.WentWellToImprove,
+                Columns =
+                {
+                    new RetroColumn { Id = Guid.NewGuid(), BoardId = roomId, Title = "Went well", Order = 0 },
+                    new RetroColumn { Id = Guid.NewGuid(), BoardId = roomId, Title = "To improve", Order = 1 },
+                },
+            },
+        };
+    }
+
+    [Fact]
+    public async Task Add_then_find_round_trips_a_retro_board_with_its_columns()
+    {
+        await new EfRoomStore(NewContext()).AddAsync(NewRetroRoom("retro-1"));
+
+        var loaded = await new EfRoomStore(NewContext()).FindByShortCodeAsync("retro-1");
+
+        loaded!.Tool.Should().Be(RoomTool.Retro);
+        loaded.PokerRound.Should().BeNull("a retro room has no poker payload");
+        loaded.RetroBoard!.Columns.OrderBy(c => c.Order).Select(c => c.Title)
+            .Should().Equal("Went well", "To improve");
+    }
+
+    [Fact]
+    public async Task A_card_added_to_an_already_loaded_board_is_inserted()
+    {
+        // Regression: the domain assigns card ids, and without ValueGeneratedNever EF reads a set
+        // Guid key on an entity added to an already-tracked room as proof the row exists — issuing
+        // an UPDATE that matches nothing and throwing DbUpdateConcurrencyException. Creation hid it,
+        // because a brand-new graph is Added wholesale. Only a real database shows this.
+        var room = NewRetroRoom("retro-2");
+        await new EfRoomStore(NewContext()).AddAsync(room);
+
+        var store = new EfRoomStore(NewContext());
+        var loaded = await store.FindByShortCodeAsync("retro-2");
+        var columnId = loaded!.RetroBoard!.Columns.First().Id;
+        loaded.RetroBoard.Cards.Add(new RetroCard
+        {
+            Id = Guid.NewGuid(),
+            BoardId = loaded.Id,
+            ColumnId = columnId,
+            AuthorUserId = "u1",
+            Text = "Deploys got faster",
+            CreatedAt = DateTimeOffset.UnixEpoch,
+            Order = 0,
+        });
+
+        await store.UpdateAsync(loaded);
+
+        var reloaded = await new EfRoomStore(NewContext()).FindByShortCodeAsync("retro-2");
+        reloaded!.RetroBoard!.Cards.Should().ContainSingle()
+            .Which.Text.Should().Be("Deploys got faster");
+    }
+
+    [Fact]
+    public async Task Removing_a_retro_room_cascades_to_its_board_columns_and_cards()
+    {
+        var room = NewRetroRoom("retro-3");
+        await new EfRoomStore(NewContext()).AddAsync(room);
+
+        var adding = new EfRoomStore(NewContext());
+        var loaded = await adding.FindByShortCodeAsync("retro-3");
+        loaded!.RetroBoard!.Cards.Add(new RetroCard
+        {
+            Id = Guid.NewGuid(),
+            BoardId = loaded.Id,
+            ColumnId = loaded.RetroBoard.Columns.First().Id,
+            AuthorUserId = "u1",
+            Text = "Going away",
+            CreatedAt = DateTimeOffset.UnixEpoch,
+        });
+        await adding.UpdateAsync(loaded);
+
+        var removing = new EfRoomStore(NewContext());
+        await removing.RemoveAsync((await removing.FindByShortCodeAsync("retro-3"))!);
+
+        using var ctx = NewContext();
+        ctx.Rooms.Any(r => r.ShortCode == "retro-3").Should().BeFalse();
+        ctx.Set<RetroCard>().Any().Should().BeFalse();
+        ctx.Set<RetroColumn>().Any().Should().BeFalse();
+        ctx.Set<RetroBoard>().Any().Should().BeFalse();
+    }
+
     public void Dispose() => _connection.Dispose();
 }

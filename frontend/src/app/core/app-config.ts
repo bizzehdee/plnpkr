@@ -1,12 +1,15 @@
+/** The tools' SignalR hubs — one per tool, both room-scoped (#19). */
+export type HubName = 'poker' | 'retro';
+
 /**
- * Resolves the SignalR hub URL.
+ * Resolves a SignalR hub URL.
  *
  * In production the SPA is served from the same origin as the API, so a relative path works.
  * During development (`ng serve` on :4200) the API runs separately on :5210.
  * See #12.
  */
-export function resolveHubUrl(): string {
-  return `${resolveApiBase()}/hubs/poker`;
+export function resolveHubUrl(hub: HubName = 'poker'): string {
+  return `${resolveApiBase()}/hubs/${hub}`;
 }
 
 /** Optional runtime config injected by public/config.js (editable per-deploy, no rebuild). */

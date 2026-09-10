@@ -96,7 +96,11 @@ public class EfRoomStore : IRoomStore, IPokerRoundStore
         rooms
             .Include(r => r.Participants)
             .Include(r => r.PokerRound)
-                .ThenInclude(p => p!.RoundResults);
+                .ThenInclude(p => p!.RoundResults)
+            .Include(r => r.RetroBoard)
+                .ThenInclude(b => b!.Columns)
+            .Include(r => r.RetroBoard)
+                .ThenInclude(b => b!.Cards);
 
     private async Task SaveAsync(CancellationToken cancellationToken)
     {

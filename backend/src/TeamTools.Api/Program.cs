@@ -8,6 +8,7 @@ using TeamTools.Api;
 using TeamTools.Api.Health;
 using TeamTools.Api.Hubs;
 using TeamTools.Core.Poker;
+using TeamTools.Core.Retro;
 using TeamTools.Core;
 using TeamTools.Core.Integrations;
 using TeamTools.Core.Security;
@@ -63,6 +64,7 @@ public class Program
         builder.Services.AddScoped<IPokerRoundStore>(sp => sp.GetRequiredService<EfRoomStore>());
         builder.Services.AddScoped<RoomService>();
         builder.Services.AddScoped<PokerService>();
+        builder.Services.AddScoped<RetroService>();
         builder.Services.AddScoped<RoomMaintenanceService>();
         builder.Services.AddScoped<PokerTimerService>();
         builder.Services.AddSingleton<ConnectionRegistry>();
@@ -224,6 +226,7 @@ public class Program
         app.MapControllers().RequireRateLimiting(RestRateLimitPolicy);
 
         app.MapHub<PokerHub>("/hubs/poker");
+        app.MapHub<RetroHub>("/hubs/retro"); // the second tool (#21)
 
         // SPA fallback: any unmatched non-API route returns index.html so Angular can route it.
         app.MapFallbackToFile("index.html");

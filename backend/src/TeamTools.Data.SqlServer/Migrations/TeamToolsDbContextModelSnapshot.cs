@@ -133,6 +133,80 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.ToTable("PokerRounds");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.RetroBoard", b =>
+                {
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Template")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.HasKey("RoomId");
+
+                    b.ToTable("RetroBoard");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AuthorUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ColumnId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.HasIndex("ColumnId");
+
+                    b.ToTable("RetroCard");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroColumn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("RetroColumn");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.Room", b =>
                 {
                     b.Property<Guid>("Id")
@@ -289,6 +363,47 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.Navigation("Room");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.RetroBoard", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.Room", "Room")
+                        .WithOne("RetroBoard")
+                        .HasForeignKey("TeamTools.Core.Models.RetroBoard", "RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroCard", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.RetroBoard", "Board")
+                        .WithMany("Cards")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TeamTools.Core.Models.RetroColumn", "Column")
+                        .WithMany("Cards")
+                        .HasForeignKey("ColumnId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+
+                    b.Navigation("Column");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroColumn", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.RetroBoard", "Board")
+                        .WithMany("Columns")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.RoundResult", b =>
                 {
                     b.HasOne("TeamTools.Core.Models.PokerRound", "Round")
@@ -305,11 +420,25 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.Navigation("RoundResults");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.RetroBoard", b =>
+                {
+                    b.Navigation("Cards");
+
+                    b.Navigation("Columns");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.RetroColumn", b =>
+                {
+                    b.Navigation("Cards");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.Room", b =>
                 {
                     b.Navigation("Participants");
 
                     b.Navigation("PokerRound");
+
+                    b.Navigation("RetroBoard");
                 });
 #pragma warning restore 612, 618
         }

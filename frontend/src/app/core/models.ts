@@ -267,3 +267,102 @@ export const DECK_LABEL_KEYS: Record<DeckType, string> = {
   PowersOfTwo: 'deck.powersOfTwo',
   Custom: 'deck.custom',
 };
+
+// --- Team Retro (#21) -------------------------------------------------------
+// Mirrors TeamTools.Core.Contracts.RetroSnapshots.
+
+export type RetroTemplate =
+  | 'WentWellToImprove'
+  | 'StartStopContinue'
+  | 'FourLs'
+  | 'MadSadGlad'
+  | 'Custom';
+
+/** i18n catalog key for each retro template's display label. */
+export const RETRO_TEMPLATE_LABEL_KEYS: Record<RetroTemplate, string> = {
+  WentWellToImprove: 'retro.template.wentWell',
+  StartStopContinue: 'retro.template.startStopContinue',
+  FourLs: 'retro.template.fourLs',
+  MadSadGlad: 'retro.template.madSadGlad',
+  Custom: 'retro.template.custom',
+};
+
+/**
+ * A card as this viewer may see it. `authorUserId` is absent on an anonymous board (#22) — the
+ * server omits it rather than the client hiding it — so `isMine` is what tells the UI whether the
+ * edit and delete controls belong to this viewer.
+ */
+export interface RetroCardInfo {
+  id: string;
+  text: string;
+  authorUserId: string | null;
+  authorDisplayName: string | null;
+  isMine: boolean;
+  order: number;
+  createdAt: string;
+}
+
+export interface RetroColumnInfo {
+  id: string;
+  title: string;
+  order: number;
+  cards: RetroCardInfo[];
+}
+
+/** The retro board as it arrives on the wire: tool state plus the shared room fragment (#19). */
+export interface RetroBoardSnapshotWire {
+  room: RoomSnapshot;
+  template: RetroTemplate;
+  columns: RetroColumnInfo[];
+}
+
+/** The flat view model the retro components read; `room` is kept for fields with no flat alias. */
+export interface RetroBoardSnapshot {
+  room: RoomSnapshot;
+  id: string;
+  shortCode: string;
+  name: string;
+  organiserUserId: string | null;
+  reactionsEnabled: boolean;
+  allowRoleChange: boolean;
+  isClosed: boolean;
+  participants: ParticipantInfo[];
+  template: RetroTemplate;
+  columns: RetroColumnInfo[];
+}
+
+export type RetroActionStatus =
+  | 'Ok'
+  | 'BoardNotFound'
+  | 'NotParticipant'
+  | 'NotOrganiser'
+  | 'BoardClosed'
+  | 'ColumnNotFound'
+  | 'CardNotFound'
+  | 'NotCardAuthor'
+  | 'InvalidCardText'
+  | 'InvalidTemplate'
+  | 'RateLimited';
+
+export interface RetroActionResult {
+  status: RetroActionStatus;
+  board: RetroBoardSnapshot | null;
+}
+
+export type CreateRetroStatus = 'Ok' | 'InvalidName' | 'InvalidTemplate' | 'RateLimited';
+
+export interface CreateRetroResult {
+  status: CreateRetroStatus;
+  board: RetroBoardSnapshot | null;
+  error: string | null;
+}
+
+export interface RetroJoinResult {
+  status: JoinStatus;
+  board: RetroBoardSnapshot | null;
+  participant: ParticipantInfo | null;
+  error: string | null;
+}
+
+/** Longest a card may be — mirrors RetroService.MaxCardLength so the UI can cap the input. */
+export const RETRO_MAX_CARD_LENGTH = 500;

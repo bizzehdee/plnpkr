@@ -52,6 +52,9 @@ public class Room
     /// <summary>The estimation payload — non-null exactly when <see cref="Tool"/> is Poker.</summary>
     public PokerRound? PokerRound { get; set; }
 
+    /// <summary>The retrospective payload — non-null exactly when <see cref="Tool"/> is Retro.</summary>
+    public RetroBoard? RetroBoard { get; set; }
+
     /// <summary>True once the room has been closed into its frozen read-only state (#26).</summary>
     public bool IsClosed => ClosedAt is not null;
 }
