@@ -9,6 +9,8 @@ import { IdentityService } from '../../core/identity.service';
 import { SessionMembershipService } from '../../core/session-membership.service';
 import { TrackerStorageService } from '../../core/tracker-storage.service';
 import { I18nService } from '../../core/i18n.service';
+import { ExportStatus } from '../../core/export-transport';
+import { SessionExportFormat, SessionExportService } from '../../core/session-export.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { PluralPipe } from '../../core/plural.pipe';
@@ -102,36 +104,67 @@ export class SessionPage implements OnInit, OnDestroy {
     this.activeModal.set(null);
   }
 
-  // --- Analytics (#11) ---
+  // --- Analytics (#11) & round-history export (#12) ---
   protected readonly analytics = signal<SessionAnalytics | null>(null);
   protected readonly analyticsBusy = signal(false);
+  private readonly exports = inject(SessionExportService);
 
-  /** Downloads the round history as a CSV or JSON file (#12). */
-  protected downloadExport(format: 'csv' | 'json'): void {
-    const url = `${resolveApiBase()}/api/sessions/${this.shortCode}/export?format=${format}`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${this.shortCode}-rounds.${format}`;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  /**
+   * Shown only once the server has actually asked for it (#30). The table page never holds the join
+   * password — a rejoin reclaims the seat by user id — so prompting up front would demand something
+   * the viewer may never have needed.
+   */
+  protected readonly historyPasswordNeeded = signal(false);
+  protected historyPassword = '';
+
+  /** Which download is in flight, so its button can say so. */
+  protected readonly exportBusy = signal<SessionExportFormat | null>(null);
+  protected readonly exportError = signal<string | null>(null);
+
+  /**
+   * Downloads the round history as a CSV or JSON file (#12).
+   *
+   * A fetch and an object URL rather than an `<a download>` link, because the route is a POST since
+   * #30: a protected session's password must not travel in a query string.
+   */
+  protected async downloadExport(format: SessionExportFormat): Promise<void> {
+    this.exportBusy.set(format);
+    this.exportError.set(null);
+    try {
+      const status = await this.exports.download(this.shortCode, format, this.historyPassword);
+      if (status === 'Ok') {
+        return;
+      }
+      if (status === 'PasswordRequired') {
+        this.historyPasswordNeeded.set(true);
+      }
+      this.exportError.set(this.historyMessage(status));
+    } finally {
+      this.exportBusy.set(null);
+    }
   }
 
   /** Fetches the session's velocity/throughput summary for the analytics modal. */
   protected async loadAnalytics(): Promise<void> {
     this.analyticsBusy.set(true);
+    this.exportError.set(null);
     try {
-      this.analytics.set(
-        await firstValueFrom(
-          this.http.get<SessionAnalytics>(`${resolveApiBase()}/api/sessions/${this.shortCode}/analytics`),
-        ),
+      const { status, analytics } = await this.exports.loadAnalytics(
+        this.shortCode,
+        this.historyPassword,
       );
-    } catch {
-      this.analytics.set(null);
+      this.analytics.set(analytics);
+      this.historyPasswordNeeded.set(status === 'PasswordRequired');
+      this.exportError.set(status === 'Ok' ? null : this.historyMessage(status));
     } finally {
       this.analyticsBusy.set(false);
     }
+  }
+
+  private historyMessage(status: ExportStatus): string {
+    return status === 'PasswordRequired'
+      ? this.i18n.t('session.historyPasswordNeeded')
+      : this.i18n.t('session.analyticsError');
   }
 
   /** Esc closes an open modal first, otherwise the menu. */

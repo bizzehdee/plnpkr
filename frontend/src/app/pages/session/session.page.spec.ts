@@ -10,6 +10,8 @@ import { IdentityService } from '../../core/identity.service';
 import { SessionMembershipService } from '../../core/session-membership.service';
 import { RevealCueService } from '../../core/reveal-cue.service';
 import { ParticipantInfo, ReactionEvent, SessionSnapshot, SessionState } from '../../core/models';
+import { ExportStatus } from '../../core/export-transport';
+import { SessionAnalyticsResult, SessionExportService } from '../../core/session-export.service';
 
 const CODE = 'blue-fox-42';
 const ME = 'me-user';
@@ -114,7 +116,11 @@ class FakeRealtimeClient {
   joinSession = vi.fn().mockResolvedValue({ status: 'Ok', session: snap() });
 }
 
-function configure(fake: FakeRealtimeClient, identity: { userId: string; displayName: string } = { userId: ME, displayName: 'Me' }) {
+function configure(
+  fake: FakeRealtimeClient,
+  identity: { userId: string; displayName: string } = { userId: ME, displayName: 'Me' },
+  extra: unknown[] = [],
+) {
   TestBed.configureTestingModule({
     imports: [SessionPage],
     providers: [
@@ -125,6 +131,7 @@ function configure(fake: FakeRealtimeClient, identity: { userId: string; display
         provide: ActivatedRoute,
         useValue: { snapshot: { paramMap: { get: () => CODE } } },
       },
+      ...extra,
     ],
   });
 }
@@ -1487,6 +1494,123 @@ describe('SessionPage', () => {
       await (fixture.componentInstance as unknown as { leave(): Promise<void> }).leave();
 
       expect(new SessionMembershipService().get(CODE)).toBeNull();
+    });
+  });
+
+  describe('round-history reads (#30)', () => {
+    /** The round-history client, faked: these tests care about what the page asks for and shows. */
+    class FakeExportService {
+      loadAnalytics = vi.fn<(...a: unknown[]) => Promise<SessionAnalyticsResult>>().mockResolvedValue({
+        status: 'Ok',
+        analytics: {
+          shortCode: CODE,
+          name: 'Sprint',
+          roundsCompleted: 1,
+          consensusRounds: 1,
+          consensusRate: 1,
+          averageVotesPerRound: 2,
+          rounds: [
+            {
+              story: 'Story A',
+              note: null,
+              finalEstimate: '5',
+              average: 5,
+              consensus: true,
+              voteCount: 2,
+              recordedAt: '2026-01-01T00:00:00Z',
+            },
+          ],
+        },
+      });
+      download = vi.fn<(...a: unknown[]) => Promise<ExportStatus>>().mockResolvedValue('Ok');
+    }
+
+    type HistoryCmp = {
+      historyPassword: string;
+      openModal(modal: 'analytics'): void;
+      loadAnalytics(): Promise<void>;
+      downloadExport(format: 'csv' | 'json'): Promise<void>;
+    };
+
+    async function open(exports: FakeExportService) {
+      const fake = new FakeRealtimeClient();
+      configure(fake, { userId: ME, displayName: 'Me' }, [
+        { provide: SessionExportService, useValue: exports },
+      ]);
+      const fixture = TestBed.createComponent(SessionPage);
+      fixture.detectChanges();
+      const cmp = fixture.componentInstance as unknown as HistoryCmp;
+      cmp.openModal('analytics'); // the modal loads the history as it opens
+      await fixture.whenStable();
+      fixture.detectChanges();
+      return { fixture, cmp };
+    }
+
+    it('shows the round history when the session has no password', async () => {
+      const exports = new FakeExportService();
+      const { fixture } = await open(exports);
+
+      expect(exports.loadAnalytics).toHaveBeenCalledWith(CODE, '');
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Story A');
+    });
+
+    it('asks for the password when the server refuses the history', async () => {
+      // The table page never holds the join password — a rejoin reclaims the seat by user id — so
+      // the prompt appears only once the server has actually asked (#30).
+      const exports = new FakeExportService();
+      exports.loadAnalytics.mockResolvedValue({ status: 'PasswordRequired', analytics: null });
+      const { fixture } = await open(exports);
+      const el = fixture.nativeElement as HTMLElement;
+
+      expect(el.querySelector('#history-password')).toBeTruthy();
+      expect(el.textContent).toContain('has a password');
+      expect(el.textContent).not.toContain('Story A');
+    });
+
+    it('retries with the password the viewer supplied', async () => {
+      const exports = new FakeExportService();
+      exports.loadAnalytics.mockResolvedValue({ status: 'PasswordRequired', analytics: null });
+      const { fixture, cmp } = await open(exports);
+
+      exports.loadAnalytics.mockResolvedValue({
+        status: 'Ok',
+        analytics: {
+          shortCode: CODE,
+          name: 'Sprint',
+          roundsCompleted: 0,
+          consensusRounds: 0,
+          consensusRate: 0,
+          averageVotesPerRound: null,
+          rounds: [],
+        },
+      });
+      cmp.historyPassword = 'hunter2';
+      await cmp.loadAnalytics();
+      fixture.detectChanges();
+
+      expect(exports.loadAnalytics).toHaveBeenLastCalledWith(CODE, 'hunter2');
+      expect((fixture.nativeElement as HTMLElement).querySelector('#history-password')).toBeNull();
+    });
+
+    it('downloads the format that was asked for, carrying the password', async () => {
+      const exports = new FakeExportService();
+      const { cmp } = await open(exports);
+
+      cmp.historyPassword = 'hunter2';
+      await cmp.downloadExport('csv');
+
+      expect(exports.download).toHaveBeenCalledWith(CODE, 'csv', 'hunter2');
+    });
+
+    it('asks for the password when the download is refused', async () => {
+      const exports = new FakeExportService();
+      exports.download.mockResolvedValue('PasswordRequired');
+      const { fixture, cmp } = await open(exports);
+
+      await cmp.downloadExport('json');
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('#history-password')).toBeTruthy();
     });
   });
 });

@@ -35,17 +35,12 @@ public class RetroService
     private readonly IRoomStore _store;
     private readonly RoomService _rooms;
     private readonly IClock _clock;
-    private readonly IPasswordHasher _passwordHasher;
 
-    public RetroService(
-        IRoomStore store, RoomService rooms, IClock clock, IPasswordHasher? passwordHasher = null)
+    public RetroService(IRoomStore store, RoomService rooms, IClock clock)
     {
         _store = store;
         _rooms = rooms;
         _clock = clock;
-        // Only needed to verify the *previous* board's password on carry-over (#27); the room engine
-        // owns password hashing everywhere else.
-        _passwordHasher = passwordHasher ?? new Pbkdf2PasswordHasher();
     }
 
     // --- Creation ----------------------------------------------------------
@@ -426,7 +421,7 @@ public class RetroService
             return (RetroExportStatus.BoardNotFound, null);
         }
 
-        if (room.PasswordHash is { } hash && !_passwordHasher.Verify(hash, password ?? string.Empty))
+        if (!_rooms.VerifyPassword(room, password))
         {
             return (RetroExportStatus.PasswordRequired, null);
         }
@@ -512,7 +507,7 @@ public class RetroService
             return (null, CreateRetroResult.PreviousBoardNotFound());
         }
 
-        if (previous.PasswordHash is { } hash && !_passwordHasher.Verify(hash, password ?? string.Empty))
+        if (!_rooms.VerifyPassword(previous, password))
         {
             return (null, CreateRetroResult.PreviousBoardPasswordRequired());
         }

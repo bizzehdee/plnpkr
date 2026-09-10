@@ -423,6 +423,18 @@ public class RoomService
 
     // --- Password & lifecycle ----------------------------------------------
 
+    /// <summary>
+    /// Whether <paramref name="password"/> opens this room. A room with no password is open, so an
+    /// absent password is the correct answer for one.
+    /// <para>
+    /// This lives on the room engine because the password is a <em>room</em> property: the join gate
+    /// (#2), the retro export (#28) and the poker export (#30) all have to reach the same verdict,
+    /// and a tool service holding its own hasher is how two of them would eventually stop agreeing.
+    /// </para>
+    /// </summary>
+    public bool VerifyPassword(Room room, string? password) =>
+        room.PasswordHash is not { } hash || _passwordHasher.Verify(hash, password ?? string.Empty);
+
     /// <summary>Organiser-only: set, change, or clear (null/blank) the room join password. See #2.</summary>
     public Task<RoomOutcome> SetPasswordAsync(
         string shortCode, string userId, string? newPassword, CancellationToken ct = default) =>

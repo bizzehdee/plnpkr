@@ -5,11 +5,8 @@ import { SignalrRetroClient } from '../../../core/retro.client';
 import { IdentityService } from '../../../core/identity.service';
 import { SessionMembershipService } from '../../../core/session-membership.service';
 import { I18nService } from '../../../core/i18n.service';
-import {
-  RetroExportFormat,
-  RetroExportService,
-  RetroExportStatus,
-} from '../../../core/retro-export.service';
+import { ExportStatus } from '../../../core/export-transport';
+import { RetroExportFormat, RetroExportService } from '../../../core/retro-export.service';
 import { TranslatePipe } from '../../../core/translate.pipe';
 import {
   RETRO_MAX_CARD_LENGTH,
@@ -378,13 +375,13 @@ export class RetroPage implements OnInit, OnDestroy {
     }
   }
 
-  private exportMessage(status: RetroExportStatus): string {
+  private exportMessage(status: ExportStatus): string {
     switch (status) {
       case 'PasswordRequired':
         return this.i18n.t('retro.export.errPassword');
       case 'NotYetVisible':
         return this.i18n.t('retro.export.errNotYet');
-      case 'BoardNotFound':
+      case 'NotFound':
         return this.i18n.t('retro.err.gone');
       default:
         return this.i18n.t('retro.export.errFailed');

@@ -409,6 +409,8 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.exportCsv': 'Export CSV',
     'session.exportJson': 'Export JSON',
     'session.analyticsError': "Couldn't load analytics.",
+    'session.historyPasswordNeeded': 'This session has a password — enter it to read its round history.',
+    'session.historyUnlock': 'Show the history',
     'session.connectingToSession': 'Connecting to the session…',
 
     'session.announceVotesRevealed': 'Votes revealed.',
@@ -850,6 +852,8 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.exportCsv': 'Exportar CSV',
     'session.exportJson': 'Exportar JSON',
     'session.analyticsError': 'No se pudo cargar la analítica.',
+    'session.historyPasswordNeeded': 'Esta sesión tiene contraseña: introdúcela para ver su historial de rondas.',
+    'session.historyUnlock': 'Mostrar el historial',
     'session.connectingToSession': 'Conectando a la sesión…',
 
     'session.announceVotesRevealed': 'Votos revelados.',
@@ -1291,6 +1295,8 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.exportCsv': 'Exportar CSV',
     'session.exportJson': 'Exportar JSON',
     'session.analyticsError': 'Não foi possível carregar as análises.',
+    'session.historyPasswordNeeded': 'Esta sessão tem senha — digite-a para ver o histórico de rodadas.',
+    'session.historyUnlock': 'Mostrar o histórico',
     'session.connectingToSession': 'Conectando à sessão…',
 
     'session.announceVotesRevealed': 'Votos revelados.',
@@ -1732,6 +1738,8 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'session.exportCsv': 'Eksportuj CSV',
     'session.exportJson': 'Eksportuj JSON',
     'session.analyticsError': 'Nie udało się wczytać analityki.',
+    'session.historyPasswordNeeded': 'Ta sesja ma hasło — podaj je, aby zobaczyć historię rund.',
+    'session.historyUnlock': 'Pokaż historię',
     'session.connectingToSession': 'Łączenie z sesją…',
 
     'session.announceVotesRevealed': 'Głosy odsłonięte.',

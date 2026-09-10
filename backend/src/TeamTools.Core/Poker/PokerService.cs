@@ -464,14 +464,31 @@ public class PokerService
 
     /// <summary>
     /// Velocity/throughput analytics for a session (#11): counts, consensus rate, and the per-round
-    /// history (newest first). Null if the session is unknown.
+    /// history (newest first).
+    /// <para>
+    /// <b>Password-guarded since #30.</b> This is the session's whole history — every story, note and
+    /// estimate — so it is guarded exactly as the retro export is (#28): a short code is only a
+    /// bearer token, and the join password has to mean something here too or it means nothing. The
+    /// same guard covers <see cref="GetAnalyticsCsvAsync"/>, which renders this payload; guarding one
+    /// and not the other would be theatre, since the CSV is a strict subset.
+    /// </para>
+    /// <para>
+    /// Deliberately <em>not</em> guarded: <c>GetLandingAsync</c>. That is how the join page learns a
+    /// password is needed at all, and it returns nothing but the name and that fact.
+    /// </para>
     /// </summary>
-    public async Task<SessionAnalytics?> GetAnalyticsAsync(string shortCode, CancellationToken ct = default)
+    public async Task<(SessionExportStatus Status, SessionAnalytics? Analytics)> GetAnalyticsAsync(
+        string shortCode, string? password, CancellationToken ct = default)
     {
         var room = await _store.FindByShortCodeAsync(shortCode, ct);
         if (room is null)
         {
-            return null;
+            return (SessionExportStatus.SessionNotFound, null);
+        }
+
+        if (!_rooms.VerifyPassword(room, password))
+        {
+            return (SessionExportStatus.PasswordRequired, null);
         }
 
         var rounds = (room.PokerRound?.RoundResults ?? new List<RoundResult>())
@@ -485,20 +502,22 @@ public class PokerService
         var consensusRate = completed == 0 ? 0d : (double)consensusRounds / completed;
         double? averageVotes = completed == 0 ? null : rounds.Average(r => r.VoteCount);
 
-        return new SessionAnalytics(
-            room.ShortCode, room.Name, completed, consensusRounds, consensusRate, averageVotes, rounds);
+        return (SessionExportStatus.Ok, new SessionAnalytics(
+            room.ShortCode, room.Name, completed, consensusRounds, consensusRate, averageVotes, rounds));
     }
 
     /// <summary>
-    /// Renders the session's completed-round history as CSV for export (#12). Null if the session is
-    /// unknown. Columns: RecordedAt, Story, FinalEstimate, Average, Consensus, VoteCount, Note.
+    /// Renders the session's completed-round history as CSV for export (#12), under the same password
+    /// guard as <see cref="GetAnalyticsAsync"/> (#30). Columns: RecordedAt, Story, FinalEstimate,
+    /// Average, Consensus, VoteCount, Note.
     /// </summary>
-    public async Task<string?> GetAnalyticsCsvAsync(string shortCode, CancellationToken ct = default)
+    public async Task<(SessionExportStatus Status, string? Csv)> GetAnalyticsCsvAsync(
+        string shortCode, string? password, CancellationToken ct = default)
     {
-        var analytics = await GetAnalyticsAsync(shortCode, ct);
+        var (status, analytics) = await GetAnalyticsAsync(shortCode, password, ct);
         if (analytics is null)
         {
-            return null;
+            return (status, null);
         }
 
         var sb = new StringBuilder();
@@ -515,7 +534,7 @@ public class PokerService
                 Csv(r.Note)));
         }
 
-        return sb.ToString();
+        return (SessionExportStatus.Ok, sb.ToString());
     }
 
     /// <summary>RFC-4180 CSV field: quote when it contains a comma, quote, CR or LF; double inner quotes.</summary>

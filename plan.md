@@ -660,6 +660,35 @@ the test suites to source a number. If §17's design turned out to be wrong some
 say so in the doc's history rather than quietly rewriting it to match the code — the
 divergence is worth knowing about.
 
+## 30. Password-guard the poker round history — follow-up to §12/§28
+
+**What.** Put the poker round-history reads behind the room password, as §28 already put
+the retro export: `POST /api/sessions/{shortCode}/export` and
+`POST /api/sessions/{shortCode}/analytics`, both refusing without the password.
+
+**Why.** §12 shipped with no password guard at all. `GET .../export` checked only that
+the session existed, so a short code alone downloaded a protected session's whole round
+history — every story, note and estimate — and `GET .../analytics` returned a superset of
+it on the same terms. The password gated *joining* the room but not reading it back out,
+which makes it a door with no wall. Found while implementing §28, which declined to copy
+the shape and recorded the gap in `ARCHITECTURE.md` instead of quietly inheriting it.
+
+**Touch points.** `PokerService.GetAnalyticsAsync` / `GetAnalyticsCsvAsync` (now
+password-taking and status-returning); a new `SessionExportStatus`; `RoomService`
+(a shared `VerifyPassword`, so the join gate and both tools' exports cannot drift);
+`SessionsController`; the frontend analytics modal and export buttons; `AnalyticsTests`,
+`ExportEndpointTests`, `session.page.spec.ts`.
+
+**Approach.** Follow §28's shape rather than inventing a second one — same 403, same
+"ask only after the server refuses" prompt, same POST-and-object-URL download, with the
+transport extracted so both tools share it. **Analytics is guarded too**, not just the
+file download: it returns a strict superset of the CSV, so guarding one and not the other
+would be theatre. The `/join` landing read stays **open** on purpose — it is how the join
+page learns a password is needed at all, and it carries nothing but the room name and that
+fact. Moving both routes from GET to POST is a breaking API change in principle, but the
+SPA ships from the same artifact and changes in lockstep, and a GET that could carry a
+password in its query string is exactly what §28 refused.
+
 ---
 
 ## Cross-cutting notes

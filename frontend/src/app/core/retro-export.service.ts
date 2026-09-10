@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { resolveApiBase } from './app-config';
+import { ExportStatus, exportStatusOf, postExport, saveAsFile } from './export-transport';
 import { RetroPhase, RetroTemplate } from './models';
 
 /** A card as the export carries it. `author` is null on an anonymous board — always (#22/#28). */
@@ -25,7 +25,7 @@ export interface RetroExportAction {
 }
 
 /**
- * A whole retro board in one payload (#28) — the same shape the Markdown and CSV renderers work
+ * A whole retro board in one payload (#28): the same shape the Markdown and CSV renderers work
  * from, which is what lets the summary view and the downloaded file agree.
  */
 export interface RetroExport {
@@ -42,11 +42,8 @@ export interface RetroExport {
 
 export type RetroExportFormat = 'md' | 'csv' | 'json';
 
-/** Mirrors `RetroExportStatus`, plus a transport failure the server never got to answer. */
-export type RetroExportStatus = 'Ok' | 'BoardNotFound' | 'PasswordRequired' | 'NotYetVisible' | 'Failed';
-
 export interface RetroExportResult {
-  status: RetroExportStatus;
+  status: ExportStatus;
   export: RetroExport | null;
 }
 
@@ -57,12 +54,9 @@ const CONTENT_TYPES: Record<RetroExportFormat, string> = {
 };
 
 /**
- * The retro export's client side (#28).
- *
- * **Why `fetch` and a blob rather than a link.** The endpoint is a POST, because a protected
- * board's password would otherwise sit in a query string and from there in server logs, proxy logs
- * and the browser's history. That rules out the plain `<a download>` the poker export (#12) uses,
- * so the file is fetched and handed to the browser as an object URL instead.
+ * The retro export's client side (#28). The POST-and-object-URL mechanics it shares with the poker
+ * export (#30) live in `export-transport.ts`; what is retro-specific is the payload shape, the three
+ * formats, and the phase refusal.
  */
 @Injectable({ providedIn: 'root' })
 export class RetroExportService {
@@ -77,7 +71,7 @@ export class RetroExportService {
       return { status: 'Ok', export: (await response.json()) as RetroExport };
     }
 
-    return { status: this.statusOf(response), export: null };
+    return { status: exportStatusOf(response), export: null };
   }
 
   /**
@@ -88,61 +82,28 @@ export class RetroExportService {
     shortCode: string,
     format: RetroExportFormat,
     password?: string | null,
-  ): Promise<RetroExportStatus> {
+  ): Promise<ExportStatus> {
     const response = await this.post(shortCode, format, password);
     if (!response) {
       return 'Failed';
     }
 
     if (!response.ok) {
-      return this.statusOf(response);
+      return exportStatusOf(response);
     }
 
-    const blob = new Blob([await response.text()], { type: CONTENT_TYPES[format] });
-    const url = URL.createObjectURL(blob);
-    try {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${shortCode}-retro.${format}`;
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } finally {
-      // Freed on the next task rather than immediately: revoking it in the same tick can beat the
-      // browser to starting the download.
-      setTimeout(() => URL.revokeObjectURL(url), 0);
-    }
-
+    saveAsFile(await response.text(), CONTENT_TYPES[format], `${shortCode}-retro.${format}`);
     return 'Ok';
   }
 
-  private async post(
+  private post(
     shortCode: string,
     format: RetroExportFormat,
     password?: string | null,
   ): Promise<Response | null> {
-    try {
-      return await fetch(`${resolveApiBase()}/api/retro/${encodeURIComponent(shortCode)}/export`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ format, password: password || null }),
-      });
-    } catch {
-      return null;
-    }
-  }
-
-  private statusOf(response: Response): RetroExportStatus {
-    switch (response.status) {
-      case 404:
-        return 'BoardNotFound';
-      case 403:
-        return 'PasswordRequired';
-      case 409:
-        return 'NotYetVisible';
-      default:
-        return 'Failed';
-    }
+    return postExport(`/api/retro/${encodeURIComponent(shortCode)}/export`, {
+      format,
+      password: password || null,
+    });
   }
 }

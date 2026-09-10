@@ -2,11 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 import { RetroSummaryPage } from './retro-summary.page';
-import {
-  RetroExport,
-  RetroExportService,
-  RetroExportStatus,
-} from '../../../core/retro-export.service';
+import { ExportStatus } from '../../../core/export-transport';
+import { RetroExport, RetroExportService } from '../../../core/retro-export.service';
 
 const CODE = 'blue-fox-42';
 
@@ -40,10 +37,10 @@ function summary(over: Partial<RetroExport> = {}): RetroExport {
 }
 
 class FakeExportService {
-  load = vi.fn<(...a: unknown[]) => Promise<{ status: RetroExportStatus; export: RetroExport | null }>>();
-  download = vi.fn<(...a: unknown[]) => Promise<RetroExportStatus>>().mockResolvedValue('Ok');
+  load = vi.fn<(...a: unknown[]) => Promise<{ status: ExportStatus; export: RetroExport | null }>>();
+  download = vi.fn<(...a: unknown[]) => Promise<ExportStatus>>().mockResolvedValue('Ok');
 
-  constructor(status: RetroExportStatus = 'Ok', board: RetroExport | null = summary()) {
+  constructor(status: ExportStatus = 'Ok', board: RetroExport | null = summary()) {
     this.load.mockResolvedValue({ status, export: status === 'Ok' ? board : null });
   }
 }
@@ -163,7 +160,7 @@ describe('RetroSummaryPage', () => {
   });
 
   it('says plainly when there is no such retro', async () => {
-    const fixture = await setup(new FakeExportService('BoardNotFound', null));
+    const fixture = await setup(new FakeExportService('NotFound', null));
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('could not be found');
   });

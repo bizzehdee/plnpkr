@@ -773,6 +773,33 @@
               @case ('analytics') {
                 @if (analyticsBusy()) {
                   <p class="text-body-secondary small mb-0">{{ 'common.loading' | t }}</p>
+                } @else if (historyPasswordNeeded()) {
+                  <!--
+                    Asked for only after the server has refused (#30): the table page never holds the
+                    join password, so prompting up front would demand something the viewer may never
+                    have needed.
+                  -->
+                  <form class="row g-2 align-items-end" (ngSubmit)="loadAnalytics()">
+                    <div class="col-12">
+                      <p class="small mb-0">{{ 'session.historyPasswordNeeded' | t }}</p>
+                    </div>
+                    <div class="col-12 col-sm-auto">
+                      <label class="form-label" for="history-password">{{ 'join.password' | t }}</label>
+                      <input
+                        id="history-password"
+                        name="history-password"
+                        type="password"
+                        class="form-control form-control-sm"
+                        autocomplete="off"
+                        [(ngModel)]="historyPassword"
+                      />
+                    </div>
+                    <div class="col-12 col-sm-auto">
+                      <button type="submit" class="btn btn-sm btn-primary">
+                        {{ 'session.historyUnlock' | t }}
+                      </button>
+                    </div>
+                  </form>
                 } @else if (analytics(); as a) {
                   @if (a.roundsCompleted === 0) {
                     <p class="text-body-secondary small mb-0">{{ 'session.noRoundsYet' | t }}</p>
@@ -799,11 +826,26 @@
                         </tbody>
                       </table>
                     </div>
-                    <!-- Export the round history (#12) -->
-                    <div class="d-flex gap-2 mt-3">
-                      <button class="btn btn-sm btn-outline-secondary" (click)="downloadExport('csv')">{{ 'session.exportCsv' | t }}</button>
-                      <button class="btn btn-sm btn-outline-secondary" (click)="downloadExport('json')">{{ 'session.exportJson' | t }}</button>
+                    <!-- Export the round history (#12), password-guarded since #30 -->
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                      <button
+                        class="btn btn-sm btn-outline-secondary"
+                        [disabled]="exportBusy() !== null"
+                        (click)="downloadExport('csv')"
+                      >
+                        {{ exportBusy() === 'csv' ? ('common.loading' | t) : ('session.exportCsv' | t) }}
+                      </button>
+                      <button
+                        class="btn btn-sm btn-outline-secondary"
+                        [disabled]="exportBusy() !== null"
+                        (click)="downloadExport('json')"
+                      >
+                        {{ exportBusy() === 'json' ? ('common.loading' | t) : ('session.exportJson' | t) }}
+                      </button>
                     </div>
+                    @if (exportError()) {
+                      <p class="text-danger small mt-2 mb-0">{{ exportError() }}</p>
+                    }
                   }
                 } @else {
                   <p class="text-danger small mb-0">{{ 'session.analyticsError' | t }}</p>

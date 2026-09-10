@@ -171,6 +171,7 @@ into the TeamTools platform and add the second tool, Team Retro.
 | 27 | Carry-over from the previous retro | S–M | 26 | BE + FE |
 | 28 | Retro export | S–M | 24, 25, 26 | BE + FE |
 | 29 | `README.md` & deploy | S | 17–28 | Docs |
+| 30 | Password-guard the poker round history | S | 12, 28 | BE + FE |
 
 > **Why this order.** The ease-before-dependents rule still applies, but four hard
 > constraints dominate.
@@ -520,12 +521,39 @@ into the TeamTools platform and add the second tool, Team Retro.
 > folder is only a folder — the route moved to `/poker/:shortCode` in #20 — and renaming it would touch
 > every import for no behavioural gain.
 
-> **One thing deliberately left undone: the poker export has no password guard** (#12 —
-> `GET /api/sessions/{shortCode}/export` checks only that the session exists, so a short code alone
-> downloads a protected session's whole round history). Found while implementing #28, which does not
-> copy the gap. Fixing poker's export is a behavioural change to a shipped feature, not a docs task,
-> so it is recorded here rather than smuggled into the last commit.
+> **One thing deliberately left undone at the time: the poker export had no password guard** (#12 —
+> `GET /api/sessions/{shortCode}/export` checked only that the session existed, so a short code alone
+> downloaded a protected session's whole round history). Found while implementing #28, which did not
+> copy the gap. Fixing it was a behavioural change to a shipped feature rather than a docs task, so it
+> was recorded here instead of being smuggled into the last commit — and is now **closed by #30**.
 
 > **The bundle is over its 800 kB budget (906 kB).** Pre-existing and unrelated to #28/#29 — it was
 > 889 kB before the export UI. Worth a task of its own (lazy-load the two tools' routes), not a
 > silently raised budget.
+
+## 30. Password-guard the poker round history  `S`  — follow-up to #12/#28  ✅ done
+**Found while implementing #28, deferred at #29, closed here.**
+- [x] `PokerService.GetAnalyticsAsync` / `GetAnalyticsCsvAsync` take a password and return a `SessionExportStatus` (`Ok` / `SessionNotFound` / `PasswordRequired`).
+- [x] `RoomService.VerifyPassword` — one verdict on the room engine, shared by the join gate (#2), the retro export (#28) and this. `RetroService` dropped its own `IPasswordHasher` in the process.
+- [x] `POST /api/sessions/{code}/export` and `POST /api/sessions/{code}/analytics`: 404 unknown, 403 missing/wrong password, 200 otherwise.
+- [x] Frontend: the POST-and-object-URL transport extracted to `core/export-transport.ts` and shared by both tools; a new `SessionExportService`; the analytics modal and the export buttons ask for the password **only after the server refuses**.
+- [x] i18n: 2 strings × 4 locales.
+- [x] Tests: 5 core (`AnalyticsTests`) + 6 API end-to-end (`ExportEndpointTests`) + 5 frontend. Backend **633**, frontend **219**, coverage gate **95.5% line / 91.7% branch**.
+
+> **The analytics read is guarded too, not just the file download.** It returns a strict superset of
+> the CSV — the same stories, notes and estimates — so guarding one and not the other would be
+> theatre.
+
+> **The `/join` landing read stays open on purpose.** It is how the join page learns a password is
+> needed at all, and it carries nothing but the room name and that fact. There is a test for it in
+> both projects, so a later tightening pass does not close it by reflex.
+
+> **GET → POST is a breaking API change, taken deliberately.** The SPA ships from the same artifact
+> and changes in lockstep, and a GET that can carry a password in its query string is exactly what
+> #28 refused. No GET alias was left behind: one would either have to refuse every protected session
+> anyway, or accept the password in the URL and undo the guard. `ExportEndpointTests` asserts the
+> route no longer answers a GET with a password in its query string.
+
+> **#12's export JSON keeps its PascalCase casing.** It was tempting to align it with #28's
+> camelCase while touching the file, but nothing parses that payload — changing a shipped file
+> format to match a convention no reader applies would be churn, not consistency.

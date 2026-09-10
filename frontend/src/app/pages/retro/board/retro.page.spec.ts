@@ -8,7 +8,8 @@ import { RetroPage } from './retro.page';
 import { SignalrRetroClient } from '../../../core/retro.client';
 import { IdentityService } from '../../../core/identity.service';
 import { SessionMembershipService } from '../../../core/session-membership.service';
-import { RetroExportService, RetroExportStatus } from '../../../core/retro-export.service';
+import { ExportStatus } from '../../../core/export-transport';
+import { RetroExportService } from '../../../core/retro-export.service';
 import {
   ReactionEvent,
   RetroActionResult,
@@ -187,7 +188,7 @@ type ExportCmp = {
 
 /** The export's client side, faked: these tests care about what the page offers and asks for. */
 class FakeExportService {
-  download = vi.fn<(...a: unknown[]) => Promise<RetroExportStatus>>().mockResolvedValue('Ok');
+  download = vi.fn<(...a: unknown[]) => Promise<ExportStatus>>().mockResolvedValue('Ok');
   load = vi.fn().mockResolvedValue({ status: 'Ok', export: null });
 }
 

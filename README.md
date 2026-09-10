@@ -52,7 +52,8 @@ configurable provider (SQLite by default; SQL Server / PostgreSQL also supported
 - Multiple organisers with automatic succession, so a facilitator dropping out doesn't strand a room.
 - No accounts — pick a display name (remembered per browser); names are unique per room.
 - Optional **room password** (organiser can set / change / clear; stored as a PBKDF2 hash, never
-  plaintext).
+  plaintext). It gates joining *and* reading the room back out — a protected room's history or export
+  needs the password, because a short code is only a bearer token.
 - Resilient: a dropped connection keeps your seat, vote and dots, and reconnects; idle rooms are
   evicted on a published retention policy.
 - Emoji reactions (ephemeral, never persisted).
@@ -140,17 +141,17 @@ Prerequisites: **.NET 10 SDK**, **Node 20+**, and (for the coverage gate) **Powe
 
 This runs the same checks as CI, so a green `test` locally means a clean build.
 
-### Backend (xUnit) — 620 tests across Core / Integrations / Data / Api
+### Backend (xUnit) — 633 tests across Core / Integrations / Data / Api
 
 ```bash
 cd backend
 dotnet test TeamTools.slnx                        # whole solution
 
 # One project at a time
-dotnet test tests/TeamTools.Core.Tests            # fast, no I/O (the bulk of the logic) — 504
+dotnet test tests/TeamTools.Core.Tests            # fast, no I/O (the bulk of the logic) — 509
 dotnet test tests/TeamTools.Integrations.Tests    # Jira/ADO adapters against stubbed HTTP — 40
 dotnet test tests/TeamTools.Data.Tests            # EfRoomStore + migrations against real SQLite — 35
-dotnet test tests/TeamTools.Api.Tests             # REST + SignalR + health over an in-memory server — 41
+dotnet test tests/TeamTools.Api.Tests             # REST + SignalR + health over an in-memory server — 49
 
 # Run a single test or class by name
 dotnet test tests/TeamTools.Core.Tests --filter "FullyQualifiedName~RetroVotingTests"
@@ -166,7 +167,7 @@ pwsh backend/coverage-gate.ps1                   # prints the numbers and fails 
 pwsh backend/coverage-gate.ps1 -Threshold 0.95   # try a stricter bar
 ```
 
-### Frontend (Vitest + Angular TestBed) — 214 specs across 13 files
+### Frontend (Vitest + Angular TestBed) — 219 specs across 13 files
 
 ```bash
 cd frontend

@@ -3,11 +3,11 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { I18nService } from '../../../core/i18n.service';
 import { TranslatePipe } from '../../../core/translate.pipe';
+import { ExportStatus } from '../../../core/export-transport';
 import {
   RetroExport,
   RetroExportFormat,
   RetroExportService,
-  RetroExportStatus,
 } from '../../../core/retro-export.service';
 
 /**
@@ -33,7 +33,7 @@ export class RetroSummaryPage implements OnInit {
 
   protected shortCode = '';
   protected readonly summary = signal<RetroExport | null>(null);
-  protected readonly status = signal<RetroExportStatus | null>(null);
+  protected readonly status = signal<ExportStatus | null>(null);
   protected readonly busy = signal(false);
   protected password = '';
 
@@ -85,7 +85,7 @@ export class RetroSummaryPage implements OnInit {
   /** The message for a refusal, or null while the board is loading or loaded. */
   protected readonly problem = computed<string | null>(() => {
     switch (this.status()) {
-      case 'BoardNotFound':
+      case 'NotFound':
         return this.i18n.t('retro.summary.notFound');
       case 'NotYetVisible':
         return this.i18n.t('retro.summary.notYet');

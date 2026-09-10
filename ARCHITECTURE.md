@@ -252,8 +252,8 @@ read, server config, health, the OAuth callback — and file downloads.
 
 ```
 GET  /api/sessions/{code}                 tool-agnostic landing read for /join/<code>
-GET  /api/sessions/{code}/analytics       poker: velocity/throughput summary (#11)
-GET  /api/sessions/{code}/export          poker: completed-round history, csv|json (#12)
+POST /api/sessions/{code}/analytics       poker: velocity/throughput summary (#11)
+POST /api/sessions/{code}/export          poker: completed-round history, csv|json (#12)
 POST /api/retro/{code}/export             retro: the whole board, md|csv|json (#28)
 GET  /api/integrations/options            which trackers are enabled, and how to connect (#16)
 GET  /api/integrations/{provider}/connect  OAuth start; {provider}/callback completes it
@@ -261,26 +261,36 @@ GET  /api/config                          retention windows, integration availab
 GET  /health, /health/live                readiness (incl. DB) and liveness
 ```
 
-**The retro export is a POST, and deliberately not a GET.** A protected board's export needs its
-password, and a password in a query string ends up in server logs, proxy logs and browser history; the
-body keeps it out of all three. The cost is that the download must be triggered from script rather than
-a plain `<a download>` link — the SPA fetches it and hands it to the browser as an object URL.
+**Every room-history read is a POST, and deliberately not a GET.** A protected room's contents need
+its password, and a password in a query string ends up in server logs, proxy logs and browser history;
+the body keeps it out of all three. The cost is that a download must be triggered from script rather
+than a plain `<a download>` link — the SPA fetches it and hands it to the browser as an object URL,
+in `core/export-transport.ts`, shared by both tools.
 
-It carries a second guard the poker export has no equivalent of: **the phase**. Before the discussion
-starts, an export would hand out cards the team has not seen (#23) and dot totals it has not reached
-(#25), so export opens at `Discuss`. The board does not offer the button before then, making the
-refusal a backstop rather than the normal path.
+**The password guard is `RoomService.VerifyPassword`**, on the room engine, because the password is a
+*room* property: the join gate (#2), the retro export (#28) and the poker export (#30) have to reach
+the same verdict, and a tool service holding its own hasher is how two of them would eventually stop
+agreeing. A room with no password is open, so an absent password is correct for one.
 
-> **Design correction (#28): the poker export has no password guard, and #28 did not inherit one.**
+The retro export carries a second guard the poker export has no equivalent of: **the phase**. Before
+the discussion starts, an export would hand out cards the team has not seen (#23) and dot totals it
+has not reached (#25), so export opens at `Discuss`. The board does not offer the button before then,
+making the refusal a backstop rather than the normal path.
+
+> **Design correction (#28, closed by #30): #12 shipped with no password guard at all.**
 > This document and the plan both assumed the retro export could reuse "#12's existence-plus-password
-> guard" verbatim. There is no password guard in #12 — `GET /api/sessions/{code}/export` checks only
-> that the session exists, so a short code alone downloads a protected session's whole round history.
-> The retro export does not copy that shape: it verifies the password. Poker's gap is pre-existing,
-> out of scope for #28, and recorded in [tasks.md](./tasks.md) as work of its own.
+> guard" verbatim. There was no password guard in #12 — `GET /api/sessions/{code}/export` checked only
+> that the session existed, so a short code alone downloaded a protected session's whole round
+> history, and `GET .../analytics` returned a superset of it on the same terms. #28 declined to copy
+> that shape and recorded the gap here; #30 closed it, moving both poker routes to guarded POSTs.
+> Left open on purpose: the `/join` landing read. It is how the join page learns a password is needed
+> at all, and it carries nothing but the room name and that fact.
 
 The retro export's JSON is **camelCase with named enums**, unlike #12's, because it is not only a file:
 the read-only summary page parses it directly. One `RetroExportRenderer.ToJson` is shared by the
-controller and the tests so there is a single answer to what the payload looks like.
+controller and the tests so there is a single answer to what the payload looks like. #12's export keeps
+its own PascalCase options — nothing parses that payload, and changing a shipped file format to match
+a convention nobody reads would be churn.
 
 ### One deliberate cross-board link
 
@@ -427,10 +437,11 @@ boundaries (the store, the clock, the realtime transport).
 - **`TeamTools.Integrations.Tests`** — tracker adapters against a stubbed `HttpMessageHandler`.
 - **`TeamTools.Api.Tests`** — hub/controller/health behaviour via `WebApplicationFactory` + a SignalR
   test client; kept thin (logic is already covered in the domain test projects).
-- **`TeamTools.Api.Tests` (export)** — the retro export end to end: a retro run over the hub, then
-  downloaded, asserting the status mapping (404 / 403 / 409) and that an anonymous board names nobody
-  in md, csv **or** json. The anonymity guarantee is checked at the edge of the system as well as in
-  the renderer, because that is where a leak would actually reach someone.
+- **`TeamTools.Api.Tests` (exports)** — both exports end to end: a room run over its hub, then read
+  and downloaded, asserting the status mapping (404 / 403 / 409) and that an anonymous board names
+  nobody in md, csv **or** json. The anonymity guarantee and the password guard are both checked at
+  the edge of the system as well as in the domain, because that is where a leak would actually reach
+  someone.
 - **Frontend** — formatting and mapping unit-tested directly; component specs via TestBed + fake
   client, including the fake export service.
 
@@ -441,7 +452,7 @@ Coverage is a guardrail; every test maps to a behaviour. The gate was also the s
 refactor, which landed with the suite green and no behavioural change. It runs in CI as well as
 locally (`./run.sh test`).
 
-As of task #29 that is **620 backend tests** (Core 504, Integrations 40, Data 35, Api 41) and **214
+As of task #30 that is **633 backend tests** (Core 509, Integrations 40, Data 35, Api 49) and **219
 frontend specs**, with `TeamTools.Core` at ~96% line / ~92% branch.
 
 ## Deployment & hosting
