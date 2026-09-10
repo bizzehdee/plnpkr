@@ -77,6 +77,27 @@
               <div class="form-text">{{ 'retro.create.facilitateHelp' | t }}</div>
             </div>
 
+            <!--
+              Anonymity is chosen here because it locks as soon as the first card exists (#22):
+              flipping it later would retroactively expose or hide what people already wrote.
+            -->
+            <div class="form-check mb-3">
+              <input
+                id="anonymous"
+                name="anonymous"
+                type="checkbox"
+                class="form-check-input"
+                [(ngModel)]="anonymous"
+                aria-describedby="anonymousHelp"
+              />
+              <label class="form-check-label" for="anonymous">
+                {{ 'retro.create.anonymous' | t }}
+              </label>
+              <div id="anonymousHelp" class="form-text">
+                {{ 'retro.create.anonymousHelp' | t }}
+              </div>
+            </div>
+
             <div class="mb-3">
               <label class="form-label" for="password">{{ 'retro.create.password' | t }}</label>
               <input

@@ -96,6 +96,17 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.cardDeleted': 'Card deleted.',
     'retro.announce.cardMoved': 'Card moved to {column}.',
 
+    // Anonymity (#22).
+    'retro.create.anonymous': 'Anonymous cards',
+    'retro.create.anonymousHelp': 'Hides who wrote each card from the rest of the room. Locks once the first card is added.',
+    'retro.anonymous': 'anonymous',
+    'retro.anonymousExplained': 'Card authors are hidden from everyone in this retro. Note this hides authorship from participants, not from whoever administers the server.',
+    'retro.hideAuthors': 'Make cards anonymous',
+    'retro.showAuthors': 'Show card authors',
+    'retro.err.anonymityLocked': 'Anonymity is locked once the board has cards — it would change what people already agreed to when they wrote them.',
+    'retro.announce.nowAnonymous': 'Cards are now anonymous.',
+    'retro.announce.nowAttributed': 'Card authors are now shown.',
+
     'common.cancel': 'Cancel',
     'common.save': 'Save',
     'common.close': 'Close',
@@ -425,6 +436,17 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.cardEdited': 'Tarjeta actualizada.',
     'retro.announce.cardDeleted': 'Tarjeta eliminada.',
     'retro.announce.cardMoved': 'Tarjeta movida a {column}.',
+
+    // Anonymity (#22).
+    'retro.create.anonymous': 'Tarjetas anónimas',
+    'retro.create.anonymousHelp': 'Oculta quién escribió cada tarjeta al resto de la sala. Se bloquea al añadir la primera tarjeta.',
+    'retro.anonymous': 'anónimo',
+    'retro.anonymousExplained': 'La autoría de las tarjetas está oculta para todos en esta retro. Se oculta a los participantes, no a quien administra el servidor.',
+    'retro.hideAuthors': 'Hacer las tarjetas anónimas',
+    'retro.showAuthors': 'Mostrar la autoría',
+    'retro.err.anonymityLocked': 'La anonimidad se bloquea cuando el tablero ya tiene tarjetas: cambiaría lo que la gente aceptó al escribirlas.',
+    'retro.announce.nowAnonymous': 'Las tarjetas ahora son anónimas.',
+    'retro.announce.nowAttributed': 'Ahora se muestra la autoría de las tarjetas.',
 
     'common.cancel': 'Cancelar',
     'common.save': 'Guardar',
@@ -756,6 +778,17 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.cardDeleted': 'Cartão eliminado.',
     'retro.announce.cardMoved': 'Cartão movido para {column}.',
 
+    // Anonymity (#22).
+    'retro.create.anonymous': 'Cartões anónimos',
+    'retro.create.anonymousHelp': 'Esconde quem escreveu cada cartão do resto da sala. Fica bloqueado ao adicionar o primeiro cartão.',
+    'retro.anonymous': 'anónimo',
+    'retro.anonymousExplained': 'A autoria dos cartões está escondida de todos nesta retro. Esconde-a dos participantes, não de quem administra o servidor.',
+    'retro.hideAuthors': 'Tornar os cartões anónimos',
+    'retro.showAuthors': 'Mostrar a autoria',
+    'retro.err.anonymityLocked': 'O anonimato fica bloqueado quando o quadro já tem cartões — mudaria aquilo que as pessoas aceitaram ao escrevê-los.',
+    'retro.announce.nowAnonymous': 'Os cartões são agora anónimos.',
+    'retro.announce.nowAttributed': 'A autoria dos cartões passa a ser mostrada.',
+
     'common.cancel': 'Cancelar',
     'common.save': 'Salvar',
     'common.close': 'Fechar',
@@ -1085,6 +1118,17 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.cardEdited': 'Karta zaktualizowana.',
     'retro.announce.cardDeleted': 'Karta usunięta.',
     'retro.announce.cardMoved': 'Karta przeniesiona do {column}.',
+
+    // Anonymity (#22).
+    'retro.create.anonymous': 'Anonimowe karty',
+    'retro.create.anonymousHelp': 'Ukrywa przed resztą pokoju, kto napisał każdą kartę. Blokuje się po dodaniu pierwszej karty.',
+    'retro.anonymous': 'anonimowo',
+    'retro.anonymousExplained': 'Autorstwo kart jest ukryte przed wszystkimi w tej retrospektywie. Ukrywa je przed uczestnikami, nie przed administratorem serwera.',
+    'retro.hideAuthors': 'Ukryj autorów kart',
+    'retro.showAuthors': 'Pokaż autorów kart',
+    'retro.err.anonymityLocked': 'Anonimowość jest zablokowana, gdy tablica ma już karty — zmieniłoby to warunki, na jakie ludzie się zgodzili, pisząc je.',
+    'retro.announce.nowAnonymous': 'Karty są teraz anonimowe.',
+    'retro.announce.nowAttributed': 'Autorzy kart są teraz widoczni.',
 
     'common.cancel': 'Anuluj',
     'common.save': 'Zapisz',

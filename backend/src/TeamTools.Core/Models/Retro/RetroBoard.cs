@@ -16,6 +16,18 @@ public class RetroBoard
     public RetroTemplate Template { get; set; } = RetroTemplate.WentWellToImprove;
 
     /// <summary>
+    /// When true, cards are anonymous: the snapshot carries **no** authorship at all, for anyone
+    /// (#22). Only settable while the board is empty — flipping it later would retroactively expose
+    /// cards written under a promise of anonymity, or retroactively hide attributed ones.
+    /// <para>
+    /// This is anonymity <em>from participants</em>, not from a database administrator:
+    /// <see cref="RetroCard.AuthorUserId"/> is still stored, because an author has to be able to
+    /// edit their own card and an organiser needs a target to moderate. The UI must not imply more.
+    /// </para>
+    /// </summary>
+    public bool Anonymous { get; set; }
+
+    /// <summary>
     /// The board's columns, in display order. Materialised from the template at creation (rather than
     /// resolved on every read) because a card belongs to a column and a custom layout has to persist.
     /// </summary>

@@ -15,6 +15,12 @@ namespace TeamTools.Core.Contracts;
 public record RetroBoardSnapshot(
     RoomSnapshot Room,
     RetroTemplate Template,
+    bool Anonymous,
+    /// <summary>
+    /// False once the first card exists: <see cref="Anonymous"/> is then locked, because flipping it
+    /// would retroactively expose or hide what people already wrote (#22).
+    /// </summary>
+    bool CanChangeAnonymity,
     IReadOnlyList<RetroColumnInfo> Columns);
 
 /// <summary>A column and the cards in it, in display order.</summary>
@@ -25,9 +31,14 @@ public record RetroColumnInfo(
     IReadOnlyList<RetroCardInfo> Cards);
 
 /// <summary>
-/// A card as one recipient may see it. <see cref="IsMine"/> tells the client it may edit this card
-/// without needing to know who wrote it, which is what makes an anonymous board possible without a
-/// second code path: <see cref="AuthorUserId"/> is simply omitted (#22).
+/// A card as one recipient may see it.
+/// <para>
+/// <see cref="IsMine"/> tells the client it may edit this card without needing to know who wrote
+/// it, which is what makes an anonymous board possible without a second code path: on such a board
+/// <see cref="AuthorUserId"/> and <see cref="AuthorDisplayName"/> are null for **every** card,
+/// including the recipient's own. Nulling them for everyone rather than "for everyone but you"
+/// means no future field or code path can leak authorship by omission (#22).
+/// </para>
 /// </summary>
 public record RetroCardInfo(
     Guid Id,
@@ -56,6 +67,8 @@ public enum RetroActionStatus
     NotCardAuthor,
     /// <summary>The card text is empty, or longer than the cap.</summary>
     InvalidCardText,
+    /// <summary>Anonymity is locked because the board already has cards (#22).</summary>
+    AnonymityLocked,
     /// <summary>The requested template is invalid (e.g. an empty custom layout).</summary>
     InvalidTemplate,
     /// <summary>Too many cards added too quickly (abuse throttle). See #3-abuse.</summary>
@@ -77,6 +90,7 @@ public record RetroActionResult(RetroActionStatus Status, RetroBoardSnapshot? Bo
     public static RetroActionResult CardNotFound() => new(RetroActionStatus.CardNotFound, null);
     public static RetroActionResult NotCardAuthor() => new(RetroActionStatus.NotCardAuthor, null);
     public static RetroActionResult InvalidCardText() => new(RetroActionStatus.InvalidCardText, null);
+    public static RetroActionResult AnonymityLocked() => new(RetroActionStatus.AnonymityLocked, null);
     public static RetroActionResult InvalidTemplate() => new(RetroActionStatus.InvalidTemplate, null);
     public static RetroActionResult RateLimited() => new(RetroActionStatus.RateLimited, null);
 }
@@ -90,7 +104,9 @@ public record CreateRetroRequest(
     string CreatorDisplayName,
     bool Organise,
     string? Password = null,
-    bool EnableReactions = true);
+    bool EnableReactions = true,
+    /// <summary>Whether cards are anonymous (#22). Chosen up front, since it locks once cards exist.</summary>
+    bool Anonymous = false);
 
 public enum CreateRetroStatus
 {

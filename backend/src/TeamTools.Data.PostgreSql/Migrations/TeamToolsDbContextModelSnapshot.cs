@@ -138,6 +138,9 @@ namespace TeamTools.Data.PostgreSql.Migrations
                     b.Property<Guid>("RoomId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("Anonymous")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Template")
                         .IsRequired()
                         .HasMaxLength(32)

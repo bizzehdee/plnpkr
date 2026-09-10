@@ -38,7 +38,7 @@ public class RetroHub : Hub
 
     public async Task<CreateRetroResult> CreateBoard(
         string name, RetroTemplate template, string? customColumns, string userId, string displayName,
-        bool organise, string? password, bool enableReactions)
+        bool organise, string? password, bool enableReactions, bool anonymous)
     {
         // Throttle anonymous board creation per connection (#3-abuse).
         if (!_throttle.TryCreate(Context.ConnectionId))
@@ -47,7 +47,8 @@ public class RetroHub : Hub
         }
 
         var result = await _retro.CreateAsync(new CreateRetroRequest(
-            name, template, customColumns, userId, displayName, organise, password, enableReactions));
+            name, template, customColumns, userId, displayName, organise, password, enableReactions,
+            anonymous));
 
         if (result.Status == CreateRetroStatus.Ok)
         {
@@ -118,6 +119,9 @@ public class RetroHub : Hub
         string shortCode, string userId, RetroTemplate template, string? customColumns) =>
         MutateAndBroadcast(shortCode, () =>
             _retro.SetTemplateAsync(shortCode, userId, template, customColumns));
+
+    public Task<RetroActionResult> SetAnonymous(string shortCode, string userId, bool anonymous) =>
+        MutateAndBroadcast(shortCode, () => _retro.SetAnonymousAsync(shortCode, userId, anonymous));
 
     // --- Room-level settings & lifecycle ------------------------------------
 

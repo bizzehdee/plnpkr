@@ -61,6 +61,7 @@ public class RetroService
         {
             RoomId = room.Id,
             Template = request.Template,
+            Anonymous = request.Anonymous,
         };
 
         // Columns are materialised now rather than resolved per read: a card belongs to a column, so
@@ -321,6 +322,35 @@ public class RetroService
         return await CommitAsync(room!, userId, ct);
     }
 
+    /// <summary>
+    /// Organiser-only: switch the board between attributed and anonymous cards (#22). Refused once
+    /// any card exists — turning anonymity on would retroactively hide attributed cards, and turning
+    /// it off would expose cards written under a promise of anonymity. Neither is ours to do.
+    /// </summary>
+    public async Task<RetroActionResult> SetAnonymousAsync(
+        string shortCode, string userId, bool anonymous, CancellationToken ct = default)
+    {
+        var (room, error) = await _rooms.LoadForControlAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return Project(error, userId);
+        }
+
+        var board = Board(room!);
+        if (board.Anonymous == anonymous)
+        {
+            return RetroActionResult.Ok(ToSnapshot(room!, userId)); // already there
+        }
+
+        if (board.Cards.Count > 0)
+        {
+            return RetroActionResult.AnonymityLocked();
+        }
+
+        board.Anonymous = anonymous;
+        return await CommitAsync(room!, userId, ct);
+    }
+
     // --- Reads -------------------------------------------------------------
 
     /// <summary>
@@ -411,8 +441,14 @@ public class RetroService
     // --- Projection --------------------------------------------------------
 
     /// <summary>
-    /// Projects the board for one recipient. Authorship is included here (#21); #22 makes it
-    /// conditional on the board's anonymity setting.
+    /// Projects the board for one recipient.
+    /// <para>
+    /// <b>This method is where anonymity lives (#22).</b> On an anonymous board no card carries
+    /// authorship at all — not even to the card's own author, who is identified by
+    /// <c>IsMine</c> instead. Doing it here, in the one projection every read and broadcast goes
+    /// through, is what makes the guarantee hold for the hub, the join result and every mutation
+    /// result alike; a client-side hide would be disproved by one devtools panel.
+    /// </para>
     /// </summary>
     public static RetroBoardSnapshot ToSnapshot(Room room, string forUserId)
     {
@@ -428,23 +464,32 @@ public class RetroService
                 board.Cards
                     .Where(card => card.ColumnId == c.Id)
                     .OrderBy(card => card.Order)
-                    .Select(card => ToCardInfo(card, forUserId, names))
+                    .Select(card => ToCardInfo(card, forUserId, names, board.Anonymous))
                     .ToArray()))
             .ToArray();
 
         return new RetroBoardSnapshot(
             RoomProjection.ToSnapshot(room, RoomProjection.ToInfos(room, revealed: false)),
             board.Template,
+            board.Anonymous,
+            board.Cards.Count == 0,
             columns);
     }
 
     private static RetroCardInfo ToCardInfo(
-        RetroCard card, string forUserId, IReadOnlyDictionary<string, string> names) => new(
-        card.Id,
-        card.Text,
-        card.AuthorUserId,
-        names.TryGetValue(card.AuthorUserId, out var name) ? name : null,
-        card.AuthorUserId == forUserId,
-        card.Order,
-        card.CreatedAt);
+        RetroCard card, string forUserId, IReadOnlyDictionary<string, string> names, bool anonymous)
+    {
+        var isMine = card.AuthorUserId == forUserId;
+
+        return new RetroCardInfo(
+            card.Id,
+            card.Text,
+            // Null for everyone on an anonymous board, including the author: "everyone but you"
+            // would still put a userId on the wire, and one leak is all it takes.
+            anonymous ? null : card.AuthorUserId,
+            anonymous ? null : names.GetValueOrDefault(card.AuthorUserId),
+            isMine,
+            card.Order,
+            card.CreatedAt);
+    }
 }

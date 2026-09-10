@@ -322,14 +322,30 @@ into the TeamTools platform and add the second tool, Team Retro.
 > poker client, so it read "disconnected" on a live retro board. It now reports whichever tool
 > client is actually connected.
 
-## 22. Retro anonymity  `S–M`  — depends on #21
+## 22. Retro anonymity  `S–M`  — depends on #21  ✅ done
 **Before #23–#28: it is a snapshot-contract property, not a UI toggle.**
-- [ ] `RetroBoard.Anonymous` + `RetroHub.SetAnonymous` (organiser-gated), locked once the first card exists.
-- [ ] Per-recipient snapshot projection: `AuthorUserId` never sent for others (and not at all on an anonymous board), with `IsMine` so authors can still edit their own cards.
-- [ ] Document that this is anonymity from participants, not from a DB administrator (`AuthorUserId` is still stored for edit authz + moderation).
-- [ ] EF migration ×3.
-- [ ] i18n: setting label + the "locked once cards exist" explanation in all catalogs.
-- [ ] Tests: anonymous board's snapshot carries no other-author identity **on the wire**; author still sees `IsMine`; toggle rejected once a card exists.
+- [x] `RetroBoard.Anonymous` (also settable at creation) + `RetroHub.SetAnonymous`, organiser-gated, refused once the first card exists.
+- [x] Per-recipient projection: on an anonymous board `AuthorUserId` **and** `AuthorDisplayName` are null for **every** card — including the recipient's own — with `IsMine` carrying ownership so authors can still edit.
+- [x] Documented on the model, the contract and in the UI copy that this is anonymity **from participants, not from a database administrator**: `AuthorUserId` is still stored, because an author must be able to edit their card and a facilitator needs a moderation target.
+- [x] EF migration ×3 (single additive column).
+- [x] i18n: the create-form option and its "locks once the first card is added" help, the board badge with a tooltip stating the limit of the guarantee, the toggle, the locked error and two announcements — ×4 locales.
+- [x] Tests: 15 backend (`RetroAnonymityTests`) + 5 frontend. Backend **469**, frontend **146**, coverage gate **94.7% line / 91.2% branch**.
+
+> **Why null for everyone rather than "null for everyone but you".** Sending the author their own
+> id would keep a userId on the wire for exactly the person it identifies, and every later feature
+> (grouping, dot voting, export) would have to remember not to widen that. `IsMine` carries
+> ownership instead, so there is no authorship field left to leak.
+
+> **The lock cuts both ways.** Turning anonymity *off* would expose cards written under a promise of
+> anonymity; turning it *on* would retroactively hide attributed ones. Both change what people
+> agreed to when they wrote them, so both are refused once any card exists — the facilitator
+> included. The snapshot carries `CanChangeAnonymity` so the UI hides the control instead of
+> offering one that fails when used.
+
+> **A test caught a wrong test, not wrong code.** The first version asserted the serialized snapshot
+> contained no occurrence of the author's name anywhere — and failed, because the *participant list*
+> legitimately names everyone in the room. Who is in the retro is not secret; who wrote which card
+> is. The assertion is now scoped to the cards, which is where the guarantee actually lives.
 
 ## 23. Facilitator-driven phases  `M`  — depends on #21, #22
 - [ ] `RetroPhase` (Collect → Group → Vote → Discuss → Actions → Closed) + explicit forward-only transitions in `RetroService`, with an organiser-only "back one phase".

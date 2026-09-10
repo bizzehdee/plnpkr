@@ -11,8 +11,26 @@
       <header class="d-flex flex-wrap align-items-center gap-2 mb-3">
         <h1 class="h4 mb-0">{{ b.name }}</h1>
         <span class="badge text-bg-secondary">{{ templateLabel() }}</span>
+        @if (b.anonymous) {
+          <!--
+            Say plainly what anonymity does and does not cover: authorship is hidden from the
+            people in the room, not from whoever runs the database (#22).
+          -->
+          <span class="badge text-bg-info" [title]="'retro.anonymousExplained' | t">
+            {{ 'retro.anonymous' | t }}
+          </span>
+        }
         @if (b.isClosed) {
           <span class="badge text-bg-warning">{{ 'retro.readOnly' | t }}</span>
+        }
+        @if (canFacilitate() && !b.isClosed && b.canChangeAnonymity) {
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            (click)="toggleAnonymous()"
+          >
+            {{ (b.anonymous ? 'retro.showAuthors' : 'retro.hideAuthors') | t }}
+          </button>
         }
         <span class="text-body-secondary small ms-auto">
           {{ 'retro.cardCount' | t }}: {{ cardCount() }}

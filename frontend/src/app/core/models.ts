@@ -313,6 +313,9 @@ export interface RetroColumnInfo {
 export interface RetroBoardSnapshotWire {
   room: RoomSnapshot;
   template: RetroTemplate;
+  anonymous: boolean;
+  /** False once the first card exists — anonymity is then locked (#22). */
+  canChangeAnonymity: boolean;
   columns: RetroColumnInfo[];
 }
 
@@ -328,6 +331,8 @@ export interface RetroBoardSnapshot {
   isClosed: boolean;
   participants: ParticipantInfo[];
   template: RetroTemplate;
+  anonymous: boolean;
+  canChangeAnonymity: boolean;
   columns: RetroColumnInfo[];
 }
 
@@ -341,6 +346,7 @@ export type RetroActionStatus =
   | 'CardNotFound'
   | 'NotCardAuthor'
   | 'InvalidCardText'
+  | 'AnonymityLocked'
   | 'InvalidTemplate'
   | 'RateLimited';
 

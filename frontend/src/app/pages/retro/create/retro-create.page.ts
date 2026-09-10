@@ -24,6 +24,7 @@ export class RetroCreatePage {
   protected template: RetroTemplate = 'WentWellToImprove';
   protected customColumns = '';
   protected facilitate = true;
+  protected anonymous = false;
   protected password = '';
 
   protected readonly busy = signal(false);
@@ -65,6 +66,8 @@ export class RetroCreatePage {
         this.displayName.trim(),
         this.facilitate,
         this.password.trim() || null,
+        true,
+        this.anonymous,
       );
 
       switch (result.status) {

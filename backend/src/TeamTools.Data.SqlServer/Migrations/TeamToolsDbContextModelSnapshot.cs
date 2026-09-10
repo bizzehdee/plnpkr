@@ -138,6 +138,9 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.Property<Guid>("RoomId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("Anonymous")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Template")
                         .IsRequired()
                         .HasMaxLength(32)

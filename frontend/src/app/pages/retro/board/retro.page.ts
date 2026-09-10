@@ -231,6 +231,27 @@ export class RetroPage implements OnInit, OnDestroy {
     return !this.board()?.isClosed && (card.isMine || this.canFacilitate());
   }
 
+  /**
+   * Facilitator-only: switch the board between attributed and anonymous cards (#22). The control is
+   * only offered while `canChangeAnonymity` holds — once a card exists the server refuses, because
+   * flipping it would retroactively expose or hide what people wrote.
+   */
+  protected async toggleAnonymous(): Promise<void> {
+    const board = this.board();
+    if (!board) {
+      return;
+    }
+
+    const result = await this.retro.setAnonymous(this.shortCode, this.myUserId, !board.anonymous);
+    if (result.status === 'Ok') {
+      this.announce(
+        this.i18n.t(result.board!.anonymous ? 'retro.announce.nowAnonymous' : 'retro.announce.nowAttributed'),
+      );
+    } else {
+      this.error.set(this.statusMessage(result.status));
+    }
+  }
+
   protected dismissError(): void {
     this.error.set(null);
   }
@@ -247,6 +268,8 @@ export class RetroPage implements OnInit, OnDestroy {
         return this.i18n.t('retro.err.notCardAuthor');
       case 'BoardClosed':
         return this.i18n.t('retro.err.boardClosed');
+      case 'AnonymityLocked':
+        return this.i18n.t('retro.err.anonymityLocked');
       case 'RateLimited':
         return this.i18n.t('err.create.rateLimited');
       case 'CardNotFound':

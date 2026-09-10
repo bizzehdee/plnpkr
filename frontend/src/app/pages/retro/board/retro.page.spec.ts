@@ -71,6 +71,8 @@ function board(over: Partial<RetroBoardSnapshot> = {}): RetroBoardSnapshot {
       participants: flat.participants,
     },
     template: 'WentWellToImprove',
+    anonymous: false,
+    canChangeAnonymity: false,
     columns: [
       { id: 'col-1', title: 'Went well', order: 0, cards: [card()] },
       { id: 'col-2', title: 'To improve', order: 1, cards: [] },
@@ -94,6 +96,7 @@ class FakeRetroClient {
   editCard = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
   deleteCard = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
   moveCard = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
+  setAnonymous = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
 }
 
 type Cmp = {
@@ -107,6 +110,7 @@ type Cmp = {
   moveCard(c: RetroCardInfo, targetColumnId: string): Promise<void>;
   otherColumns(c: RetroCardInfo): { id: string }[];
   canModify(c: RetroCardInfo): boolean;
+  toggleAnonymous(): Promise<void>;
 };
 
 async function setup(fake: FakeRetroClient) {
@@ -269,5 +273,77 @@ describe('RetroPage', () => {
 
     const alert = (fixture.nativeElement as HTMLElement).querySelector('[role="alert"]');
     expect(alert?.textContent).toContain('under 500 characters');
+  });
+
+  // --- Anonymity (#22) ----------------------------------------------------
+
+  it('shows an anonymity badge, and no author name, on an anonymous board', async () => {
+    // The server sends no authorship on an anonymous board, so the card renders without a name
+    // while still being editable by its author via isMine.
+    const fake = new FakeRetroClient();
+    fake.board.set(
+      board({
+        anonymous: true,
+        columns: [
+          {
+            id: 'col-1',
+            title: 'Went well',
+            order: 0,
+            cards: [card({ authorUserId: null, authorDisplayName: null, isMine: true })],
+          },
+        ],
+      }),
+    );
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).toContain('anonymous');
+    expect(el.textContent).not.toContain('Me');
+    // The author still sees which card is theirs, via isMine.
+    expect(el.textContent).toContain('yours');
+  });
+
+  it('offers the anonymity toggle to a facilitator while the board is still empty', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ canChangeAnonymity: true }));
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).toContain('Make cards anonymous');
+  });
+
+  it('hides the anonymity toggle once the board has cards', async () => {
+    // The server refuses the change, so offering the control would be a lie.
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ canChangeAnonymity: false }));
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).not.toContain('Make cards anonymous');
+  });
+
+  it('toggles anonymity to the opposite of the current setting', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ anonymous: false, canChangeAnonymity: true }));
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.toggleAnonymous();
+
+    expect(fake.setAnonymous).toHaveBeenCalledWith(CODE, ME, true);
+  });
+
+  it('explains why anonymity is locked when the server refuses the change', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ canChangeAnonymity: true }));
+    fake.setAnonymous.mockResolvedValue({ status: 'AnonymityLocked', board: null });
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.toggleAnonymous();
+    fixture.detectChanges();
+
+    const alert = (fixture.nativeElement as HTMLElement).querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain('locked once the board has cards');
   });
 });
