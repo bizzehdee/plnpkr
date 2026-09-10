@@ -101,6 +101,7 @@ public class TeamToolsDbContext : DbContext
             e.HasKey(b => b.RoomId);
             e.Property(b => b.Template).HasConversion<string>().HasMaxLength(32);
             e.Property(b => b.Phase).HasConversion<string>().HasMaxLength(16);
+            e.Property(b => b.PreviousBoardShortCode).HasMaxLength(64); // #27
 
             e.HasMany(b => b.Columns)
                 .WithOne(c => c.Board!)

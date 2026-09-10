@@ -1,5 +1,6 @@
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Models;
+using TeamTools.Core.Security;
 
 namespace TeamTools.Core.Retro;
 
@@ -34,12 +35,17 @@ public class RetroService
     private readonly IRoomStore _store;
     private readonly RoomService _rooms;
     private readonly IClock _clock;
+    private readonly IPasswordHasher _passwordHasher;
 
-    public RetroService(IRoomStore store, RoomService rooms, IClock clock)
+    public RetroService(
+        IRoomStore store, RoomService rooms, IClock clock, IPasswordHasher? passwordHasher = null)
     {
         _store = store;
         _rooms = rooms;
         _clock = clock;
+        // Only needed to verify the *previous* board's password on carry-over (#27); the room engine
+        // owns password hashing everywhere else.
+        _passwordHasher = passwordHasher ?? new Pbkdf2PasswordHasher();
     }
 
     // --- Creation ----------------------------------------------------------
@@ -66,6 +72,20 @@ public class RetroService
             return CreateRetroResult.InvalidTemplate(ex.Message);
         }
 
+        // Carry-over (#27) is resolved *before* the new room is created, so a wrong password or a
+        // missing board fails without leaving a half-made retro behind.
+        List<RetroActionItem> carried = [];
+        if (!string.IsNullOrWhiteSpace(request.PreviousBoardShortCode))
+        {
+            var (actions, carryError) = await ResolveCarryOverAsync(
+                request.PreviousBoardShortCode!, request.PreviousBoardPassword, ct);
+            if (carryError is not null)
+            {
+                return carryError;
+            }
+            carried = actions!;
+        }
+
         var room = await _rooms.NewRoomAsync(
             RoomTool.Retro, request.Name, request.CreatorUserId, request.CreatorDisplayName,
             request.Organise, request.EnableReactions, request.Password, ct);
@@ -75,7 +95,16 @@ public class RetroService
             RoomId = room.Id,
             Template = request.Template,
             Anonymous = request.Anonymous,
+            PreviousBoardShortCode = carried.Count > 0 || !string.IsNullOrWhiteSpace(request.PreviousBoardShortCode)
+                ? request.PreviousBoardShortCode
+                : null,
         };
+
+        foreach (var action in carried)
+        {
+            action.BoardId = room.Id;
+            board.Actions.Add(action);
+        }
 
         // Columns are materialised now rather than resolved per read: a card belongs to a column, so
         // the column needs an identity that survives a rename or a reordering.
@@ -374,6 +403,57 @@ public class RetroService
 
         board.Anonymous = anonymous;
         return await CommitAsync(room!, userId, ct);
+    }
+
+    // --- Carry-over (#27) --------------------------------------------------
+
+    /// <summary>
+    /// Resolves the unfinished actions to carry forward from a previous retro.
+    /// <para>
+    /// <b>The password matters.</b> A short code is effectively a bearer token here, so without
+    /// this check carry-over would be a way to read a protected board's commitments — including,
+    /// on an anonymous board, ones written in confidence. Anyone who can join the old retro can
+    /// carry from it; anyone who cannot, cannot.
+    /// </para>
+    /// <para>
+    /// The actions are **copied**, not referenced, keeping <c>CarriedFromBoardId</c> for
+    /// provenance. That keeps the new board self-contained for export (#28) and unaffected when the
+    /// old one is retention-deleted (#15).
+    /// </para>
+    /// </summary>
+    private async Task<(List<RetroActionItem>? Actions, CreateRetroResult? Error)> ResolveCarryOverAsync(
+        string previousShortCode, string? password, CancellationToken ct)
+    {
+        var previous = await _store.FindByShortCodeAsync(previousShortCode.Trim(), ct);
+        if (previous?.RetroBoard is null)
+        {
+            return (null, CreateRetroResult.PreviousBoardNotFound());
+        }
+
+        if (previous.PasswordHash is { } hash && !_passwordHasher.Verify(hash, password ?? string.Empty))
+        {
+            return (null, CreateRetroResult.PreviousBoardPasswordRequired());
+        }
+
+        var carried = previous.RetroBoard.Actions
+            .Where(a => a.DoneAt is null)
+            .OrderBy(a => a.DueDate ?? DateTimeOffset.MaxValue)
+            .ThenBy(a => a.CreatedAt)
+            .Select(a => new RetroActionItem
+            {
+                Id = Guid.NewGuid(), // a copy, with its own identity
+                Title = a.Title,
+                OwnerUserId = a.OwnerUserId,
+                OwnerName = a.OwnerName,
+                DueDate = a.DueDate,
+                // Deliberately not copied: DoneAt (it is unfinished by definition) and
+                // SourceGroupId (that theme belongs to the old board's cards, not this one's).
+                CarriedFromBoardId = previous.Id,
+                CreatedAt = _clock.UtcNow,
+            })
+            .ToList();
+
+        return (carried, null);
     }
 
     // --- Action items (#26) ------------------------------------------------
@@ -1120,7 +1200,8 @@ public class RetroService
                 .Select(a => new RetroActionInfo(
                     a.Id, a.Title, a.OwnerUserId, a.OwnerName, a.DueDate, a.IsDone, a.DoneAt,
                     a.SourceGroupId, a.CarriedFromBoardId is not null))
-                .ToArray());
+                .ToArray(),
+            board.PreviousBoardShortCode);
     }
 
     private static RetroCardInfo ToCardInfo(

@@ -201,6 +201,10 @@ namespace TeamTools.Data.PostgreSql.Migrations
                     b.Property<int?>("PhaseDurationSeconds")
                         .HasColumnType("integer");
 
+                    b.Property<string>("PreviousBoardShortCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("Template")
                         .IsRequired()
                         .HasMaxLength(32)

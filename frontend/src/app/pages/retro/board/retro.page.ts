@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { SignalrRetroClient } from '../../../core/retro.client';
 import { IdentityService } from '../../../core/identity.service';
 import { SessionMembershipService } from '../../../core/session-membership.service';
@@ -29,7 +29,7 @@ import {
  */
 @Component({
   selector: 'app-retro',
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   templateUrl: './retro.page.html',
 })
 export class RetroPage implements OnInit, OnDestroy {
@@ -326,9 +326,8 @@ export class RetroPage implements OnInit, OnDestroy {
   // --- Action items (#26) ------------------------------------------------
 
   /**
-   * Whether actions may be written. During Discuss and Actions, and — deliberately — on a **closed**
-   * board too: "mark done" happens days after the retro ended, and that is the one write a closed
-   * room still accepts.
+   * Whether **new** actions may be recorded: during Discuss and Actions, and — deliberately — on a
+   * closed board too, because follow-up work gets agreed after the meeting as well.
    */
   protected readonly canWriteActions = computed(() => {
     const board = this.board();
@@ -337,6 +336,14 @@ export class RetroPage implements OnInit, OnDestroy {
     }
     return board.isClosed || board.phase === 'Discuss' || board.phase === 'Actions';
   });
+
+  /**
+   * Whether **existing** actions may be ticked off, edited or removed. Not phase-gated, matching
+   * the server: carried-over actions (#27) are the review list at the top of Collect, so ticking
+   * one has to work before this retro has reached its own Actions phase — and "mark done" happens
+   * days later, on a closed board.
+   */
+  protected readonly canUpdateActions = computed(() => !!this.board());
 
   protected readonly actionComposerOpen = signal(false);
   protected actionTitle = '';

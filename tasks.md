@@ -439,13 +439,26 @@ into the TeamTools platform and add the second tool, Team Retro.
 > default template has a *column* called "Action items", so it would have passed or failed for the
 > wrong reason. It now asserts on the panel's heading element.
 
-## 27. Carry-over from the previous retro  `S–M`  — depends on #26
-- [ ] Retro creation accepts a previous board's short code; `RetroBoard.PreviousBoardShortCode`.
-- [ ] `RetroService.CreateWithCarryOverAsync` **copies** not-done actions (keeping `CarriedFromBoardId`) so the new board stays self-contained and survives the old one's retention delete (#15).
-- [ ] Require the previous board's password if it had one — a short code is a bearer token, and carry-over must not leak a protected board.
-- [ ] Carried actions shown as a review list at the top of Collect; "start next retro" from a closing board deep-links the code.
-- [ ] EF migration ×3 if not already covered by #26's columns.
-- [ ] Tests: only not-done actions carry; provenance recorded; wrong/missing password refused; deleting the source board leaves the new one intact.
+## 27. Carry-over from the previous retro  `S–M`  — depends on #26  ✅ done
+- [x] Retro creation accepts a previous board's short code (`CreateRetroRequest.PreviousBoardShortCode`); the new board records it in `RetroBoard.PreviousBoardShortCode` for provenance.
+- [x] `ResolveCarryOverAsync` **copies** the not-done actions, keeping `CarriedFromBoardId`, so the new board stays self-contained for export (#28) and survives the old one's retention delete (#15). Deliberately *not* copied: `DoneAt` (unfinished by definition) and `SourceGroupId` (that theme belongs to the old board's cards).
+- [x] Requires the previous board's password if it had one — a short code is a bearer token, and carry-over must not become a way to read a protected board's commitments, least of all an anonymous one's.
+- [x] Carried actions appear in the actions panel from the start of Collect, badged "carried over"; a closed board offers a **deep-linked** "Start the next retro" that prefills its own code via `?from=`.
+- [x] EF migration ×3 (one additive column).
+- [x] i18n: 9 strings × 4 locales.
+- [x] Tests: 18 backend (`RetroCarryOverTests`) + 5 frontend. Backend **585**, frontend **195**, coverage gate **95.1% line / 91.4% branch**.
+
+> **Carry-over is resolved before the new room is created**, so a wrong password or an unknown code
+> fails without leaving a half-made retro behind — there is a test that counts the rooms.
+
+> **An unknown previous code is an error, not a silent no-op.** Creating the board anyway with
+> nothing carried would look exactly like a team that had finished everything.
+
+> **The review list needed a UI fix the server had already got right.** Adding a *new* action is
+> phase-gated to Discuss/Actions, but ticking an *existing* one is not — carried actions are
+> reviewed during Collect, and "mark done" happens days later on a closed board. The page had one
+> predicate for both and so hid the checkbox exactly when the review list was being reviewed; it
+> now has `canWriteActions` (add) and `canUpdateActions` (tick/edit/remove), matching the service.
 
 ## 28. Retro export  `S–M`  — depends on #24, #25, #26
 - [ ] `GET /api/retro/{shortCode}/export?format=csv|json|md`, reusing #12's streaming, content-type and existence+password guard.

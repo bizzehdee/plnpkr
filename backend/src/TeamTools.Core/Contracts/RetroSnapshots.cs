@@ -48,7 +48,9 @@ public record RetroBoardSnapshot(
     /// </summary>
     IReadOnlyList<RetroRankedItem> Ranking,
     /// <summary>What the team agreed to do, outstanding first (#26).</summary>
-    IReadOnlyList<RetroActionInfo> Actions);
+    IReadOnlyList<RetroActionInfo> Actions,
+    /// <summary>The retro this board carried actions forward from, or null (#27).</summary>
+    string? PreviousBoardShortCode);
 
 /// <summary>An action item as clients see it (#26).</summary>
 public record RetroActionInfo(
@@ -213,13 +215,23 @@ public record CreateRetroRequest(
     string? Password = null,
     bool EnableReactions = true,
     /// <summary>Whether cards are anonymous (#22). Chosen up front, since it locks once cards exist.</summary>
-    bool Anonymous = false);
+    bool Anonymous = false,
+    /// <summary>
+    /// A previous retro.s short code to carry unfinished actions forward from (#27). Its password,
+    /// if it had one, must be supplied in <see cref="PreviousBoardPassword"/>.
+    /// </summary>
+    string? PreviousBoardShortCode = null,
+    string? PreviousBoardPassword = null);
 
 public enum CreateRetroStatus
 {
     Ok,
     InvalidName,
     InvalidTemplate,
+    /// <summary>The retro to carry actions forward from does not exist (#27).</summary>
+    PreviousBoardNotFound,
+    /// <summary>That retro is password-protected and the password was missing or wrong (#27).</summary>
+    PreviousBoardPasswordRequired,
     /// <summary>The caller is creating boards too quickly (abuse throttle). See #3-abuse.</summary>
     RateLimited,
 }
@@ -230,6 +242,12 @@ public record CreateRetroResult(CreateRetroStatus Status, RetroBoardSnapshot? Bo
     public static CreateRetroResult InvalidName(string error) => new(CreateRetroStatus.InvalidName, null, error);
     public static CreateRetroResult InvalidTemplate(string error) =>
         new(CreateRetroStatus.InvalidTemplate, null, error);
+    public static CreateRetroResult PreviousBoardNotFound() =>
+        new(CreateRetroStatus.PreviousBoardNotFound, null,
+            "That retro could not be found, so there is nothing to carry forward.");
+    public static CreateRetroResult PreviousBoardPasswordRequired() =>
+        new(CreateRetroStatus.PreviousBoardPasswordRequired, null,
+            "That retro has a password — enter it to carry its actions forward.");
     public static CreateRetroResult RateLimited() =>
         new(CreateRetroStatus.RateLimited, null, "You're doing that too often — please wait a moment and try again.");
 }

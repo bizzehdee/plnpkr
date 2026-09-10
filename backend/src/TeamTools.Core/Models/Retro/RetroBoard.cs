@@ -60,6 +60,13 @@ public class RetroBoard
     /// <summary>What the team agreed to do. See #26.</summary>
     public List<RetroActionItem> Actions { get; set; } = new();
 
+    /// <summary>
+    /// The short code of the retro this board carried actions forward from, or null (#27).
+    /// Provenance for the humans; the carried actions themselves are copies, so this board stays
+    /// self-contained if the previous one is later deleted.
+    /// </summary>
+    public string? PreviousBoardShortCode { get; set; }
+
     /// <summary>How many dots each participant gets to spend. See #25.</summary>
     public int VoteBudget { get; set; } = DefaultVoteBudget;
 

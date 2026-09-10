@@ -154,6 +154,23 @@
             <p class="form-text mb-2">{{ 'retro.actionsAfterClose' | t }}</p>
           }
 
+          @if (b.previousBoardShortCode) {
+            <p class="form-text mb-2">
+              {{ 'retro.carriedFrom' | t }}: <code>{{ b.previousBoardShortCode }}</code>
+            </p>
+          }
+
+          @if (b.isClosed) {
+            <!--
+              Deep-links this board's code into the next retro's create form, so the unfinished
+              actions come forward without anyone copying a code by hand (#27).
+            -->
+            <a class="btn btn-sm btn-outline-primary mb-2" [routerLink]="['/retro/new']"
+               [queryParams]="{ from: b.shortCode }">
+              {{ 'retro.startNext' | t }}
+            </a>
+          }
+
           @if (actionComposerOpen()) {
             <div class="card mb-2">
               <div class="card-body">
@@ -236,7 +253,7 @@
             <ul class="list-group">
               @for (action of b.actions; track action.id) {
                 <li class="list-group-item d-flex align-items-start gap-2">
-                  @if (canWriteActions()) {
+                  @if (canUpdateActions()) {
                     <input
                       type="checkbox"
                       class="form-check-input mt-1"
@@ -265,7 +282,7 @@
                     </div>
                   </div>
 
-                  @if (canWriteActions()) {
+                  @if (canUpdateActions()) {
                     <div class="d-flex gap-1">
                       <button
                         type="button"

@@ -85,6 +85,7 @@ function board(over: Partial<RetroBoardSnapshot> = {}): RetroBoardSnapshot {
     voteTotalsVisible: false,
     ranking: [],
     actions: [],
+    previousBoardShortCode: null,
     nextPhase: 'Group',
     previousPhase: null,
     phaseDurationSeconds: null,
@@ -168,6 +169,7 @@ type Cmp = {
   addDot(kind: 'Card' | 'Group', item: { id: string; myDots: number }): Promise<void>;
   removeDot(kind: 'Card' | 'Group', item: { id: string }): Promise<void>;
   canWriteActions(): boolean;
+  canUpdateActions(): boolean;
   openActionComposer(fromGroup?: RetroGroupInfo): void;
   saveAction(): Promise<void>;
   toggleActionDone(a: RetroActionInfo): Promise<void>;
@@ -1033,5 +1035,82 @@ describe('RetroPage action items', () => {
     expect(cmp.canWriteActions()).toBe(true);
     expect(el.querySelector('input[type="checkbox"]')).toBeTruthy();
     expect(el.textContent).toContain('actions can still be updated');
+  });
+});
+
+// --- Carry-over (#27) -------------------------------------------------------
+
+describe('RetroPage carry-over', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function carried(over: Partial<RetroActionInfo> = {}): RetroActionInfo {
+    return {
+      id: 'a-1',
+      title: 'Speed up CI',
+      ownerUserId: null,
+      ownerName: null,
+      dueDate: null,
+      isDone: false,
+      doneAt: null,
+      sourceGroupId: null,
+      carriedOver: true,
+      ...over,
+    };
+  }
+
+  it('shows carried actions during collect, so the team reviews them first', async () => {
+    // The review list at the top of Collect is the highest-value two minutes of a retro.
+    const fake = new FakeRetroClient();
+    fake.board.set(
+      board({ phase: 'Collect', actions: [carried()], previousBoardShortCode: 'retro-1' }),
+    );
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('#actions-heading')).toBeTruthy();
+    expect(el.textContent).toContain('Speed up CI');
+    expect(el.textContent).toContain('carried over');
+  });
+
+  it('lets a carried action be ticked off during collect', async () => {
+    // Adding a NEW action is phase-gated; ticking an existing one is not, matching the server —
+    // otherwise the review list would be read-only exactly when it is being reviewed.
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Collect', actions: [carried()] }));
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    expect(cmp.canUpdateActions()).toBe(true);
+    expect(cmp.canWriteActions()).toBe(false);
+    expect(el.querySelector('input[type="checkbox"]')).toBeTruthy();
+  });
+
+  it('names the retro the actions were carried from', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ actions: [carried()], previousBoardShortCode: 'retro-1' }));
+    const fixture = await setup(fake);
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Carried from');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('retro-1');
+  });
+
+  it('offers a deep-linked next retro once the board is closed', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ isClosed: true, actions: [carried()] }));
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    const link = el.querySelector<HTMLAnchorElement>('a[href*="/retro/new"]');
+    expect(link).toBeTruthy();
+    expect(link!.getAttribute('href')).toContain(`from=${CODE}`);
+  });
+
+  it('does not offer a next retro while this one is still running', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ actions: [carried()] }));
+    const fixture = await setup(fake);
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('a[href*="/retro/new"]')).toBeNull();
   });
 });

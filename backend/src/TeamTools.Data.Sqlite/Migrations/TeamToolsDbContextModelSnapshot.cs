@@ -194,6 +194,10 @@ namespace TeamTools.Data.Sqlite.Migrations
                     b.Property<int?>("PhaseDurationSeconds")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("PreviousBoardShortCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Template")
                         .IsRequired()
                         .HasMaxLength(32)

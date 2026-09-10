@@ -52,6 +52,7 @@ export function flattenBoard(wire: RetroBoardSnapshotWire): RetroBoardSnapshot {
     groups: wire.groups,
     ranking: wire.ranking,
     actions: wire.actions,
+    previousBoardShortCode: wire.previousBoardShortCode,
   };
 }
 
@@ -75,6 +76,8 @@ export interface IRetroClient {
     password?: string | null,
     enableReactions?: boolean,
     anonymous?: boolean,
+    previousBoardShortCode?: string | null,
+    previousBoardPassword?: string | null,
   ): Promise<CreateRetroResult>;
   joinBoard(
     shortCode: string,
@@ -237,6 +240,8 @@ export class SignalrRetroClient extends RoomClientBase implements IRetroClient {
     password: string | null = null,
     enableReactions = true,
     anonymous = false,
+    previousBoardShortCode: string | null = null,
+    previousBoardPassword: string | null = null,
   ): Promise<CreateRetroResult> {
     const result = this.mapResult(
       await this.invoke<CreateRetroResult>(
@@ -250,6 +255,8 @@ export class SignalrRetroClient extends RoomClientBase implements IRetroClient {
         password,
         enableReactions,
         anonymous,
+        previousBoardShortCode,
+        previousBoardPassword,
       ),
     );
 

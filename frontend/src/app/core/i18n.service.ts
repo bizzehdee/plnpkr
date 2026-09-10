@@ -172,6 +172,17 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.actionReopened': 'Action reopened.',
     'retro.announce.actionDeleted': 'Action deleted.',
 
+    // Carry-over (#27).
+    'retro.create.previousCode': 'Carry actions from (optional)',
+    'retro.create.previousCodePlaceholder': 'Last retro code, e.g. blue-fox-42',
+    'retro.create.previousCodeHelp': 'Brings the unfinished actions from that retro forward, so you can review them first.',
+    'retro.create.previousPassword': 'That retro’s password',
+    'retro.create.previousPasswordHelp': 'Only needed if that retro had a password.',
+    'retro.create.errorPreviousNotFound': 'That retro could not be found, so there is nothing to carry forward.',
+    'retro.create.errorPreviousPassword': 'That retro has a password — enter it to carry its actions forward.',
+    'retro.carriedFrom': 'Carried from',
+    'retro.startNext': 'Start the next retro',
+
     'common.cancel': 'Cancel',
     'common.save': 'Save',
     'common.close': 'Close',
@@ -577,6 +588,17 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.actionDone': 'Acción marcada como hecha.',
     'retro.announce.actionReopened': 'Acción reabierta.',
     'retro.announce.actionDeleted': 'Acción eliminada.',
+
+    // Carry-over (#27).
+    'retro.create.previousCode': 'Arrastrar acciones de (opcional)',
+    'retro.create.previousCodePlaceholder': 'Código de la retro anterior, p. ej. blue-fox-42',
+    'retro.create.previousCodeHelp': 'Trae las acciones pendientes de esa retro para revisarlas primero.',
+    'retro.create.previousPassword': 'Contraseña de esa retro',
+    'retro.create.previousPasswordHelp': 'Solo si esa retro tenía contraseña.',
+    'retro.create.errorPreviousNotFound': 'No se ha encontrado esa retro, así que no hay nada que arrastrar.',
+    'retro.create.errorPreviousPassword': 'Esa retro tiene contraseña: introdúcela para arrastrar sus acciones.',
+    'retro.carriedFrom': 'Arrastradas de',
+    'retro.startNext': 'Empezar la próxima retro',
 
     'common.cancel': 'Cancelar',
     'common.save': 'Guardar',
@@ -984,6 +1006,17 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.actionReopened': 'Ação reaberta.',
     'retro.announce.actionDeleted': 'Ação eliminada.',
 
+    // Carry-over (#27).
+    'retro.create.previousCode': 'Transitar ações de (opcional)',
+    'retro.create.previousCodePlaceholder': 'Código da retro anterior, ex.: blue-fox-42',
+    'retro.create.previousCodeHelp': 'Traz as ações pendentes dessa retro para as reveres primeiro.',
+    'retro.create.previousPassword': 'Palavra-passe dessa retro',
+    'retro.create.previousPasswordHelp': 'Só é necessária se essa retro tinha palavra-passe.',
+    'retro.create.errorPreviousNotFound': 'Essa retro não foi encontrada, por isso não há nada para transitar.',
+    'retro.create.errorPreviousPassword': 'Essa retro tem palavra-passe — introduz-a para transitar as ações.',
+    'retro.carriedFrom': 'Transitadas de',
+    'retro.startNext': 'Começar a próxima retro',
+
     'common.cancel': 'Cancelar',
     'common.save': 'Salvar',
     'common.close': 'Fechar',
@@ -1389,6 +1422,17 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.actionDone': 'Działanie oznaczone jako zrobione.',
     'retro.announce.actionReopened': 'Działanie ponownie otwarte.',
     'retro.announce.actionDeleted': 'Działanie usunięte.',
+
+    // Carry-over (#27).
+    'retro.create.previousCode': 'Przenieś działania z (opcjonalnie)',
+    'retro.create.previousCodePlaceholder': 'Kod poprzedniej retrospektywy, np. blue-fox-42',
+    'retro.create.previousCodeHelp': 'Przenosi niezakończone działania z tej retrospektywy, aby najpierw je przejrzeć.',
+    'retro.create.previousPassword': 'Hasło tej retrospektywy',
+    'retro.create.previousPasswordHelp': 'Potrzebne tylko, jeśli ta retrospektywa miała hasło.',
+    'retro.create.errorPreviousNotFound': 'Nie znaleziono tej retrospektywy, więc nie ma czego przenieść.',
+    'retro.create.errorPreviousPassword': 'Ta retrospektywa ma hasło — podaj je, aby przenieść jej działania.',
+    'retro.carriedFrom': 'Przeniesione z',
+    'retro.startNext': 'Rozpocznij następną retrospektywę',
 
     'common.cancel': 'Anuluj',
     'common.save': 'Zapisz',

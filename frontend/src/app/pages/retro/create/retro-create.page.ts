@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { SignalrRetroClient } from '../../../core/retro.client';
 import { IdentityService } from '../../../core/identity.service';
 import { I18nService } from '../../../core/i18n.service';
@@ -18,6 +18,7 @@ export class RetroCreatePage {
   private readonly identity = inject(IdentityService);
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
+  private readonly route = inject(ActivatedRoute);
 
   protected boardName = '';
   protected displayName = this.identity.displayName;
@@ -26,6 +27,16 @@ export class RetroCreatePage {
   protected facilitate = true;
   protected anonymous = false;
   protected password = '';
+
+  /** Carry-over (#27): the previous retro's short code, and its password if it had one. */
+  protected previousCode = '';
+  protected previousPassword = '';
+
+  constructor() {
+    // "Start the next retro" from a closing board deep-links its code, so the facilitator does not
+    // have to copy it across (#27).
+    this.previousCode = this.route.snapshot.queryParamMap.get('from') ?? '';
+  }
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -68,6 +79,8 @@ export class RetroCreatePage {
         this.password.trim() || null,
         true,
         this.anonymous,
+        this.previousCode.trim() || null,
+        this.previousPassword.trim() || null,
       );
 
       switch (result.status) {
@@ -76,6 +89,12 @@ export class RetroCreatePage {
           break;
         case 'RateLimited':
           this.error.set(this.i18n.t('err.create.rateLimited'));
+          break;
+        case 'PreviousBoardPasswordRequired':
+          this.error.set(this.i18n.t('retro.create.errorPreviousPassword'));
+          break;
+        case 'PreviousBoardNotFound':
+          this.error.set(this.i18n.t('retro.create.errorPreviousNotFound'));
           break;
         default:
           // The server's message is the specific one (which column list was unusable, etc.).

@@ -38,7 +38,8 @@ public class RetroHub : Hub
 
     public async Task<CreateRetroResult> CreateBoard(
         string name, RetroTemplate template, string? customColumns, string userId, string displayName,
-        bool organise, string? password, bool enableReactions, bool anonymous)
+        bool organise, string? password, bool enableReactions, bool anonymous,
+        string? previousBoardShortCode, string? previousBoardPassword)
     {
         // Throttle anonymous board creation per connection (#3-abuse).
         if (!_throttle.TryCreate(Context.ConnectionId))
@@ -48,7 +49,7 @@ public class RetroHub : Hub
 
         var result = await _retro.CreateAsync(new CreateRetroRequest(
             name, template, customColumns, userId, displayName, organise, password, enableReactions,
-            anonymous));
+            anonymous, previousBoardShortCode, previousBoardPassword));
 
         if (result.Status == CreateRetroStatus.Ok)
         {

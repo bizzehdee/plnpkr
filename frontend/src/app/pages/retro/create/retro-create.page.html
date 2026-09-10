@@ -98,6 +98,48 @@
               </div>
             </div>
 
+            <!--
+              Carry-over (#27). Rooms are independent — there is no team entity — so the link to
+              last time's retro is made explicitly, by its code.
+            -->
+            <div class="mb-3">
+              <label class="form-label" for="previousCode">
+                {{ 'retro.create.previousCode' | t }}
+              </label>
+              <input
+                id="previousCode"
+                name="previousCode"
+                class="form-control"
+                [(ngModel)]="previousCode"
+                [placeholder]="'retro.create.previousCodePlaceholder' | t"
+                aria-describedby="previousCodeHelp"
+                autocomplete="off"
+              />
+              <div id="previousCodeHelp" class="form-text">
+                {{ 'retro.create.previousCodeHelp' | t }}
+              </div>
+            </div>
+
+            @if (previousCode.trim()) {
+              <div class="mb-3">
+                <label class="form-label" for="previousPassword">
+                  {{ 'retro.create.previousPassword' | t }}
+                </label>
+                <input
+                  id="previousPassword"
+                  name="previousPassword"
+                  type="password"
+                  class="form-control"
+                  [(ngModel)]="previousPassword"
+                  aria-describedby="previousPasswordHelp"
+                  autocomplete="off"
+                />
+                <div id="previousPasswordHelp" class="form-text">
+                  {{ 'retro.create.previousPasswordHelp' | t }}
+                </div>
+              </div>
+            }
+
             <div class="mb-3">
               <label class="form-label" for="password">{{ 'retro.create.password' | t }}</label>
               <input

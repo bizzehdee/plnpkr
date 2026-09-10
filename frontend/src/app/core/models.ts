@@ -403,6 +403,8 @@ export interface RetroBoardSnapshotWire {
   /** The ranked discussion agenda; empty until totals are visible (#25). */
   ranking: RetroRankedItem[];
   actions: RetroActionInfo[];
+  /** The retro this board carried actions forward from, or null (#27). */
+  previousBoardShortCode: string | null;
 }
 
 /** The flat view model the retro components read; `room` is kept for fields with no flat alias. */
@@ -435,6 +437,8 @@ export interface RetroBoardSnapshot {
   /** The ranked discussion agenda; empty until totals are visible (#25). */
   ranking: RetroRankedItem[];
   actions: RetroActionInfo[];
+  /** The retro this board carried actions forward from, or null (#27). */
+  previousBoardShortCode: string | null;
 }
 
 export type RetroActionStatus =
@@ -465,7 +469,15 @@ export interface RetroActionResult {
   board: RetroBoardSnapshot | null;
 }
 
-export type CreateRetroStatus = 'Ok' | 'InvalidName' | 'InvalidTemplate' | 'RateLimited';
+export type CreateRetroStatus =
+  | 'Ok'
+  | 'InvalidName'
+  | 'InvalidTemplate'
+  /** The retro to carry actions forward from does not exist (#27). */
+  | 'PreviousBoardNotFound'
+  /** That retro is password-protected and the password was missing or wrong (#27). */
+  | 'PreviousBoardPasswordRequired'
+  | 'RateLimited';
 
 export interface CreateRetroResult {
   status: CreateRetroStatus;
