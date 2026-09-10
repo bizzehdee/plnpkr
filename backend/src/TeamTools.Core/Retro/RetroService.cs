@@ -405,6 +405,88 @@ public class RetroService
         return await CommitAsync(room!, userId, ct);
     }
 
+    // --- Export (#28) ------------------------------------------------------
+
+    /// <summary>
+    /// Builds the export view of a board (#28).
+    /// <para>
+    /// Two guards, both deliberate. A **password**, if the board has one, because the export is the
+    /// board's entire contents in one file and a short code is only a bearer token. And a **phase**
+    /// check: before the discussion starts, exporting would hand out cards the team has not seen
+    /// (#23) and dot totals it has not reached (#25). Without that, export would be a side door
+    /// around both.
+    /// </para>
+    /// </summary>
+    public async Task<(RetroExportStatus Status, RetroExport? Export)> GetExportAsync(
+        string shortCode, string? password, CancellationToken ct = default)
+    {
+        var room = await _store.FindByShortCodeAsync(shortCode, ct);
+        if (room?.RetroBoard is null)
+        {
+            return (RetroExportStatus.BoardNotFound, null);
+        }
+
+        if (room.PasswordHash is { } hash && !_passwordHasher.Verify(hash, password ?? string.Empty))
+        {
+            return (RetroExportStatus.PasswordRequired, null);
+        }
+
+        var board = room.RetroBoard;
+        if (!RetroPhaseRules.VoteTotalsVisible(board.Phase))
+        {
+            return (RetroExportStatus.NotYetVisible, null);
+        }
+
+        var names = room.Participants.ToDictionary(p => p.UserId, p => p.DisplayName);
+        var columns = board.Columns.ToDictionary(c => c.Id, c => c.Title);
+
+        RetroExportCard ToCard(RetroCard card) => new(
+            columns.GetValueOrDefault(card.ColumnId, string.Empty),
+            card.Text,
+            // Anonymity holds here as it does in the snapshot: no author, in any format, ever.
+            board.Anonymous ? null : names.GetValueOrDefault(card.AuthorUserId),
+            RetroTallyCalculator.TotalOnCard(board, card.Id));
+
+        var themes = board.Groups
+            .OrderByDescending(g => RetroTallyCalculator.TotalOnGroup(board, g.Id))
+            .ThenBy(g => g.Order)
+            .Select(g => new RetroExportTheme(
+                g.Label,
+                RetroTallyCalculator.TotalOnGroup(board, g.Id),
+                board.Cards
+                    .Where(c => c.GroupId == g.Id)
+                    .OrderBy(c => c.Order)
+                    .Select(ToCard)
+                    .ToArray()))
+            .ToArray();
+
+        var loose = board.Cards
+            .Where(c => c.GroupId is null)
+            .OrderByDescending(c => RetroTallyCalculator.TotalOnCard(board, c.Id))
+            .ThenBy(c => c.Order)
+            .Select(ToCard)
+            .ToArray();
+
+        var actions = board.Actions
+            .OrderBy(a => a.IsDone)
+            .ThenBy(a => a.DueDate ?? DateTimeOffset.MaxValue)
+            .ThenBy(a => a.CreatedAt)
+            .Select(a => new RetroExportAction(
+                a.Title, a.OwnerName, a.DueDate, a.IsDone, a.CarriedFromBoardId is not null))
+            .ToArray();
+
+        return (RetroExportStatus.Ok, new RetroExport(
+            room.ShortCode,
+            room.Name,
+            board.Template,
+            board.Phase,
+            board.Anonymous,
+            board.PreviousBoardShortCode,
+            themes,
+            loose,
+            actions));
+    }
+
     // --- Carry-over (#27) --------------------------------------------------
 
     /// <summary>

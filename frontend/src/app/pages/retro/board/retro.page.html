@@ -131,6 +131,56 @@
       }
 
       <!--
+        Export (#28). Offered only once the discussion has started, mirroring the server's guard:
+        before that the file would contain cards nobody has seen and totals nobody has reached.
+      -->
+      @if (canExport()) {
+        <section class="mb-3" aria-labelledby="export-heading">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <h2 class="h6 mb-0" id="export-heading">{{ 'retro.export.heading' | t }}</h2>
+            @for (format of exportFormats; track format) {
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                [disabled]="exportBusy() !== null"
+                (click)="downloadExport(format)"
+              >
+                {{ exportBusy() === format ? ('common.loading' | t) : exportFormatLabel(format) }}
+              </button>
+            }
+            <a class="btn btn-sm btn-outline-secondary" [routerLink]="['/retro', b.shortCode, 'summary']">
+              {{ 'retro.export.summaryLink' | t }}
+            </a>
+            @if (b.anonymous) {
+              <span class="text-body-secondary small">{{ 'retro.export.anonymousNote' | t }}</span>
+            }
+          </div>
+
+          @if (exportPasswordNeeded()) {
+            <!--
+              Asked for only after the server has refused: the board page never holds the join
+              password, so prompting up front would demand something the viewer never needed.
+            -->
+            <div class="row g-2 align-items-end mt-2">
+              <div class="col-12 col-sm-auto">
+                <label class="form-label" for="export-password">
+                  {{ 'retro.export.password' | t }}
+                </label>
+                <input
+                  id="export-password"
+                  name="export-password"
+                  type="password"
+                  class="form-control form-control-sm"
+                  autocomplete="off"
+                  [(ngModel)]="exportPassword"
+                />
+              </div>
+            </div>
+          }
+        </section>
+      }
+
+      <!--
         Action items (#26). Shown whenever there are any, or whenever they can be written —
         including on a closed board, because "mark done" happens days later.
       -->

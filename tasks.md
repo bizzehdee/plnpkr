@@ -460,13 +460,45 @@ into the TeamTools platform and add the second tool, Team Retro.
 > predicate for both and so hid the checkbox exactly when the review list was being reviewed; it
 > now has `canWriteActions` (add) and `canUpdateActions` (tick/edit/remove), matching the service.
 
-## 28. Retro export  `S–M`  — depends on #24, #25, #26
-- [ ] `GET /api/retro/{shortCode}/export?format=csv|json|md`, reusing #12's streaming, content-type and existence+password guard.
-- [ ] Serialise columns, cards, groups, vote tallies and action items; Markdown grouped by theme, ordered by dots, actions as a task list.
-- [ ] **Anonymity holds in the export** (#22): an anonymous board exports no author column, with no organiser override.
-- [ ] Read-only post-retro summary view + FE download button.
-- [ ] Tests: CSV/JSON/MD shapes; password guard; an anonymous board's export contains no author data in any of the three formats.
+## 28. Retro export  `S–M`  — depends on #24, #25, #26  ✅ done
+- [x] `POST /api/retro/{shortCode}/export` (`RetroController`), body `{ format: md|csv|json, password }`, reusing #12's content-type and file-download handling.
+- [x] `RetroService.GetExportAsync` projects the whole board — columns, cards, themes with dot tallies, action items — into `RetroExport`; `RetroExportRenderer` renders Markdown (grouped by theme, ordered by dots, actions as a task list), CSV (a row per card and per action, RFC-4180 quoted) and JSON.
+- [x] **Anonymity holds in the export** (#22): an anonymous board carries no author in any format, the CSV drops the Author *column* entirely rather than blanking it, the Markdown says the cards were anonymous, and `GetExportAsync` takes **no caller identity** — so there is no organiser override to write.
+- [x] Two guards, both deliberate: the board's **password**, and a **phase** check (`RetroPhaseRules.VoteTotalsVisible`) so export cannot be a side door around hidden collection (#23) or the withheld dot totals (#25).
+- [x] Read-only post-retro summary view at `/retro/{code}/summary` + a download button (md/csv/json) on the board, offered only once the totals are visible.
+- [x] i18n: 23 strings × 4 locales.
+- [x] Tests: 28 backend core (`RetroExportTests`) + 7 API end-to-end (`RetroExportEndpointTests`) + 19 frontend. Backend **620**, frontend **214**, coverage gate **95.5% line / 91.7% branch**.
 
+> **A POST, not the `GET` the plan specified.** A protected board's export needs its password, and
+> a password in a query string ends up in server logs, proxy logs and browser history. The body
+> keeps it out of all three. The cost is that the download has to be triggered from script rather
+> than a plain `<a download>` link, so the client fetches the file and hands it over as an object
+> URL — the SPA was already doing the fetch for the summary view.
+
+> **The plan said to reuse #12's "existence-plus-password guard" verbatim. There is no password
+> guard in #12 to reuse.** The poker export
+> ([`SessionsController.Export`](backend/src/TeamTools.Api/Controllers/SessionsController.cs)) is a
+> `GET` guarded by session existence alone, so anyone holding a short code can download a
+> protected session's whole round history. The retro export does not copy that: it verifies the
+> password. Poker's gap is pre-existing and out of scope here, but it is real and worth its own
+> task.
+
+> **The export needed a phase guard the plan did not ask for.** Without one, #23 and #25 would
+> both have a trivial bypass: during Collect the export would hand out every card the team has not
+> seen yet, and during Vote it would hand out the running dot totals that are deliberately
+> withheld. Export now starts at Discuss. The board simply does not offer the button before then,
+> so the refusal is a backstop rather than the normal path.
+
+> **The summary view is not the board in read-only mode.** Opening the board joins the room, which
+> puts a name in the participant list and takes a seat. Someone reading last week's outcome — the
+> person an action was assigned to, a manager, a late joiner — should not have to become a
+> participant to do it, so the summary page reads the export instead: no hub connection, no seat,
+> no identity sent, and the same anonymity guarantee as the file.
+
+> **The export JSON is camelCase, unlike #12's.** The poker export builds its own
+> `JsonSerializerOptions` and so ships PascalCase; nothing parses it. This payload *is* parsed —
+> the summary view reads it directly — so it uses the platform's own wire casing and named enums,
+> via a single `RetroExportRenderer.ToJson` shared by the controller and the tests.
 ## 29. `README.md` & deploy  `S`  — depends on #17–#28
 **Last: the README describes shipped features, so it waits until they are.**
 - [ ] `README.md`: platform intro, per-tool feature lists, updated layout block, run/prerequisite instructions.

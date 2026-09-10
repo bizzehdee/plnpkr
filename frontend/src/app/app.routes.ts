@@ -4,6 +4,7 @@ import { JoinPage } from './pages/join/join.page';
 import { PokerCreatePage } from './pages/poker/create/poker-create.page';
 import { RetroCreatePage } from './pages/retro/create/retro-create.page';
 import { RetroPage } from './pages/retro/board/retro.page';
+import { RetroSummaryPage } from './pages/retro/summary/retro-summary.page';
 import { SessionPage } from './pages/session/session.page';
 
 /**
@@ -21,6 +22,7 @@ export const routes: Routes = [
 
   // Team Retro.
   { path: 'retro/new', component: RetroCreatePage, title: 'New team retro' },
+  { path: 'retro/:shortCode/summary', component: RetroSummaryPage, title: 'Retro summary' },
   { path: 'retro/:shortCode', component: RetroPage, title: 'Team retro' },
 
   // Legacy single-tool paths.

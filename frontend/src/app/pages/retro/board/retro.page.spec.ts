@@ -8,6 +8,7 @@ import { RetroPage } from './retro.page';
 import { SignalrRetroClient } from '../../../core/retro.client';
 import { IdentityService } from '../../../core/identity.service';
 import { SessionMembershipService } from '../../../core/session-membership.service';
+import { RetroExportService, RetroExportStatus } from '../../../core/retro-export.service';
 import {
   ReactionEvent,
   RetroActionResult,
@@ -179,12 +180,24 @@ type Cmp = {
   actionDue: string;
 };
 
-async function setup(fake: FakeRetroClient) {
+type ExportCmp = {
+  exportPassword: string;
+  downloadExport(format: 'md' | 'csv' | 'json'): Promise<void>;
+};
+
+/** The export's client side, faked: these tests care about what the page offers and asks for. */
+class FakeExportService {
+  download = vi.fn<(...a: unknown[]) => Promise<RetroExportStatus>>().mockResolvedValue('Ok');
+  load = vi.fn().mockResolvedValue({ status: 'Ok', export: null });
+}
+
+async function setup(fake: FakeRetroClient, exports = new FakeExportService()) {
   TestBed.configureTestingModule({
     imports: [RetroPage],
     providers: [
       provideRouter([]),
       { provide: SignalrRetroClient, useValue: fake },
+      { provide: RetroExportService, useValue: exports },
       { provide: IdentityService, useValue: { userId: ME, displayName: 'Me' } },
       { provide: SessionMembershipService, useValue: { get: () => 'Voter', remember: vi.fn() } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => CODE } } } },
@@ -1112,5 +1125,107 @@ describe('RetroPage carry-over', () => {
     const fixture = await setup(fake);
 
     expect((fixture.nativeElement as HTMLElement).querySelector('a[href*="/retro/new"]')).toBeNull();
+  });
+
+  // --- Export (#28) ---
+
+  it('does not offer an export before the discussion starts', async () => {
+    // The server would refuse it: the file would carry cards nobody has seen (#23) and totals
+    // nobody has reached (#25). A button that can only fail is worse than no button.
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Collect', voteTotalsVisible: false }));
+    const fixture = await setup(fake);
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#export-heading')).toBeNull();
+  });
+
+  it('offers all three formats once the totals are visible', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Discuss', voteTotalsVisible: true }));
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('#export-heading')).toBeTruthy();
+    const text = el.querySelector('section[aria-labelledby="export-heading"]')!.textContent!;
+    expect(text).toContain('Markdown');
+    expect(text).toContain('CSV');
+    expect(text).toContain('JSON');
+  });
+
+  it('still offers the export on a closed board', async () => {
+    // Exporting after the retro has ended is the normal case.
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ isClosed: true, voteTotalsVisible: true }));
+    const fixture = await setup(fake);
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#export-heading')).toBeTruthy();
+  });
+
+  it('links to the read-only summary page', async () => {
+    // The link someone pastes into a chat thread, so a reader does not have to join the room.
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Discuss', voteTotalsVisible: true }));
+    const fixture = await setup(fake);
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+      `a[href="/retro/${CODE}/summary"]`,
+    );
+    expect(link).toBeTruthy();
+  });
+
+  it('downloads the format that was asked for', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Discuss', voteTotalsVisible: true }));
+    const exports = new FakeExportService();
+    const fixture = await setup(fake, exports);
+    const cmp = fixture.componentInstance as unknown as ExportCmp;
+
+    await cmp.downloadExport('csv');
+
+    expect(exports.download).toHaveBeenCalledWith(CODE, 'csv', '');
+  });
+
+  it('asks for the password only after the server has refused', async () => {
+    // The board page never holds the join password — a rejoin reclaims the seat by user id — so
+    // prompting up front would demand something the viewer may never have needed.
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Discuss', voteTotalsVisible: true }));
+    const exports = new FakeExportService();
+    exports.download.mockResolvedValue('PasswordRequired');
+    const fixture = await setup(fake, exports);
+    const el = fixture.nativeElement as HTMLElement;
+    const cmp = fixture.componentInstance as unknown as ExportCmp;
+
+    expect(el.querySelector('#export-password')).toBeNull();
+
+    await cmp.downloadExport('md');
+    fixture.detectChanges();
+
+    expect(el.querySelector('#export-password')).toBeTruthy();
+    expect(el.textContent).toContain('has a password');
+  });
+
+  it('retries with the password the viewer supplied', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Discuss', voteTotalsVisible: true }));
+    const exports = new FakeExportService();
+    const fixture = await setup(fake, exports);
+    const cmp = fixture.componentInstance as unknown as ExportCmp;
+
+    cmp.exportPassword = 'hunter2';
+    await cmp.downloadExport('md');
+
+    expect(exports.download).toHaveBeenCalledWith(CODE, 'md', 'hunter2');
+  });
+
+  it('says that an anonymous board exports no authors', async () => {
+    // Reassurance at the point of the decision, where someone is about to share the file.
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Discuss', voteTotalsVisible: true, anonymous: true }));
+    const fixture = await setup(fake);
+
+    const text = (fixture.nativeElement as HTMLElement)
+      .querySelector('section[aria-labelledby="export-heading"]')!.textContent!;
+    expect(text).toContain('no card authors');
   });
 });

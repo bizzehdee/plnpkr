@@ -5,6 +5,11 @@ import { SignalrRetroClient } from '../../../core/retro.client';
 import { IdentityService } from '../../../core/identity.service';
 import { SessionMembershipService } from '../../../core/session-membership.service';
 import { I18nService } from '../../../core/i18n.service';
+import {
+  RetroExportFormat,
+  RetroExportService,
+  RetroExportStatus,
+} from '../../../core/retro-export.service';
 import { TranslatePipe } from '../../../core/translate.pipe';
 import {
   RETRO_MAX_CARD_LENGTH,
@@ -323,6 +328,68 @@ export class RetroPage implements OnInit, OnDestroy {
     return this.canModify(card) && this.isCollecting();
   }
 
+  // --- Export (#28) ------------------------------------------------------
+
+  private readonly exports = inject(RetroExportService);
+
+  /**
+   * Whether the export is offered at all. It mirrors the server's phase guard rather than guessing
+   * at it: totals are only sent once the discussion has started (#25), and before that an export
+   * would hand out cards the team has not seen (#23). Offering a button that can only be refused
+   * is worse than not offering one.
+   */
+  protected readonly canExport = computed(() => {
+    const board = this.board();
+    return !!board && (board.isClosed || board.voteTotalsVisible);
+  });
+
+  protected readonly exportFormats: RetroExportFormat[] = ['md', 'csv', 'json'];
+  protected readonly exportBusy = signal<RetroExportFormat | null>(null);
+
+  /**
+   * Shown only after the server has actually asked for the password. The board page never holds
+   * one — a rejoin reclaims the seat by user id, not by password — so asking up front would be
+   * asking for something the user may not have needed to remember.
+   */
+  protected readonly exportPasswordNeeded = signal(false);
+  protected exportPassword = '';
+
+  protected exportFormatLabel(format: RetroExportFormat): string {
+    return this.i18n.t(`retro.export.${format}`);
+  }
+
+  protected async downloadExport(format: RetroExportFormat): Promise<void> {
+    this.exportBusy.set(format);
+    try {
+      const status = await this.exports.download(this.shortCode, format, this.exportPassword);
+      if (status === 'Ok') {
+        this.exportPasswordNeeded.set(false);
+        this.exportPassword = '';
+        this.announce(this.i18n.t('retro.export.announceDownloaded'));
+        return;
+      }
+
+      if (status === 'PasswordRequired') {
+        this.exportPasswordNeeded.set(true);
+      }
+      this.error.set(this.exportMessage(status));
+    } finally {
+      this.exportBusy.set(null);
+    }
+  }
+
+  private exportMessage(status: RetroExportStatus): string {
+    switch (status) {
+      case 'PasswordRequired':
+        return this.i18n.t('retro.export.errPassword');
+      case 'NotYetVisible':
+        return this.i18n.t('retro.export.errNotYet');
+      case 'BoardNotFound':
+        return this.i18n.t('retro.err.gone');
+      default:
+        return this.i18n.t('retro.export.errFailed');
+    }
+  }
   // --- Action items (#26) ------------------------------------------------
 
   /**

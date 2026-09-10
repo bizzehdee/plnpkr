@@ -1,0 +1,158 @@
+<main class="container py-4">
+  @if (busy() && !summary()) {
+    <p class="text-body-secondary">{{ 'common.loading' | t }}</p>
+  }
+
+  @if (status() === 'PasswordRequired') {
+    <!-- The board's contents in one page, so it is guarded exactly as the file download is. -->
+    <section class="card" aria-labelledby="unlock-heading">
+      <div class="card-body">
+        <h1 class="h5" id="unlock-heading">{{ 'retro.summary.locked' | t }}</h1>
+        <p class="text-body-secondary">{{ 'retro.summary.lockedHelp' | t }}</p>
+        <form class="row g-2 align-items-end" (ngSubmit)="load()">
+          <div class="col-12 col-sm-auto">
+            <label class="form-label" for="summary-password">{{ 'join.password' | t }}</label>
+            <input
+              id="summary-password"
+              name="summary-password"
+              type="password"
+              class="form-control"
+              autocomplete="off"
+              [(ngModel)]="password"
+            />
+          </div>
+          <div class="col-12 col-sm-auto">
+            <button type="submit" class="btn btn-primary" [disabled]="busy()">
+              {{ 'retro.summary.unlock' | t }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  } @else if (problem(); as message) {
+    <div class="alert alert-warning" role="alert">{{ message }}</div>
+    <a class="btn btn-sm btn-outline-secondary" [routerLink]="['/']">{{ 'retro.summary.backHome' | t }}</a>
+  } @else if (summary(); as s) {
+    <header class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <h1 class="h4 mb-0">{{ s.name }}</h1>
+      <span class="badge text-bg-secondary">{{ 'retro.summary.badge' | t }}</span>
+      @if (s.anonymous) {
+        <span class="badge text-bg-info" [title]="'retro.anonymousExplained' | t">
+          {{ 'retro.anonymous' | t }}
+        </span>
+      }
+      <span class="text-body-secondary small ms-auto"><code>{{ s.shortCode }}</code></span>
+    </header>
+
+    @if (s.carriedFromShortCode) {
+      <p class="form-text">
+        {{ 'retro.carriedFrom' | t }}: <code>{{ s.carriedFromShortCode }}</code>
+      </p>
+    }
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+      <span class="text-body-secondary small">{{ 'retro.export.heading' | t }}</span>
+      @for (format of formats; track format) {
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          [disabled]="downloading() !== null"
+          (click)="download(format)"
+        >
+          {{ downloading() === format ? ('common.loading' | t) : formatLabel(format) }}
+        </button>
+      }
+      <a class="btn btn-sm btn-outline-secondary" [routerLink]="['/retro', s.shortCode]">
+        {{ 'retro.summary.openBoard' | t }}
+      </a>
+    </div>
+
+    <!--
+      Themes first and highest-voted first: the export is read as the agenda the team worked, and
+      the summary is the same reading in a browser.
+    -->
+    @if (s.themes.length > 0) {
+      <section class="mb-4" aria-labelledby="summary-themes">
+        <h2 class="h6" id="summary-themes">{{ 'retro.themes' | t }}</h2>
+        <ol class="list-group list-group-numbered">
+          @for (theme of s.themes; track theme.label) {
+            <li class="list-group-item">
+              <div class="d-flex align-items-center gap-2">
+                <strong class="flex-grow-1">{{ theme.label }}</strong>
+                <span class="badge text-bg-primary">{{ theme.dots }} {{ dotLabel(theme.dots) }}</span>
+              </div>
+              <ul class="list-unstyled mb-0 mt-2 small">
+                @for (card of theme.cards; track $index) {
+                  <li>
+                    <span class="badge text-bg-light">{{ card.column }}</span>
+                    {{ card.text }}
+                    @if (card.author) {
+                      <span class="text-body-secondary">— {{ card.author }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            </li>
+          }
+        </ol>
+      </section>
+    }
+
+    @if (s.looseCards.length > 0) {
+      <section class="mb-4" aria-labelledby="summary-cards">
+        <h2 class="h6" id="summary-cards">{{ 'retro.summary.cards' | t }}</h2>
+        <ul class="list-group">
+          @for (card of s.looseCards; track $index) {
+            <li class="list-group-item d-flex align-items-center gap-2">
+              <span class="badge text-bg-light">{{ card.column }}</span>
+              <span class="flex-grow-1">{{ card.text }}</span>
+              @if (card.author) {
+                <span class="text-body-secondary small">{{ card.author }}</span>
+              }
+              @if (card.dots > 0) {
+                <span class="badge text-bg-primary">{{ card.dots }} {{ dotLabel(card.dots) }}</span>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <section class="mb-4" aria-labelledby="summary-actions">
+      <h2 class="h6" id="summary-actions">{{ 'retro.actions' | t }}</h2>
+      @if (s.actions.length === 0) {
+        <p class="text-body-secondary mb-0">{{ 'retro.summary.noActions' | t }}</p>
+      } @else {
+        <ul class="list-group">
+          @for (action of s.actions; track $index) {
+            <li class="list-group-item d-flex flex-wrap align-items-center gap-2">
+              <span class="flex-grow-1" [class.text-decoration-line-through]="action.done">
+                {{ action.title }}
+              </span>
+              @if (action.carriedOver) {
+                <span class="badge text-bg-light">{{ 'retro.carriedOver' | t }}</span>
+              }
+              @if (action.owner) {
+                <span class="text-body-secondary small">
+                  {{ 'retro.actionOwner' | t }}: {{ action.owner }}
+                </span>
+              }
+              @if (action.dueDate) {
+                <span class="text-body-secondary small">
+                  {{ 'retro.actionDue' | t }}: {{ formatDue(action.dueDate) }}
+                </span>
+              }
+              <span class="badge" [class.text-bg-success]="action.done" [class.text-bg-warning]="!action.done">
+                {{ (action.done ? 'retro.summary.done' : 'retro.summary.open') | t }}
+              </span>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    @if (s.anonymous) {
+      <p class="form-text">{{ 'retro.export.anonymousNote' | t }}</p>
+    }
+  }
+</main>
