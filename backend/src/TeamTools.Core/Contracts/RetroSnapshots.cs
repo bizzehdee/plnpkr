@@ -46,7 +46,22 @@ public record RetroBoardSnapshot(
     /// The discussion agenda: votable items ranked by dots, highest first. Empty until totals are
     /// visible, because a ranking is a total by another name (#25).
     /// </summary>
-    IReadOnlyList<RetroRankedItem> Ranking);
+    IReadOnlyList<RetroRankedItem> Ranking,
+    /// <summary>What the team agreed to do, outstanding first (#26).</summary>
+    IReadOnlyList<RetroActionInfo> Actions);
+
+/// <summary>An action item as clients see it (#26).</summary>
+public record RetroActionInfo(
+    Guid Id,
+    string Title,
+    string? OwnerUserId,
+    string? OwnerName,
+    DateTimeOffset? DueDate,
+    bool IsDone,
+    DateTimeOffset? DoneAt,
+    Guid? SourceGroupId,
+    /// <summary>Set when this action was carried forward from an earlier retro (#27).</summary>
+    bool CarriedOver);
 
 /// <summary>One row of the ranked discussion agenda (#25).</summary>
 public record RetroRankedItem(
@@ -143,6 +158,10 @@ public enum RetroActionStatus
     AlreadyVotedForItem,
     /// <summary>There is no dot of this voter.s to take back off that item (#25).</summary>
     NoVoteToWithdraw,
+    /// <summary>The referenced action item is not on this board (#26).</summary>
+    ActionNotFound,
+    /// <summary>An action needs a title, and it must fit the cap (#26).</summary>
+    InvalidActionTitle,
     /// <summary>The requested template is invalid (e.g. an empty custom layout).</summary>
     InvalidTemplate,
     /// <summary>Too many cards added too quickly (abuse throttle). See #3-abuse.</summary>
@@ -176,6 +195,9 @@ public record RetroActionResult(RetroActionStatus Status, RetroBoardSnapshot? Bo
         new(RetroActionStatus.AlreadyVotedForItem, null);
     public static RetroActionResult NoVoteToWithdraw() =>
         new(RetroActionStatus.NoVoteToWithdraw, null);
+    public static RetroActionResult ActionNotFound() => new(RetroActionStatus.ActionNotFound, null);
+    public static RetroActionResult InvalidActionTitle() =>
+        new(RetroActionStatus.InvalidActionTitle, null);
     public static RetroActionResult InvalidTemplate() => new(RetroActionStatus.InvalidTemplate, null);
     public static RetroActionResult RateLimited() => new(RetroActionStatus.RateLimited, null);
 }

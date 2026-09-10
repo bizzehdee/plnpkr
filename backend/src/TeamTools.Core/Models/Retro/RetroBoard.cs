@@ -57,6 +57,9 @@ public class RetroBoard
     /// <summary>Every dot spent on this board. One row per dot. See #25.</summary>
     public List<RetroVote> Votes { get; set; } = new();
 
+    /// <summary>What the team agreed to do. See #26.</summary>
+    public List<RetroActionItem> Actions { get; set; } = new();
+
     /// <summary>How many dots each participant gets to spend. See #25.</summary>
     public int VoteBudget { get; set; } = DefaultVoteBudget;
 
@@ -179,4 +182,49 @@ public class RetroVote
 
     /// <summary>The card or group id, per <see cref="TargetKind"/>.</summary>
     public Guid TargetId { get; set; }
+}
+
+/// <summary>
+/// Something the team committed to doing (#26). The only retro artefact with a life *after* the
+/// meeting — which is why actions stay editable on a closed board, and why they can be carried into
+/// the next retro (#27).
+/// </summary>
+public class RetroActionItem
+{
+    public Guid Id { get; set; }
+
+    public Guid BoardId { get; set; }
+
+    public RetroBoard? Board { get; set; }
+
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The owner's stable per-browser id, when the owner is someone in the room. Null when the
+    /// owner was typed in as free text — the platform has no accounts, and the person who ends up
+    /// owning an action may not have been in the retro at all.
+    /// </summary>
+    public string? OwnerUserId { get; set; }
+
+    /// <summary>The owner's name as it should read, whether or not they are a participant.</summary>
+    public string? OwnerName { get; set; }
+
+    /// <summary>Optional date the team expects it done by. Date-only in intent; stored as an instant.</summary>
+    public DateTimeOffset? DueDate { get; set; }
+
+    /// <summary>When it was marked done, or null while outstanding.</summary>
+    public DateTimeOffset? DoneAt { get; set; }
+
+    /// <summary>The theme this action came out of, when it was created from one (#24).</summary>
+    public Guid? SourceGroupId { get; set; }
+
+    /// <summary>
+    /// The board this action was carried forward from (#27). Provenance only — the action itself is
+    /// a copy, so the new board stays self-contained and survives the old one's retention delete.
+    /// </summary>
+    public Guid? CarriedFromBoardId { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public bool IsDone => DoneAt is not null;
 }

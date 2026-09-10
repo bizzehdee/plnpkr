@@ -130,6 +130,166 @@
         </section>
       }
 
+      <!--
+        Action items (#26). Shown whenever there are any, or whenever they can be written —
+        including on a closed board, because "mark done" happens days later.
+      -->
+      @if (b.actions.length > 0 || canWriteActions()) {
+        <section class="mb-3" aria-labelledby="actions-heading">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <h2 class="h6 mb-0" id="actions-heading">{{ 'retro.actions' | t }}</h2>
+            <span class="badge text-bg-light">{{ b.actions.length }}</span>
+            @if (canWriteActions() && !actionComposerOpen()) {
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary ms-auto"
+                (click)="openActionComposer()"
+              >
+                + {{ 'retro.addAction' | t }}
+              </button>
+            }
+          </div>
+
+          @if (b.isClosed && canWriteActions()) {
+            <p class="form-text mb-2">{{ 'retro.actionsAfterClose' | t }}</p>
+          }
+
+          @if (actionComposerOpen()) {
+            <div class="card mb-2">
+              <div class="card-body">
+                <div class="row g-2">
+                  <div class="col-12">
+                    <label class="form-label" for="action-title">
+                      {{ 'retro.actionTitle' | t }}
+                    </label>
+                    <input
+                      id="action-title"
+                      name="action-title"
+                      class="form-control"
+                      [(ngModel)]="actionTitle"
+                      [placeholder]="'retro.actionTitlePlaceholder' | t"
+                    />
+                  </div>
+
+                  <div class="col-12 col-md-5">
+                    <label class="form-label" for="action-owner">{{ 'retro.actionOwner' | t }}</label>
+                    <select
+                      id="action-owner"
+                      name="action-owner"
+                      class="form-select"
+                      [(ngModel)]="actionOwnerUserId"
+                    >
+                      <option value="">{{ 'retro.actionOwnerNobody' | t }}</option>
+                      @for (p of b.participants; track p.userId) {
+                        <option [value]="p.userId">{{ p.displayName }}</option>
+                      }
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-4">
+                    <!--
+                      The owner may be someone who was never in the retro — there are no accounts,
+                      and follow-up work often lands on another team (#26).
+                    -->
+                    <label class="form-label" for="action-owner-name">
+                      {{ 'retro.actionOwnerElse' | t }}
+                    </label>
+                    <input
+                      id="action-owner-name"
+                      name="action-owner-name"
+                      class="form-control"
+                      [(ngModel)]="actionOwnerName"
+                      [disabled]="!!actionOwnerUserId"
+                      [placeholder]="'retro.actionOwnerElsePlaceholder' | t"
+                    />
+                  </div>
+
+                  <div class="col-12 col-md-3">
+                    <label class="form-label" for="action-due">{{ 'retro.actionDue' | t }}</label>
+                    <input
+                      id="action-due"
+                      name="action-due"
+                      type="date"
+                      class="form-control"
+                      [(ngModel)]="actionDue"
+                    />
+                  </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-3">
+                  <button type="button" class="btn btn-sm btn-primary" (click)="saveAction()">
+                    {{ 'common.save' | t }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="closeActionComposer()"
+                  >
+                    {{ 'common.cancel' | t }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+
+          @if (b.actions.length > 0) {
+            <ul class="list-group">
+              @for (action of b.actions; track action.id) {
+                <li class="list-group-item d-flex align-items-start gap-2">
+                  @if (canWriteActions()) {
+                    <input
+                      type="checkbox"
+                      class="form-check-input mt-1"
+                      [checked]="action.isDone"
+                      (change)="toggleActionDone(action)"
+                      [attr.aria-label]="('retro.markDone' | t) + ': ' + action.title"
+                    />
+                  }
+
+                  <div class="flex-grow-1">
+                    <span [class.text-decoration-line-through]="action.isDone">
+                      {{ action.title }}
+                    </span>
+                    @if (action.carriedOver) {
+                      <span class="badge text-bg-warning ms-1">{{ 'retro.carriedOver' | t }}</span>
+                    }
+                    <div class="small text-body-secondary">
+                      @if (action.ownerName) {
+                        <span>{{ 'retro.actionOwner' | t }}: {{ action.ownerName }}</span>
+                      } @else {
+                        <span>{{ 'retro.actionUnowned' | t }}</span>
+                      }
+                      @if (action.dueDate) {
+                        <span> · {{ 'retro.actionDue' | t }}: {{ formatDue(action.dueDate) }}</span>
+                      }
+                    </div>
+                  </div>
+
+                  @if (canWriteActions()) {
+                    <div class="d-flex gap-1">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-link p-0"
+                        (click)="startEditAction(action)"
+                      >
+                        {{ 'retro.editCard' | t }}
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-link p-0 text-danger"
+                        (click)="deleteAction(action)"
+                      >
+                        {{ 'retro.deleteCard' | t }}
+                      </button>
+                    </div>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+
       <!-- Themes (#24). Only meaningful once cards are grouped, so hidden until they are. -->
       @if (b.groups.length > 0) {
         <section class="mb-3" [attr.aria-labelledby]="'themes-heading'">
@@ -218,6 +378,16 @@
                           (click)="startRename(group)"
                         >
                           {{ 'retro.renameTheme' | t }}
+                        </button>
+                      }
+                      <!-- Turn a discussed theme straight into a commitment (#26). -->
+                      @if (canWriteActions()) {
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-link p-0"
+                          (click)="openActionComposer(group)"
+                        >
+                          {{ 'retro.actionFromTheme' | t }}
                         </button>
                       }
                     }

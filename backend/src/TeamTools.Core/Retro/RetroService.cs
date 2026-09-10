@@ -25,6 +25,12 @@ public class RetroService
     public const int MinVoteBudget = 1;
     public const int MaxVoteBudget = 20;
 
+    /// <summary>Longest an action title may be — a commitment, not a paragraph. See #26.</summary>
+    public const int MaxActionTitleLength = 300;
+
+    /// <summary>Longest a free-text owner name may be. See #26.</summary>
+    public const int MaxOwnerNameLength = 80;
+
     private readonly IRoomStore _store;
     private readonly RoomService _rooms;
     private readonly IClock _clock;
@@ -368,6 +374,178 @@ public class RetroService
 
         board.Anonymous = anonymous;
         return await CommitAsync(room!, userId, ct);
+    }
+
+    // --- Action items (#26) ------------------------------------------------
+
+    /// <summary>
+    /// Records something the team agreed to do. Creatable from a theme — the title is prefilled
+    /// from the theme's label by the caller — or standalone.
+    /// <para>
+    /// The owner is optional and free-text-capable: the platform has no accounts, and the person
+    /// who ends up owning an action may not have been in the retro at all.
+    /// </para>
+    /// </summary>
+    public async Task<RetroActionResult> AddActionAsync(
+        string shortCode, string userId, string title, string? ownerUserId, string? ownerName,
+        DateTimeOffset? dueDate, Guid? sourceGroupId, CancellationToken ct = default)
+    {
+        var (room, error) = await LoadForActionWriteAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var board = Board(room!);
+        if (!RetroPhaseRules.ActionsWritable(board.Phase) && !room!.IsClosed)
+        {
+            // Actions belong to the discussion and the wrap-up. On a *closed* board they stay
+            // writable — see the carve-out note on LoadForActionWriteAsync.
+            return RetroActionResult.WrongPhase();
+        }
+
+        var trimmed = (title ?? string.Empty).Trim();
+        if (trimmed.Length == 0 || trimmed.Length > MaxActionTitleLength)
+        {
+            return RetroActionResult.InvalidActionTitle();
+        }
+
+        if (sourceGroupId is { } groupId && board.Groups.All(g => g.Id != groupId))
+        {
+            return RetroActionResult.GroupNotFound();
+        }
+
+        board.Actions.Add(new RetroActionItem
+        {
+            Id = Guid.NewGuid(),
+            BoardId = board.RoomId,
+            Title = trimmed,
+            OwnerUserId = ownerUserId,
+            OwnerName = ResolveOwnerName(room!, ownerUserId, ownerName),
+            DueDate = dueDate,
+            SourceGroupId = sourceGroupId,
+            CreatedAt = _clock.UtcNow,
+        });
+
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    /// <summary>Changes an action's title, owner or due date.</summary>
+    public async Task<RetroActionResult> EditActionAsync(
+        string shortCode, string userId, Guid actionId, string title, string? ownerUserId,
+        string? ownerName, DateTimeOffset? dueDate, CancellationToken ct = default)
+    {
+        var (room, action, error) = await LoadActionAsync(shortCode, userId, actionId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var trimmed = (title ?? string.Empty).Trim();
+        if (trimmed.Length == 0 || trimmed.Length > MaxActionTitleLength)
+        {
+            return RetroActionResult.InvalidActionTitle();
+        }
+
+        action!.Title = trimmed;
+        action.OwnerUserId = ownerUserId;
+        action.OwnerName = ResolveOwnerName(room!, ownerUserId, ownerName);
+        action.DueDate = dueDate;
+
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    /// <summary>
+    /// Marks an action done, or reopens it. This is the operation that has to work on a closed
+    /// board: "mark done" happens days after the retro ended.
+    /// </summary>
+    public async Task<RetroActionResult> ToggleActionDoneAsync(
+        string shortCode, string userId, Guid actionId, CancellationToken ct = default)
+    {
+        var (room, action, error) = await LoadActionAsync(shortCode, userId, actionId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        action!.DoneAt = action.DoneAt is null ? _clock.UtcNow : null;
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    public async Task<RetroActionResult> DeleteActionAsync(
+        string shortCode, string userId, Guid actionId, CancellationToken ct = default)
+    {
+        var (room, action, error) = await LoadActionAsync(shortCode, userId, actionId, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        Board(room!).Actions.Remove(action!);
+        return await CommitAsync(room!, userId, ct);
+    }
+
+    /// <summary>
+    /// Loads a board for an action write.
+    /// <para>
+    /// <b>The one carve-out in the closed-room rule (#19/#26).</b> Everything else on a closed room
+    /// is frozen, but actions must stay editable: the team marks them done days later, long after
+    /// the retro ended, and a closed board that cannot record that is a board nobody comes back to.
+    /// Narrow on purpose — only action operations use this loader, and only a participant may use
+    /// it.
+    /// </para>
+    /// </summary>
+    private async Task<(Room? Room, RetroActionResult? Error)> LoadForActionWriteAsync(
+        string shortCode, string userId, CancellationToken ct)
+    {
+        var room = await _store.FindByShortCodeAsync(shortCode, ct);
+        if (room?.RetroBoard is null)
+        {
+            return (null, RetroActionResult.NotFound());
+        }
+
+        if (room.Participants.All(p => p.UserId != userId))
+        {
+            return (null, RetroActionResult.NotParticipant());
+        }
+
+        // Deliberately no ClosedAt check.
+        return (room, null);
+    }
+
+    private async Task<(Room? Room, RetroActionItem? Action, RetroActionResult? Error)> LoadActionAsync(
+        string shortCode, string userId, Guid actionId, CancellationToken ct)
+    {
+        var (room, error) = await LoadForActionWriteAsync(shortCode, userId, ct);
+        if (error is not null)
+        {
+            return (null, null, error);
+        }
+
+        var action = Board(room!).Actions.FirstOrDefault(a => a.Id == actionId);
+        return action is null
+            ? (null, null, RetroActionResult.ActionNotFound())
+            : (room, action, null);
+    }
+
+    /// <summary>
+    /// The name to store for an owner: the participant's display name when one was picked, else the
+    /// free text as typed. Storing the name means an action still reads correctly after the owner
+    /// has left the room — or been evicted from it.
+    /// </summary>
+    private static string? ResolveOwnerName(Room room, string? ownerUserId, string? ownerName)
+    {
+        if (ownerUserId is not null)
+        {
+            var participant = room.Participants.FirstOrDefault(p => p.UserId == ownerUserId);
+            if (participant is not null)
+            {
+                return participant.DisplayName;
+            }
+        }
+
+        var trimmed = ownerName?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : Truncate(trimmed, MaxOwnerNameLength);
     }
 
     // --- Dot voting (#25) --------------------------------------------------
@@ -932,7 +1110,17 @@ public class RetroService
                 ? RetroTallyCalculator.Ranking(board)
                     .Select(r => new RetroRankedItem(r.Kind, r.Id, r.Label, r.Dots))
                     .ToArray()
-                : Array.Empty<RetroRankedItem>());
+                : Array.Empty<RetroRankedItem>(),
+            // Outstanding first, then by due date: what still needs doing is what the team came back
+            // for (#26).
+            board.Actions
+                .OrderBy(a => a.IsDone)
+                .ThenBy(a => a.DueDate ?? DateTimeOffset.MaxValue)
+                .ThenBy(a => a.CreatedAt)
+                .Select(a => new RetroActionInfo(
+                    a.Id, a.Title, a.OwnerUserId, a.OwnerName, a.DueDate, a.IsDone, a.DoneAt,
+                    a.SourceGroupId, a.CarriedFromBoardId is not null))
+                .ToArray());
     }
 
     private static RetroCardInfo ToCardInfo(

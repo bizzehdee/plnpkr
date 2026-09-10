@@ -133,6 +133,49 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.ToTable("PokerRounds");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.RetroActionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BoardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CarriedFromBoardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DoneAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DueDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("OwnerName")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("OwnerUserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid?>("SourceGroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.ToTable("RetroActionItem");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.RetroBoard", b =>
                 {
                     b.Property<Guid>("RoomId")
@@ -446,6 +489,17 @@ namespace TeamTools.Data.SqlServer.Migrations
                     b.Navigation("Room");
                 });
 
+            modelBuilder.Entity("TeamTools.Core.Models.RetroActionItem", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.RetroBoard", "Board")
+                        .WithMany("Actions")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
             modelBuilder.Entity("TeamTools.Core.Models.RetroBoard", b =>
                 {
                     b.HasOne("TeamTools.Core.Models.Room", "Room")
@@ -534,6 +588,8 @@ namespace TeamTools.Data.SqlServer.Migrations
 
             modelBuilder.Entity("TeamTools.Core.Models.RetroBoard", b =>
                 {
+                    b.Navigation("Actions");
+
                     b.Navigation("Cards");
 
                     b.Navigation("Columns");

@@ -11,8 +11,10 @@ import { SessionMembershipService } from '../../../core/session-membership.servi
 import {
   ReactionEvent,
   RetroActionResult,
+  RetroActionInfo,
   RetroBoardSnapshot,
   RetroCardInfo,
+  RetroGroupInfo,
 } from '../../../core/models';
 
 const CODE = 'blue-fox-42';
@@ -82,6 +84,7 @@ function board(over: Partial<RetroBoardSnapshot> = {}): RetroBoardSnapshot {
     myDotsRemaining: 3,
     voteTotalsVisible: false,
     ranking: [],
+    actions: [],
     nextPhase: 'Group',
     previousPhase: null,
     phaseDurationSeconds: null,
@@ -128,6 +131,14 @@ class FakeRetroClient {
   withdrawVote = vi
     .fn<(...a: unknown[]) => Promise<RetroActionResult>>()
     .mockResolvedValue(ok(board({ myDotsRemaining: 3 })));
+  addAction = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
+  editAction = vi.fn<(...a: unknown[]) => Promise<RetroActionResult>>().mockResolvedValue(ok(board()));
+  toggleActionDone = vi
+    .fn<(...a: unknown[]) => Promise<RetroActionResult>>()
+    .mockResolvedValue(ok(board()));
+  deleteAction = vi
+    .fn<(...a: unknown[]) => Promise<RetroActionResult>>()
+    .mockResolvedValue(ok(board()));
 }
 
 type Cmp = {
@@ -156,6 +167,14 @@ type Cmp = {
   canRemoveDot(item: { myDots: number }): boolean;
   addDot(kind: 'Card' | 'Group', item: { id: string; myDots: number }): Promise<void>;
   removeDot(kind: 'Card' | 'Group', item: { id: string }): Promise<void>;
+  canWriteActions(): boolean;
+  openActionComposer(fromGroup?: RetroGroupInfo): void;
+  saveAction(): Promise<void>;
+  toggleActionDone(a: RetroActionInfo): Promise<void>;
+  actionTitle: string;
+  actionOwnerUserId: string;
+  actionOwnerName: string;
+  actionDue: string;
 };
 
 async function setup(fake: FakeRetroClient) {
@@ -292,7 +311,9 @@ describe('RetroPage', () => {
     const cmp = fixture.componentInstance as unknown as Cmp;
 
     expect(el.textContent).toContain('read-only');
-    expect(el.querySelector('button.btn-outline-primary')).toBeNull();
+    // Scoped to the columns: the ACTION composer is deliberately still offered on a closed board
+    // (#26), so a page-wide selector would now match it.
+    expect(el.querySelector('section.card button.btn-outline-primary')).toBeNull();
     expect(cmp.canModify(card({ isMine: true }))).toBe(false);
   });
 
@@ -835,5 +856,182 @@ describe('RetroPage dot voting', () => {
     expect(rows[0].textContent).toContain('Slow feedback loop');
     expect(rows[0].textContent).toContain('4 dots');
     expect(rows[1].textContent).toContain('1 dot');
+  });
+});
+
+// --- Action items (#26) -----------------------------------------------------
+
+describe('RetroPage action items', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  /** A board in Discuss, where actions become writable. */
+  function discussing(over: Partial<RetroBoardSnapshot> = {}): RetroBoardSnapshot {
+    return board({
+      phase: 'Discuss',
+      nextPhase: 'Actions',
+      previousPhase: 'Vote',
+      voteTotalsVisible: true,
+      ...over,
+    });
+  }
+
+  function action(over: Partial<RetroActionInfo> = {}): RetroActionInfo {
+    return {
+      id: 'a-1',
+      title: 'Quarantine the flaky test',
+      ownerUserId: null,
+      ownerName: null,
+      dueDate: null,
+      isDone: false,
+      doneAt: null,
+      sourceGroupId: null,
+      carriedOver: false,
+      ...over,
+    };
+  }
+
+  it('lists actions with their owner and due date', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(
+      discussing({
+        actions: [action({ ownerName: 'Dana from Platform', dueDate: '2026-03-01T00:00:00Z' })],
+      }),
+    );
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).toContain('Action items');
+    expect(el.textContent).toContain('Quarantine the flaky test');
+    expect(el.textContent).toContain('Dana from Platform');
+    // Formatted through Intl, so the date order follows the locale rather than being hand-rolled.
+    expect(el.textContent).toContain('2026');
+  });
+
+  it('says so when an action has no owner yet', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(discussing({ actions: [action()] }));
+    const fixture = await setup(fake);
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No owner yet');
+  });
+
+  it('records a new action with a participant owner and a due date', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(discussing());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    cmp.openActionComposer();
+    cmp.actionTitle = '  Speed up CI  ';
+    cmp.actionOwnerUserId = ME;
+    cmp.actionDue = '2026-03-01';
+    await cmp.saveAction();
+
+    expect(fake.addAction).toHaveBeenCalledWith(
+      CODE, ME, 'Speed up CI', ME, null, '2026-03-01T00:00:00.000Z', null);
+  });
+
+  it('records a free-text owner when nobody in the room is picked', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(discussing());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    cmp.openActionComposer();
+    cmp.actionTitle = 'Ask Platform to bump the runner';
+    cmp.actionOwnerName = 'Dana';
+    await cmp.saveAction();
+
+    expect(fake.addAction).toHaveBeenCalledWith(
+      CODE, ME, 'Ask Platform to bump the runner', null, 'Dana', null, null);
+  });
+
+  it('prefills the title from a theme it was created from', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(discussing());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    cmp.openActionComposer({
+      id: 'g-1',
+      label: 'Slow feedback loop',
+      order: 0,
+      cards: [],
+      myDots: 0,
+      totalDots: 2,
+    });
+
+    expect(cmp.actionTitle).toBe('Slow feedback loop');
+  });
+
+  it('does not send an action with no title', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(discussing());
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    cmp.openActionComposer();
+    cmp.actionTitle = '   ';
+    await cmp.saveAction();
+
+    expect(fake.addAction).not.toHaveBeenCalled();
+  });
+
+  it('marks an action done and announces it', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(discussing({ actions: [action()] }));
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    await cmp.toggleActionDone(action());
+    fixture.detectChanges();
+
+    expect(fake.toggleActionDone).toHaveBeenCalledWith(CODE, ME, 'a-1');
+    const live = (fixture.nativeElement as HTMLElement).querySelector('[aria-live="polite"]');
+    expect(live?.textContent).toContain('Action marked done');
+  });
+
+  it('labels the done checkbox with the action it belongs to', async () => {
+    // A bare checkbox tells a screen-reader user nothing about what it marks done (#4).
+    const fake = new FakeRetroClient();
+    fake.board.set(discussing({ actions: [action()] }));
+    const fixture = await setup(fake);
+    const el = fixture.nativeElement as HTMLElement;
+
+    const box = el.querySelector('input[type="checkbox"]');
+    expect(box?.getAttribute('aria-label')).toContain('Quarantine the flaky test');
+  });
+
+  it('marks a carried-over action as such', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(discussing({ actions: [action({ carriedOver: true })] }));
+    const fixture = await setup(fake);
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('carried over');
+  });
+
+  it('offers no action controls before the discussion', async () => {
+    const fake = new FakeRetroClient();
+    fake.board.set(board({ phase: 'Collect' }));
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+
+    expect(cmp.canWriteActions()).toBe(false);
+    // Assert on the panel, not the words: the default template has a COLUMN called "Action items",
+    // so a text match would pass or fail for the wrong reason.
+    expect((fixture.nativeElement as HTMLElement).querySelector('#actions-heading')).toBeNull();
+  });
+
+  it('keeps actions editable on a closed board, and says why', async () => {
+    // The one deliberate write a closed room still accepts (#26).
+    const fake = new FakeRetroClient();
+    fake.board.set(discussing({ isClosed: true, actions: [action()] }));
+    const fixture = await setup(fake);
+    const cmp = fixture.componentInstance as unknown as Cmp;
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(cmp.canWriteActions()).toBe(true);
+    expect(el.querySelector('input[type="checkbox"]')).toBeTruthy();
+    expect(el.textContent).toContain('actions can still be updated');
   });
 });

@@ -418,14 +418,26 @@ into the TeamTools platform and add the second tool, Team Retro.
 > 0. Hand-set to 3 in all three providers — the same class of bug as #23's `Phase` default, found
 > the same way: by reading the generated migration rather than trusting it.
 
-## 26. Action items  `M`  — depends on #23
-- [ ] `RetroActionItem` (`{ Id, BoardId, Title, OwnerUserId, OwnerName, DueDate, DoneAt, SourceGroupId?, CarriedFromBoardId? }`).
-- [ ] `RetroHub.AddAction`/`EditAction`/`ToggleActionDone`/`DeleteAction`; creatable from a theme (prefilled from the group label) or standalone.
-- [ ] Optional free-text owner (no accounts; the owner may not be in the room).
-- [ ] Explicit carve-out in the #19 close check so actions stay editable on a **closed** room — "mark done" happens days later.
-- [ ] EF migration ×3; snapshot + `core/models.ts`; actions panel in `retro.page.*`.
-- [ ] a11y + i18n: due dates rendered via the #5 `Intl` service; panel keyboard-operable (#4).
-- [ ] Tests: action CRUD + done toggle; the closed-room write carve-out allows exactly this and nothing else; creation from a group prefills the title.
+## 26. Action items  `M`  — depends on #23  ✅ done
+- [x] `RetroActionItem` (`{ Id, BoardId, Title, OwnerUserId, OwnerName, DueDate, DoneAt, SourceGroupId?, CarriedFromBoardId? }`).
+- [x] `RetroHub.AddAction` / `EditAction` / `ToggleActionDone` / `DeleteAction`; creatable from a theme (the UI prefills the title from the theme label, and the action keeps `SourceGroupId` for provenance) or standalone.
+- [x] Optional, free-text-capable owner: picking a participant stores their **display name** as well as their id, so the action still reads correctly after they leave the room or are evicted from it; typing a name covers an owner who was never at the retro, since the platform has no accounts.
+- [x] Explicit carve-out in the close check: `LoadForActionWriteAsync` deliberately omits the `ClosedAt` test, so actions stay writable on a closed board.
+- [x] EF migration ×3; snapshot + `core/models.ts`; actions panel in `retro.page.*`, with outstanding actions listed before finished ones and due dates before undated.
+- [x] a11y + i18n: due dates through a new `I18nService.formatDate` (`Intl.DateTimeFormat`, UTC — date order is not universal and a timezone shift would slide a date-only due date by a day), the done checkbox carries an `aria-label` naming its action, and every change is announced. 21 strings × 4 locales.
+- [x] Tests: 26 backend (`RetroActionTests`) + 11 frontend. Backend **567**, frontend **190**, coverage gate **95.0% line / 91.2% branch**.
+
+> **The carve-out is tested for what it does *not* allow.** The whole risk of an exception like this
+> is that it widens, so `The_carve_out_covers_actions_and_nothing_else` asserts that on a closed
+> board adding, editing, deleting and grouping cards, casting a dot, moving the phase, changing
+> anonymity and changing the template all still return `BoardClosed`. A soft-deleted board is gone
+> from every read regardless — carve-out or not.
+
+> **Two tests were wrong, not the code.** One asserted "no primary-outline button on a closed
+> board", which now also matches the deliberately-present *action* composer; it is scoped to the
+> columns. The other asserted the words "Action items" were absent before the discussion — but the
+> default template has a *column* called "Action items", so it would have passed or failed for the
+> wrong reason. It now asserts on the panel's heading element.
 
 ## 27. Carry-over from the previous retro  `S–M`  — depends on #26
 - [ ] Retro creation accepts a previous board's short code; `RetroBoard.PreviousBoardShortCode`.

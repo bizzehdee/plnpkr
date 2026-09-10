@@ -172,6 +172,26 @@ public class RetroHub : Hub
         MutateAndBroadcast(shortCode, () =>
             _retro.SetVoteBudgetAsync(shortCode, userId, budget, allowMultiplePerItem));
 
+    // --- Action items (#26) -------------------------------------------------
+
+    public Task<RetroActionResult> AddAction(
+        string shortCode, string userId, string title, string? ownerUserId, string? ownerName,
+        DateTimeOffset? dueDate, Guid? sourceGroupId) =>
+        MutateAndBroadcast(shortCode, () => _retro.AddActionAsync(
+            shortCode, userId, title, ownerUserId, ownerName, dueDate, sourceGroupId));
+
+    public Task<RetroActionResult> EditAction(
+        string shortCode, string userId, Guid actionId, string title, string? ownerUserId,
+        string? ownerName, DateTimeOffset? dueDate) =>
+        MutateAndBroadcast(shortCode, () => _retro.EditActionAsync(
+            shortCode, userId, actionId, title, ownerUserId, ownerName, dueDate));
+
+    public Task<RetroActionResult> ToggleActionDone(string shortCode, string userId, Guid actionId) =>
+        MutateAndBroadcast(shortCode, () => _retro.ToggleActionDoneAsync(shortCode, userId, actionId));
+
+    public Task<RetroActionResult> DeleteAction(string shortCode, string userId, Guid actionId) =>
+        MutateAndBroadcast(shortCode, () => _retro.DeleteActionAsync(shortCode, userId, actionId));
+
     // --- Room-level settings & lifecycle ------------------------------------
 
     public Task<RetroActionResult> SetReactionsEnabled(string shortCode, string userId, bool enabled) =>

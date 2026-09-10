@@ -14,6 +14,7 @@ import {
   RetroActionResult,
   RetroCardInfo,
   RetroColumnInfo,
+  RetroActionInfo,
   RetroGroupInfo,
   RetroPhase,
   RetroVoteTarget,
@@ -322,6 +323,115 @@ export class RetroPage implements OnInit, OnDestroy {
     return this.canModify(card) && this.isCollecting();
   }
 
+  // --- Action items (#26) ------------------------------------------------
+
+  /**
+   * Whether actions may be written. During Discuss and Actions, and — deliberately — on a **closed**
+   * board too: "mark done" happens days after the retro ended, and that is the one write a closed
+   * room still accepts.
+   */
+  protected readonly canWriteActions = computed(() => {
+    const board = this.board();
+    if (!board) {
+      return false;
+    }
+    return board.isClosed || board.phase === 'Discuss' || board.phase === 'Actions';
+  });
+
+  protected readonly actionComposerOpen = signal(false);
+  protected actionTitle = '';
+  protected actionOwnerUserId = '';
+  protected actionOwnerName = '';
+  protected actionDue = '';
+
+  /** Which action is being edited. */
+  protected readonly editingAction = signal<string | null>(null);
+
+  /** Formats a due date in the viewer's locale — dates are locale-shaped (#5). */
+  protected formatDue(iso: string | null): string {
+    return iso ? this.i18n.formatDate(iso) : '';
+  }
+
+  protected openActionComposer(fromGroup?: RetroGroupInfo): void {
+    this.actionComposerOpen.set(true);
+    this.editingAction.set(null);
+    // Prefilled from the theme so the commitment starts attached to what prompted it.
+    this.actionTitle = fromGroup?.label ?? '';
+    this.actionOwnerUserId = '';
+    this.actionOwnerName = '';
+    this.actionDue = '';
+    this.actionSourceGroupId = fromGroup?.id ?? null;
+  }
+
+  protected closeActionComposer(): void {
+    this.actionComposerOpen.set(false);
+    this.editingAction.set(null);
+    this.actionTitle = '';
+    this.actionOwnerUserId = '';
+    this.actionOwnerName = '';
+    this.actionDue = '';
+    this.actionSourceGroupId = null;
+  }
+
+  private actionSourceGroupId: string | null = null;
+
+  protected startEditAction(action: RetroActionInfo): void {
+    this.actionComposerOpen.set(true);
+    this.editingAction.set(action.id);
+    this.actionTitle = action.title;
+    this.actionOwnerUserId = action.ownerUserId ?? '';
+    this.actionOwnerName = action.ownerUserId ? '' : (action.ownerName ?? '');
+    // <input type="date"> wants yyyy-MM-dd, not an instant.
+    this.actionDue = action.dueDate ? action.dueDate.slice(0, 10) : '';
+    this.actionSourceGroupId = action.sourceGroupId;
+  }
+
+  protected async saveAction(): Promise<void> {
+    const title = this.actionTitle.trim();
+    if (!title) {
+      return;
+    }
+
+    const ownerUserId = this.actionOwnerUserId || null;
+    const ownerName = ownerUserId ? null : this.actionOwnerName.trim() || null;
+    const due = this.actionDue ? new Date(`${this.actionDue}T00:00:00Z`).toISOString() : null;
+
+    const editing = this.editingAction();
+    const result = editing
+      ? await this.retro.editAction(
+          this.shortCode, this.myUserId, editing, title, ownerUserId, ownerName, due)
+      : await this.retro.addAction(
+          this.shortCode, this.myUserId, title, ownerUserId, ownerName, due,
+          this.actionSourceGroupId);
+
+    if (result.status === 'Ok') {
+      this.announce(this.i18n.t(editing ? 'retro.announce.actionSaved' : 'retro.announce.actionAdded'));
+      this.closeActionComposer();
+    } else {
+      this.error.set(this.statusMessage(result.status));
+    }
+  }
+
+  protected async toggleActionDone(action: RetroActionInfo): Promise<void> {
+    const result = await this.retro.toggleActionDone(this.shortCode, this.myUserId, action.id);
+    if (result.status === 'Ok') {
+      this.announce(
+        this.i18n.t(action.isDone ? 'retro.announce.actionReopened' : 'retro.announce.actionDone'),
+      );
+    } else {
+      this.error.set(this.statusMessage(result.status));
+    }
+  }
+
+  protected async deleteAction(action: RetroActionInfo): Promise<void> {
+    const result = await this.retro.deleteAction(this.shortCode, this.myUserId, action.id);
+    if (result.status === 'Ok') {
+      this.announce(this.i18n.t('retro.announce.actionDeleted'));
+    } else {
+      this.error.set(this.statusMessage(result.status));
+    }
+  }
+
   // --- Dot voting (#25) --------------------------------------------------
 
   protected readonly isVoting = computed(() => this.board()?.phase === 'Vote');
@@ -564,6 +674,10 @@ export class RetroPage implements OnInit, OnDestroy {
         return this.i18n.t('retro.err.alreadyVoted');
       case 'NoVoteToWithdraw':
         return this.i18n.t('retro.err.noDotToTakeBack');
+      case 'ActionNotFound':
+        return this.i18n.t('retro.err.gone');
+      case 'InvalidActionTitle':
+        return this.i18n.t('retro.err.invalidActionTitle');
       case 'RateLimited':
         return this.i18n.t('err.create.rateLimited');
       case 'CardNotFound':

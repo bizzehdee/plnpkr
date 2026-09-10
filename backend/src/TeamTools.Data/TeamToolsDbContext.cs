@@ -121,6 +121,23 @@ public class TeamToolsDbContext : DbContext
                 .WithOne(v => v.Board!)
                 .HasForeignKey(v => v.BoardId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(b => b.Actions)
+                .WithOne(a => a.Board!)
+                .HasForeignKey(a => a.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- RetroActionItem: what the team agreed to do (#26) --------------
+        modelBuilder.Entity<RetroActionItem>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.Property(a => a.Id).ValueGeneratedNever(); // the domain assigns it — see RetroCard.Id
+            e.Property(a => a.Title).IsRequired().HasMaxLength(300);
+            e.Property(a => a.OwnerUserId).HasMaxLength(64);
+            e.Property(a => a.OwnerName).HasMaxLength(80);
+            e.Ignore(a => a.IsDone); // computed from DoneAt
+            e.HasIndex(a => a.BoardId);
         });
 
         // --- RetroVote: one row per dot (#25) -------------------------------

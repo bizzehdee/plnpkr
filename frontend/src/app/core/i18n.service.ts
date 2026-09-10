@@ -150,6 +150,28 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.dotSpent': 'Dot spent. {left} left.',
     'retro.announce.dotTakenBack': 'Dot taken back. {left} left.',
 
+    // Action items (#26).
+    'retro.actions': 'Action items',
+    'retro.addAction': 'Add an action',
+    'retro.actionFromTheme': 'Make an action',
+    'retro.actionTitle': 'What will be done',
+    'retro.actionTitlePlaceholder': 'e.g. Quarantine the flaky checkout test',
+    'retro.actionOwner': 'Owner',
+    'retro.actionOwnerNobody': 'Nobody yet',
+    'retro.actionOwnerElse': 'Or someone else',
+    'retro.actionOwnerElsePlaceholder': 'Name',
+    'retro.actionUnowned': 'No owner yet',
+    'retro.actionDue': 'Due',
+    'retro.markDone': 'Mark done',
+    'retro.carriedOver': 'carried over',
+    'retro.actionsAfterClose': 'This retro is closed, but actions can still be updated — marking one done usually happens days later.',
+    'retro.err.invalidActionTitle': 'An action needs a description, under 300 characters.',
+    'retro.announce.actionAdded': 'Action added.',
+    'retro.announce.actionSaved': 'Action updated.',
+    'retro.announce.actionDone': 'Action marked done.',
+    'retro.announce.actionReopened': 'Action reopened.',
+    'retro.announce.actionDeleted': 'Action deleted.',
+
     'common.cancel': 'Cancel',
     'common.save': 'Save',
     'common.close': 'Close',
@@ -533,6 +555,28 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.err.noDotToTakeBack': 'No tienes ningún punto en eso que quitar.',
     'retro.announce.dotSpent': 'Punto asignado. Quedan {left}.',
     'retro.announce.dotTakenBack': 'Punto retirado. Quedan {left}.',
+
+    // Action items (#26).
+    'retro.actions': 'Acciones',
+    'retro.addAction': 'Añadir una acción',
+    'retro.actionFromTheme': 'Crear una acción',
+    'retro.actionTitle': 'Qué se va a hacer',
+    'retro.actionTitlePlaceholder': 'p. ej. Aislar el test inestable del checkout',
+    'retro.actionOwner': 'Responsable',
+    'retro.actionOwnerNobody': 'Nadie por ahora',
+    'retro.actionOwnerElse': 'O otra persona',
+    'retro.actionOwnerElsePlaceholder': 'Nombre',
+    'retro.actionUnowned': 'Sin responsable',
+    'retro.actionDue': 'Para el',
+    'retro.markDone': 'Marcar como hecha',
+    'retro.carriedOver': 'arrastrada',
+    'retro.actionsAfterClose': 'Esta retro está cerrada, pero las acciones se pueden seguir actualizando: marcar una como hecha suele ocurrir días después.',
+    'retro.err.invalidActionTitle': 'Una acción necesita una descripción de menos de 300 caracteres.',
+    'retro.announce.actionAdded': 'Acción añadida.',
+    'retro.announce.actionSaved': 'Acción actualizada.',
+    'retro.announce.actionDone': 'Acción marcada como hecha.',
+    'retro.announce.actionReopened': 'Acción reabierta.',
+    'retro.announce.actionDeleted': 'Acción eliminada.',
 
     'common.cancel': 'Cancelar',
     'common.save': 'Guardar',
@@ -918,6 +962,28 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.dotSpent': 'Ponto atribuído. Restam {left}.',
     'retro.announce.dotTakenBack': 'Ponto retirado. Restam {left}.',
 
+    // Action items (#26).
+    'retro.actions': 'Ações',
+    'retro.addAction': 'Adicionar uma ação',
+    'retro.actionFromTheme': 'Criar uma ação',
+    'retro.actionTitle': 'O que vai ser feito',
+    'retro.actionTitlePlaceholder': 'ex.: Isolar o teste instável do checkout',
+    'retro.actionOwner': 'Responsável',
+    'retro.actionOwnerNobody': 'Ninguém por agora',
+    'retro.actionOwnerElse': 'Ou outra pessoa',
+    'retro.actionOwnerElsePlaceholder': 'Nome',
+    'retro.actionUnowned': 'Sem responsável',
+    'retro.actionDue': 'Até',
+    'retro.markDone': 'Marcar como feita',
+    'retro.carriedOver': 'transitada',
+    'retro.actionsAfterClose': 'Esta retro está fechada, mas as ações continuam a poder ser atualizadas — marcar uma como feita costuma acontecer dias depois.',
+    'retro.err.invalidActionTitle': 'Uma ação precisa de uma descrição com menos de 300 caracteres.',
+    'retro.announce.actionAdded': 'Ação adicionada.',
+    'retro.announce.actionSaved': 'Ação atualizada.',
+    'retro.announce.actionDone': 'Ação marcada como feita.',
+    'retro.announce.actionReopened': 'Ação reaberta.',
+    'retro.announce.actionDeleted': 'Ação eliminada.',
+
     'common.cancel': 'Cancelar',
     'common.save': 'Salvar',
     'common.close': 'Fechar',
@@ -1302,6 +1368,28 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
     'retro.announce.dotSpent': 'Punkt przyznany. Pozostało {left}.',
     'retro.announce.dotTakenBack': 'Punkt zabrany. Pozostało {left}.',
 
+    // Action items (#26).
+    'retro.actions': 'Działania',
+    'retro.addAction': 'Dodaj działanie',
+    'retro.actionFromTheme': 'Utwórz działanie',
+    'retro.actionTitle': 'Co zostanie zrobione',
+    'retro.actionTitlePlaceholder': 'np. Odizolować niestabilny test koszyka',
+    'retro.actionOwner': 'Odpowiedzialny',
+    'retro.actionOwnerNobody': 'Na razie nikt',
+    'retro.actionOwnerElse': 'Albo ktoś inny',
+    'retro.actionOwnerElsePlaceholder': 'Imię',
+    'retro.actionUnowned': 'Brak osoby odpowiedzialnej',
+    'retro.actionDue': 'Termin',
+    'retro.markDone': 'Oznacz jako zrobione',
+    'retro.carriedOver': 'przeniesione',
+    'retro.actionsAfterClose': 'Ta retrospektywa jest zamknięta, ale działania nadal można aktualizować — oznaczenie jako zrobione zwykle następuje kilka dni później.',
+    'retro.err.invalidActionTitle': 'Działanie wymaga opisu krótszego niż 300 znaków.',
+    'retro.announce.actionAdded': 'Działanie dodane.',
+    'retro.announce.actionSaved': 'Działanie zaktualizowane.',
+    'retro.announce.actionDone': 'Działanie oznaczone jako zrobione.',
+    'retro.announce.actionReopened': 'Działanie ponownie otwarte.',
+    'retro.announce.actionDeleted': 'Działanie usunięte.',
+
     'common.cancel': 'Anuluj',
     'common.save': 'Zapisz',
     'common.close': 'Zamknij',
@@ -1649,6 +1737,24 @@ export class I18nService {
   /** Locale-aware number formatting (decimal separators, grouping, etc.) via `Intl.NumberFormat`. */
   formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
     return new Intl.NumberFormat(LOCALE_TAGS[this._locale()], options).format(value);
+  }
+
+  /**
+   * Formats an ISO instant as a date in the active locale (#26). Date order is not universal —
+   * 03/04 is two different days depending on where you are — so this goes through `Intl` rather
+   * than a hand-rolled format. Rendered in UTC because retro due dates are date-only in intent,
+   * and a local-timezone shift would slide them a day.
+   */
+  formatDate(iso: string, options?: Intl.DateTimeFormatOptions): string {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return new Intl.DateTimeFormat(LOCALE_TAGS[this._locale()], {
+      dateStyle: 'medium',
+      timeZone: 'UTC',
+      ...options,
+    }).format(date);
   }
 
   /**

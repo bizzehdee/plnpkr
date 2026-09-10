@@ -273,6 +273,21 @@ export const DECK_LABEL_KEYS: Record<DeckType, string> = {
 
 export type RetroVoteTarget = 'Card' | 'Group';
 
+/** An action item the team agreed to (#26). */
+export interface RetroActionInfo {
+  id: string;
+  title: string;
+  ownerUserId: string | null;
+  ownerName: string | null;
+  /** ISO instant; rendered date-only through the locale's Intl formatter (#5). */
+  dueDate: string | null;
+  isDone: boolean;
+  doneAt: string | null;
+  sourceGroupId: string | null;
+  /** True when this action was carried forward from an earlier retro (#27). */
+  carriedOver: boolean;
+}
+
 /** One row of the ranked discussion agenda (#25). */
 export interface RetroRankedItem {
   kind: RetroVoteTarget;
@@ -387,6 +402,7 @@ export interface RetroBoardSnapshotWire {
   groups: RetroGroupInfo[];
   /** The ranked discussion agenda; empty until totals are visible (#25). */
   ranking: RetroRankedItem[];
+  actions: RetroActionInfo[];
 }
 
 /** The flat view model the retro components read; `room` is kept for fields with no flat alias. */
@@ -418,6 +434,7 @@ export interface RetroBoardSnapshot {
   groups: RetroGroupInfo[];
   /** The ranked discussion agenda; empty until totals are visible (#25). */
   ranking: RetroRankedItem[];
+  actions: RetroActionInfo[];
 }
 
 export type RetroActionStatus =
@@ -438,6 +455,8 @@ export type RetroActionStatus =
   | 'OutOfDots'
   | 'AlreadyVotedForItem'
   | 'NoVoteToWithdraw'
+  | 'ActionNotFound'
+  | 'InvalidActionTitle'
   | 'InvalidTemplate'
   | 'RateLimited';
 

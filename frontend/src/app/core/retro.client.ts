@@ -51,6 +51,7 @@ export function flattenBoard(wire: RetroBoardSnapshotWire): RetroBoardSnapshot {
     columns: wire.columns,
     groups: wire.groups,
     ranking: wire.ranking,
+    actions: wire.actions,
   };
 }
 
@@ -130,6 +131,26 @@ export interface IRetroClient {
     budget: number,
     allowMultiplePerItem: boolean,
   ): Promise<RetroActionResult>;
+  addAction(
+    shortCode: string,
+    userId: string,
+    title: string,
+    ownerUserId: string | null,
+    ownerName: string | null,
+    dueDate: string | null,
+    sourceGroupId: string | null,
+  ): Promise<RetroActionResult>;
+  editAction(
+    shortCode: string,
+    userId: string,
+    actionId: string,
+    title: string,
+    ownerUserId: string | null,
+    ownerName: string | null,
+    dueDate: string | null,
+  ): Promise<RetroActionResult>;
+  toggleActionDone(shortCode: string, userId: string, actionId: string): Promise<RetroActionResult>;
+  deleteAction(shortCode: string, userId: string, actionId: string): Promise<RetroActionResult>;
   closeBoard(shortCode: string, userId: string): Promise<RetroActionResult>;
   deleteBoard(shortCode: string, userId: string): Promise<RetroActionResult>;
   setPassword(shortCode: string, userId: string, password: string | null): Promise<RetroActionResult>;
@@ -347,6 +368,40 @@ export class SignalrRetroClient extends RoomClientBase implements IRetroClient {
 
   setVoteBudget(shortCode: string, userId: string, budget: number, allowMultiplePerItem: boolean) {
     return this.action('SetVoteBudget', shortCode, userId, budget, allowMultiplePerItem);
+  }
+
+  addAction(
+    shortCode: string,
+    userId: string,
+    title: string,
+    ownerUserId: string | null,
+    ownerName: string | null,
+    dueDate: string | null,
+    sourceGroupId: string | null,
+  ) {
+    return this.action(
+      'AddAction', shortCode, userId, title, ownerUserId, ownerName, dueDate, sourceGroupId);
+  }
+
+  editAction(
+    shortCode: string,
+    userId: string,
+    actionId: string,
+    title: string,
+    ownerUserId: string | null,
+    ownerName: string | null,
+    dueDate: string | null,
+  ) {
+    return this.action(
+      'EditAction', shortCode, userId, actionId, title, ownerUserId, ownerName, dueDate);
+  }
+
+  toggleActionDone(shortCode: string, userId: string, actionId: string) {
+    return this.action('ToggleActionDone', shortCode, userId, actionId);
+  }
+
+  deleteAction(shortCode: string, userId: string, actionId: string) {
+    return this.action('DeleteAction', shortCode, userId, actionId);
   }
 
   closeBoard(shortCode: string, userId: string) {
