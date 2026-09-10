@@ -15,14 +15,14 @@ class FakeRealtimeClient {
   joinSession = vi.fn<(...a: unknown[]) => Promise<JoinResult>>();
 }
 
-function setup(fake: FakeRealtimeClient) {
+function setup(fake: FakeRealtimeClient, tool: 'Poker' | 'Retro' = 'Poker') {
   TestBed.configureTestingModule({
     imports: [JoinPage],
     providers: [
       provideRouter([]),
       { provide: SignalrRealtimeClient, useValue: fake },
       { provide: IdentityService, useValue: { userId: 'me', displayName: '' } },
-      { provide: HttpClient, useValue: { get: () => of({ name: 'Sprint 24', shortCode: CODE, requiresPassword: false }) } },
+      { provide: HttpClient, useValue: { get: () => of({ name: 'Sprint 24', shortCode: CODE, requiresPassword: false, tool }) } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => CODE } } } },
     ],
   });
@@ -77,6 +77,27 @@ describe('JoinPage', () => {
 
     await cmp.join();
 
-    expect(navigate).toHaveBeenCalledWith(['/session', CODE]);
+    expect(navigate).toHaveBeenCalledWith(['/poker', CODE]);
+  });
+
+  it('routes to the tool the short code belongs to, not always poker', async () => {
+    // One invite-link shape serves both tools (#19), so /join resolves the tool from the landing
+    // read and sends the joiner to that tool's page.
+    const fake = new FakeRealtimeClient();
+    fake.joinSession.mockResolvedValue({
+      status: 'Ok',
+      session: null,
+      participant: null,
+      error: null,
+    });
+    const fixture = setup(fake, 'Retro');
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const cmp = fixture.componentInstance as unknown as { displayName: string; join(): Promise<void> };
+    cmp.displayName = 'Alice';
+
+    await cmp.join();
+
+    expect(navigate).toHaveBeenCalledWith(['/retro', CODE]);
   });
 });

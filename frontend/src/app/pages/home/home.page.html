@@ -1,99 +1,68 @@
 <main class="container py-5">
   <div class="row justify-content-center">
-    <div class="col-12 col-md-8 col-lg-6">
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <h1 class="h4 mb-3">{{ 'home.title' | t }}</h1>
-
-          @if (error()) {
-            <div class="alert alert-danger" role="alert">{{ error() }}</div>
-          }
-
-          <form (ngSubmit)="create()">
-            <div class="mb-3">
-              <label class="form-label" for="sessionName">{{ 'home.sessionName' | t }}</label>
-              <input
-                id="sessionName"
-                name="sessionName"
-                class="form-control"
-                [(ngModel)]="sessionName"
-                [placeholder]="'home.sessionNamePlaceholder' | t"
-                autocomplete="off"
-              />
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label" for="displayName">{{ 'home.yourName' | t }}</label>
-              <input
-                id="displayName"
-                name="displayName"
-                class="form-control"
-                [(ngModel)]="displayName"
-                [placeholder]="'home.yourNamePlaceholder' | t"
-                autocomplete="off"
-              />
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label" for="deckType">{{ 'home.cardDeck' | t }}</label>
-              <select id="deckType" name="deckType" class="form-select" [(ngModel)]="deckType">
-                @for (opt of deckOptions(); track opt[0]) {
-                  <option [value]="opt[0]">{{ opt[1] }}</option>
-                }
-              </select>
-            </div>
-
-            @if (deckType === 'Custom') {
-              <div class="mb-3">
-                <label class="form-label" for="customCards">{{ 'home.customCards' | t }}</label>
-                <input
-                  id="customCards"
-                  name="customCards"
-                  class="form-control"
-                  [(ngModel)]="customCards"
-                  [placeholder]="'home.customCardsPlaceholder' | t"
-                  autocomplete="off"
-                />
-              </div>
-            }
-
-            <div class="mb-3">
-              <label class="form-label" for="password">{{ 'home.password' | t }} <span class="text-body-secondary">{{ 'home.optional' | t }}</span></label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                class="form-control"
-                [(ngModel)]="password"
-                [placeholder]="'home.passwordPlaceholder' | t"
-                autocomplete="new-password"
-              />
-              <div class="form-text">{{ 'home.passwordHelp' | t }}</div>
-            </div>
-
-            <div class="form-check mb-3">
-              <input
-                id="organise"
-                name="organise"
-                type="checkbox"
-                class="form-check-input"
-                [(ngModel)]="organise"
-              />
-              <label class="form-check-label" for="organise">
-                {{ 'home.organise' | t }}
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              class="btn btn-primary w-100"
-              [disabled]="busy() || !sessionName.trim() || !displayName.trim() || (deckType === 'Custom' && !customCards.trim())"
-            >
-              {{ busy() ? ('home.creating' | t) : ('home.create' | t) }}
-            </button>
-          </form>
-        </div>
+    <div class="col-12 col-lg-10">
+      <div class="text-center mb-5">
+        <h1 class="h3">{{ 'platform.title' | t }}</h1>
+        <p class="text-body-secondary mb-0">{{ 'platform.subtitle' | t }}</p>
       </div>
+
+      <!--
+        A list, not a grid of divs: the tools are a short enumeration of choices, so a screen
+        reader should announce "list, 2 items" and the count of what's on offer (#4).
+      -->
+      <ul class="row row-cols-1 row-cols-md-2 g-4 list-unstyled mb-0">
+        @for (tool of tools; track tool.id) {
+          <li class="col d-flex">
+            <div class="card shadow-sm w-100">
+              <div class="card-body d-flex flex-column">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <span class="fs-3" aria-hidden="true">{{ tool.icon }}</span>
+                  <h2 class="h5 mb-0">{{ tool.titleKey | t }}</h2>
+                  @if (!tool.route) {
+                    <span class="badge text-bg-secondary ms-auto">{{ 'platform.comingSoon' | t }}</span>
+                  }
+                </div>
+
+                <p class="text-body-secondary">{{ tool.blurbKey | t }}</p>
+
+                <ul class="small text-body-secondary ps-3 mb-4">
+                  @for (point of tool.bulletKeys; track point) {
+                    <li>{{ point | t }}</li>
+                  }
+                </ul>
+
+                <div class="mt-auto">
+                  @if (tool.route) {
+                    <a class="btn btn-primary w-100" [routerLink]="tool.route">
+                      {{ 'platform.start' | t }}
+                    </a>
+                  } @else {
+                    <!--
+                      A disabled anchor is unreachable by keyboard and announces nothing useful, so
+                      use a real disabled button with an explanation tied to it via aria-describedby.
+                    -->
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary w-100"
+                      disabled
+                      [attr.aria-describedby]="tool.id + '-unavailable'"
+                    >
+                      {{ 'platform.start' | t }}
+                    </button>
+                    <p [id]="tool.id + '-unavailable'" class="form-text mb-0">
+                      {{ 'platform.notReady' | t }}
+                    </p>
+                  }
+                </div>
+              </div>
+            </div>
+          </li>
+        }
+      </ul>
+
+      <p class="text-center text-body-secondary small mt-4 mb-0">
+        {{ 'platform.joinHint' | t }}
+      </p>
     </div>
   </div>
 </main>

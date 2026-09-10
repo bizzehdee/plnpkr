@@ -26,7 +26,7 @@ describe('App shell', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('PlnPkr');
+    expect(text).toContain('TeamTools');
     expect(text).toContain('connected');
   });
 

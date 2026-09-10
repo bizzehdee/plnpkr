@@ -1,7 +1,15 @@
 <nav class="navbar navbar-expand bg-body-tertiary border-bottom">
   <div class="container">
-    <a class="navbar-brand mb-0 h1" routerLink="/">PlnPkr</a>
+    <a class="navbar-brand mb-0 h1" routerLink="/">{{ 'app.brand' | t }}</a>
     <div class="d-flex align-items-center gap-2">
+      <!--
+        Tool switcher (#20): the platform hosts two tools, so the shell offers a way back to the
+        front door from inside either one. Hidden on the picker itself, where it would point at
+        the current page.
+      -->
+      @if (showToolSwitcher()) {
+        <a class="btn btn-sm btn-outline-secondary" routerLink="/">{{ 'platform.allTools' | t }}</a>
+      }
       <span class="badge {{ statusClass() }}">{{ statusLabel() }}</span>
       <select
         class="form-select form-select-sm w-auto"

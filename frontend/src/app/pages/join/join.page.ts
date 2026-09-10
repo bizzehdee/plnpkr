@@ -9,7 +9,7 @@ import { SessionMembershipService } from '../../core/session-membership.service'
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { resolveApiBase } from '../../core/app-config';
-import { ParticipantRole, SessionLanding } from '../../core/models';
+import { ParticipantRole, RoomTool, SessionLanding } from '../../core/models';
 
 @Component({
   selector: 'app-join',
@@ -33,6 +33,7 @@ export class JoinPage implements OnInit {
   protected readonly loading = signal(true);
   protected readonly sessionName = signal<string | null>(null);
   protected readonly requiresPassword = signal(false);
+  protected readonly tool = signal<RoomTool>('Poker');
   protected readonly notFound = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -45,6 +46,9 @@ export class JoinPage implements OnInit {
       );
       this.sessionName.set(landing.name);
       this.requiresPassword.set(landing.requiresPassword);
+      // A short code belongs to one tool (#19); remember which so a successful join lands on that
+      // tool's page rather than assuming poker.
+      this.tool.set(landing.tool);
     } catch {
       this.notFound.set(true);
     } finally {
@@ -75,7 +79,7 @@ export class JoinPage implements OnInit {
       switch (result.status) {
         case 'Ok':
           this.membership.remember(this.shortCode, this.role);
-          await this.router.navigate(['/session', this.shortCode]);
+          await this.router.navigate([this.tool() === 'Retro' ? '/retro' : '/poker', this.shortCode]);
           break;
         case 'NameTaken':
           this.error.set(this.i18n.t('err.join.nameTaken'));

@@ -277,13 +277,18 @@ into the TeamTools platform and add the second tool, Team Retro.
 > **tool hook**: `RoomService` takes an `afterChange` callback that the tool supplies. The rule is
 > now review-enforced, not compiler-enforced — stated as such in the doc.
 
-## 20. Tool picker & platform shell  `M`  — depends on #19
-- [ ] Home page → platform picker (Planning Poker | Team Retro); poker creation moves to `pages/poker/create`.
-- [ ] Routes: `/poker/:shortCode`, `/retro/:shortCode`, per-tool create routes; `/session/:shortCode` kept as a permanent redirect so existing invite links survive.
-- [ ] `join.page.ts` resolves a short code to `{ tool, shortCode }` (per #19) and routes to the right tool.
-- [ ] Shared shell in `app.html`: header, theme toggle, language switcher, tool switcher.
-- [ ] a11y + i18n: picker is keyboard-navigable with visible focus rings (#4); all new copy through the en/es/pt/pl catalogs (#5).
-- [ ] Tests: picker routes to each tool; `/session/:code` redirect; short-code resolution picks the right tool page.
+## 20. Tool picker & platform shell  `M`  — depends on #19  ✅ done
+- [x] Home page → platform picker (`pages/home`); the poker create form moved to `pages/poker/create` (`PokerCreatePage`) at `/poker/new`.
+- [x] Routes: `/poker/new`, `/poker/:shortCode`, `/join/:shortCode`, picker at `/`; `/session/:shortCode` kept as a permanent redirect so existing invite links survive. Retro routes land in #21.
+- [x] `join.page.ts` reads `landing.tool` (per #19) and navigates to that tool's page instead of assuming poker.
+- [x] Shared shell in `app.html`: brand through `app.brand`, theme toggle, language switcher, plus an "All tools" switcher shown on every page except the picker itself.
+- [x] a11y + i18n: the tools render as a real list (so their number is announced), and the unbuilt tool is a **disabled button with an `aria-describedby` explanation** rather than a dead anchor — a styled-dead link is unreachable by keyboard and announces nothing. All 20 new strings in en/es/pt/pl.
+- [x] Tests: picker offers both tools and links poker to `/poker/new`; the retro card is unavailable rather than a dead link; legacy `/session/:code` redirect; unknown paths return to the picker; join routes by tool (`Retro` → `/retro`). Frontend **127** passing.
+- [x] Verified in a browser: picker renders both cards, and `/session/blue-fox-42` redirects through `/poker/…` to the join gate.
+
+> **Team Retro is listed but not startable.** Its card carries a "Coming soon" badge and a disabled
+> action until #21 ships the tool. Listing it makes the platform's shape clear; linking it would
+> advertise something a visitor cannot use.
 
 ## 21. Retro board: model, creation, cards  `L`  — depends on #19, #20
 **Foundation for #22–#28.**

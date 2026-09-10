@@ -1,6 +1,8 @@
 import { Component, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterOutlet, RouterLink } from '@angular/router';
+import { NavigationEnd, Router, RouterOutlet, RouterLink } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs';
 import { SignalrRealtimeClient } from './core/poker.client';
 import { ThemeService } from './core/theme.service';
 import { I18nService, Locale } from './core/i18n.service';
@@ -19,6 +21,16 @@ export class App {
 
   protected readonly status = this.realtime.status;
   protected readonly themePreference = this.theme.preference;
+
+  /** The shell's "all tools" link is pointless on the picker itself. See #20. */
+  private readonly url = toSignal(
+    inject(Router).events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects),
+    ),
+    { initialValue: inject(Router).url },
+  );
+  protected readonly showToolSwitcher = computed(() => this.url() !== '/');
 
   // --- Language switcher (#5) ---
   protected readonly locales = this.i18n.available;

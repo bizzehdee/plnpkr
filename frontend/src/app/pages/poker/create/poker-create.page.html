@@ -1,0 +1,99 @@
+<main class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h1 class="h4 mb-3">{{ 'home.title' | t }}</h1>
+
+          @if (error()) {
+            <div class="alert alert-danger" role="alert">{{ error() }}</div>
+          }
+
+          <form (ngSubmit)="create()">
+            <div class="mb-3">
+              <label class="form-label" for="sessionName">{{ 'home.sessionName' | t }}</label>
+              <input
+                id="sessionName"
+                name="sessionName"
+                class="form-control"
+                [(ngModel)]="sessionName"
+                [placeholder]="'home.sessionNamePlaceholder' | t"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="displayName">{{ 'home.yourName' | t }}</label>
+              <input
+                id="displayName"
+                name="displayName"
+                class="form-control"
+                [(ngModel)]="displayName"
+                [placeholder]="'home.yourNamePlaceholder' | t"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="deckType">{{ 'home.cardDeck' | t }}</label>
+              <select id="deckType" name="deckType" class="form-select" [(ngModel)]="deckType">
+                @for (opt of deckOptions(); track opt[0]) {
+                  <option [value]="opt[0]">{{ opt[1] }}</option>
+                }
+              </select>
+            </div>
+
+            @if (deckType === 'Custom') {
+              <div class="mb-3">
+                <label class="form-label" for="customCards">{{ 'home.customCards' | t }}</label>
+                <input
+                  id="customCards"
+                  name="customCards"
+                  class="form-control"
+                  [(ngModel)]="customCards"
+                  [placeholder]="'home.customCardsPlaceholder' | t"
+                  autocomplete="off"
+                />
+              </div>
+            }
+
+            <div class="mb-3">
+              <label class="form-label" for="password">{{ 'home.password' | t }} <span class="text-body-secondary">{{ 'home.optional' | t }}</span></label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                class="form-control"
+                [(ngModel)]="password"
+                [placeholder]="'home.passwordPlaceholder' | t"
+                autocomplete="new-password"
+              />
+              <div class="form-text">{{ 'home.passwordHelp' | t }}</div>
+            </div>
+
+            <div class="form-check mb-3">
+              <input
+                id="organise"
+                name="organise"
+                type="checkbox"
+                class="form-check-input"
+                [(ngModel)]="organise"
+              />
+              <label class="form-check-label" for="organise">
+                {{ 'home.organise' | t }}
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              class="btn btn-primary w-100"
+              [disabled]="busy() || !sessionName.trim() || !displayName.trim() || (deckType === 'Custom' && !customCards.trim())"
+            >
+              {{ busy() ? ('home.creating' | t) : ('home.create' | t) }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>

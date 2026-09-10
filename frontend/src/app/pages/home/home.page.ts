@@ -1,110 +1,46 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { SignalrRealtimeClient } from '../../core/poker.client';
-import { IdentityService } from '../../core/identity.service';
-import { DeckStorageService } from '../../core/deck-storage.service';
-import { DeckType, DECK_LABEL_KEYS, SavedDeck } from '../../core/models';
-import { I18nService } from '../../core/i18n.service';
+import { Component } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '../../core/translate.pipe';
 
+/** A tool on the platform landing page. `route` is null until the tool ships. */
+interface ToolCard {
+  id: string;
+  titleKey: string;
+  blurbKey: string;
+  bulletKeys: string[];
+  icon: string;
+  route: string | null;
+}
+
+/**
+ * The platform front door (#19/#20). TeamTools hosts two ceremony tools over one room engine, so
+ * the landing page picks a tool rather than jumping straight into creating a poker session — the
+ * poker create form moved to `/poker/new`.
+ */
 @Component({
   selector: 'app-home',
-  imports: [FormsModule, TranslatePipe],
+  imports: [RouterLink, TranslatePipe],
   templateUrl: './home.page.html',
 })
 export class HomePage {
-  private readonly realtime = inject(SignalrRealtimeClient);
-  private readonly identity = inject(IdentityService);
-  private readonly router = inject(Router);
-  private readonly deckStorage = inject(DeckStorageService);
-  private readonly i18n = inject(I18nService);
-
-  protected readonly deckOptions = computed(() =>
-    (Object.keys(DECK_LABEL_KEYS) as DeckType[]).map((id) => [id, this.i18n.t(DECK_LABEL_KEYS[id])] as [DeckType, string]),
-  );
-
-  protected sessionName = '';
-  protected displayName = this.identity.displayName;
-  protected deckType: DeckType = 'Fibonacci';
-  protected customCards = '';
-  /** Named custom decks remembered in this browser (#11). */
-  protected readonly savedDecks = signal<SavedDeck[]>(this.deckStorage.list());
-  protected deckName = '';
-  protected organise = true;
-  protected password = '';
-  protected enableReactions = true;
-  /** Configured round-timer duration in seconds; 0 = no timer. Changeable later in-session (#14). */
-  protected timerDurationSeconds = 0;
-
-  protected readonly timerOptions: { value: number; label: string }[] = [
-    { value: 0, label: 'No timer' },
-    { value: 30, label: '30 seconds' },
-    { value: 60, label: '1 minute' },
-    { value: 120, label: '2 minutes' },
-    { value: 300, label: '5 minutes' },
+  protected readonly tools: ToolCard[] = [
+    {
+      id: 'poker',
+      titleKey: 'tool.poker.name',
+      blurbKey: 'tool.poker.blurb',
+      bulletKeys: ['tool.poker.point1', 'tool.poker.point2', 'tool.poker.point3'],
+      icon: '🃏',
+      route: '/poker/new',
+    },
+    {
+      id: 'retro',
+      titleKey: 'tool.retro.name',
+      blurbKey: 'tool.retro.blurb',
+      bulletKeys: ['tool.retro.point1', 'tool.retro.point2', 'tool.retro.point3'],
+      icon: '🔄',
+      // Not yet built (#21–#28). Listed but not linked: a card that navigates nowhere useful is
+      // worse than one that says plainly it isn't ready.
+      route: null,
+    },
   ];
-
-  protected readonly busy = signal(false);
-  protected readonly error = signal<string | null>(null);
-
-  /** Apply a saved deck: switch to a custom deck pre-filled with its cards (#11). */
-  protected applyDeck(deck: SavedDeck): void {
-    this.deckType = 'Custom';
-    this.customCards = deck.cards;
-    this.deckName = deck.name;
-  }
-
-  /** Remember the current custom deck under a name for next time (#11). */
-  protected saveDeck(): void {
-    if (this.deckType !== 'Custom' || !this.customCards.trim() || !this.deckName.trim()) return;
-    this.savedDecks.set(this.deckStorage.save({ name: this.deckName.trim(), cards: this.customCards.trim() }));
-  }
-
-  protected removeDeck(name: string): void {
-    this.savedDecks.set(this.deckStorage.remove(name));
-  }
-
-  protected async create(): Promise<void> {
-    this.error.set(null);
-
-    if (!this.sessionName.trim()) {
-      this.error.set(this.i18n.t('home.errorNameRequired'));
-      return;
-    }
-    if (!this.displayName.trim()) {
-      this.error.set(this.i18n.t('home.errorYourNameRequired'));
-      return;
-    }
-
-    this.busy.set(true);
-    try {
-      await this.realtime.connect();
-      this.identity.displayName = this.displayName.trim();
-
-      const result = await this.realtime.createSession(
-        this.sessionName.trim(),
-        this.deckType,
-        this.deckType === 'Custom' ? this.customCards : null,
-        this.identity.userId,
-        this.displayName.trim(),
-        this.organise,
-        this.password.trim() || null,
-        this.enableReactions,
-        this.timerDurationSeconds > 0 ? this.timerDurationSeconds : null,
-      );
-
-      if (result.status === 'Ok' && result.session) {
-        await this.router.navigate(['/session', result.session.shortCode]);
-      } else if (result.status === 'RateLimited') {
-        this.error.set(this.i18n.t('err.rateLimited'));
-      } else {
-        this.error.set(result.error ?? this.i18n.t('home.errorGeneric'));
-      }
-    } catch {
-      this.error.set(this.i18n.t('common.errorUnreachable'));
-    } finally {
-      this.busy.set(false);
-    }
-  }
 }

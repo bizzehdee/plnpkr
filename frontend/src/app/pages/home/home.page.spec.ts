@@ -1,131 +1,53 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
-import { vi } from 'vitest';
+import { provideRouter } from '@angular/router';
 import { HomePage } from './home.page';
-import { SignalrRealtimeClient } from '../../core/poker.client';
-import { IdentityService } from '../../core/identity.service';
-import { CreateSessionResult, SessionSnapshot } from '../../core/models';
 
-function snapshot(shortCode: string): SessionSnapshot {
-  return {
-    room: {
-      id: 'id-1',
-      shortCode,
-      name: 'Sprint 24',
-      tool: 'Poker',
-      organiserUserId: 'user-1',
-      reactionsEnabled: true,
-      allowRoleChange: true,
-      isClosed: false,
-      hasPassword: false,
-      participants: [],
-    },
-    id: 'id-1',
-    shortCode,
-    name: 'Sprint 24',
-    deckType: 'Fibonacci',
-    cards: ['0', '1', '2', '?', '☕'],
-    state: 'Voting',
-    organiserUserId: 'user-1',
-    autoReveal: false,
-    reactionsEnabled: true,
-    allowRoleChange: true,
-    isClosed: false,
-    currentStory: null,
-    currentStoryNote: null,
-    participants: [],
-    stats: null,
-    integration: null,
-    timerDurationSeconds: null,
-    timerDeadline: null,
-    timerPausedRemainingSeconds: null,
-  };
-}
-
-class FakeRealtimeClient {
-  connect = vi.fn().mockResolvedValue(undefined);
-  createSession = vi.fn<(...a: unknown[]) => Promise<CreateSessionResult>>().mockResolvedValue({
-    status: 'Ok',
-    session: snapshot('blue-fox-42'),
-    error: null,
-  });
-}
-
-describe('HomePage', () => {
-  let fake: FakeRealtimeClient;
-  let router: Router;
-
-  beforeEach(async () => {
-    fake = new FakeRealtimeClient();
-    await TestBed.configureTestingModule({
+/** The platform front door (#20): a tool picker, not a poker create form. */
+describe('HomePage (tool picker)', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
       imports: [HomePage],
-      providers: [
-        provideRouter([]),
-        { provide: SignalrRealtimeClient, useValue: fake },
-        { provide: IdentityService, useValue: { userId: 'user-1', displayName: '' } },
-      ],
-    }).compileComponents();
-    router = TestBed.inject(Router);
-  });
-
-  it('shows a validation error when the session name is blank', async () => {
-    const fixture = TestBed.createComponent(HomePage);
-    const cmp = fixture.componentInstance as unknown as { displayName: string; create(): Promise<void> };
-    cmp.displayName = 'Alice';
-
-    await cmp.create();
-    fixture.detectChanges();
-
-    expect(fake.createSession).not.toHaveBeenCalled();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('give the session a name');
-  });
-
-  it('creates a session and navigates to the session route', async () => {
-    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
-    const fixture = TestBed.createComponent(HomePage);
-    const cmp = fixture.componentInstance as unknown as {
-      sessionName: string;
-      displayName: string;
-      create(): Promise<void>;
-    };
-    cmp.sessionName = 'Sprint 24';
-    cmp.displayName = 'Alice';
-
-    await cmp.create();
-
-    expect(fake.createSession).toHaveBeenCalled();
-    expect(navigate).toHaveBeenCalledWith(['/session', 'blue-fox-42']);
-  });
-
-  it('shows a translated message for a rate-limited create, not the raw server text', async () => {
-    fake.createSession.mockResolvedValue({
-      status: 'RateLimited',
-      session: null,
-      error: "You're doing that too often — please wait a moment and try again.",
+      providers: [provideRouter([])],
     });
-    const fixture = TestBed.createComponent(HomePage);
-    const cmp = fixture.componentInstance as unknown as {
-      sessionName: string;
-      displayName: string;
-      create(): Promise<void>;
-    };
-    cmp.sessionName = 'Sprint 24';
-    cmp.displayName = 'Alice';
-
-    await cmp.create();
-    fixture.detectChanges();
-
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('doing that too often');
   });
 
-  it('renders translated deck option labels', () => {
+  function render(): HTMLElement {
     const fixture = TestBed.createComponent(HomePage);
     fixture.detectChanges();
-    const options = [...(fixture.nativeElement as HTMLElement).querySelectorAll('#deckType option')].map(
-      (o) => o.textContent?.trim(),
-    );
-    expect(options).toContain('Fibonacci');
-    expect(options).toContain('T-shirt sizes');
-    expect(options).toContain('Custom…');
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('offers both tools', () => {
+    const el = render();
+
+    const text = el.textContent ?? '';
+    expect(text).toContain('Planning Poker');
+    expect(text).toContain('Team Retro');
+  });
+
+  it('links Planning Poker to its create route', () => {
+    const el = render();
+
+    const link = el.querySelector<HTMLAnchorElement>('a[href="/poker/new"]');
+    expect(link).toBeTruthy();
+  });
+
+  it('presents the unbuilt tool as unavailable rather than as a dead link', () => {
+    // A card that navigates nowhere is worse than one that says so. Until #21 ships the retro
+    // tool, its action is a real disabled button with an explanation, not a styled-dead anchor.
+    const el = render();
+
+    expect(el.querySelector('a[href^="/retro"]')).toBeNull();
+    const disabled = el.querySelector<HTMLButtonElement>('button[disabled]');
+    expect(disabled).toBeTruthy();
+    expect(disabled!.getAttribute('aria-describedby')).toBe('retro-unavailable');
+    expect(el.querySelector('#retro-unavailable')?.textContent).toContain('Not available yet');
+  });
+
+  it('renders the tools as a list so their number is announced', () => {
+    const el = render();
+
+    const items = el.querySelectorAll('ul.list-unstyled > li');
+    expect(items.length).toBe(2);
   });
 });
