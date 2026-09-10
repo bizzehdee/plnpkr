@@ -1,9 +1,10 @@
 # TeamTools — Feature Plan
 
-**TeamTools** is a platform hosting **two** team-ceremony tools over one shared room
-engine: **Planning Poker** (real-time estimation — shipped) and **Team Retro**
-(real-time retrospectives — planned in §21–§28, on the platform groundwork laid by
-§17–§20, with §29 rewriting the README last).
+**TeamTools** is a platform hosting team-ceremony tools over one shared room engine.
+**Planning Poker** (real-time estimation) and **Team Retro** (real-time retrospectives)
+are both **shipped** — poker in §§1–16, the platform groundwork in §17–§20, the retro in
+§21–§28, with §29–§34 the follow-ups that came out of building them. §35 and §36 are
+**candidate** third and fourth tools: specced, not committed to.
 
 Each feature below lists **what** it delivers, **why**, the **touch points** in the
 codebase, and a sketched **approach**. Implementation order and dependencies live in
@@ -810,6 +811,119 @@ and say out loud what is not:
 
 The shared loop's one dangerous behaviour gets a direct test rather than three implicit
 ones: throw on the first pass, assert a later pass still runs.
+
+## 35. Lean Coffee — the third tool
+
+**What.** A third room tool: a facilitated, agenda-less discussion. Participants propose
+topics as cards, dot-vote to rank them, and then work the ranked list one topic at a time
+under a countdown, taking a "keep going / move on" vote when each timebox runs out.
+Outcome: a ranked record of what was discussed, for how long, and what was decided.
+
+**Why.** It is the cheapest genuinely-new tool on the platform, because it is a
+recombination of primitives that already exist rather than a new domain: cards written in
+private (§23), a server-enforced dot budget (§25), a ranked agenda (§25), phase
+countdowns (§23/§34) and an export (§28). It is also the tool that proves the room engine
+was worth extracting — if a third tool is not substantially cheaper than the second, the
+shared core is not earning its keep.
+
+**Touch points.** `Core/Models/Coffee/CoffeeBoard.cs` (+ topics and votes);
+`Core/Coffee/CoffeeService.cs`, `CoffeePhaseRules.cs`, `ICoffeeBoardStore.cs`;
+`Api/Hubs/CoffeeHub.cs` + a `RoomSweepService` for its countdown; EF migration ×3;
+`frontend/src/app/pages/coffee/` (create, board) + a launcher card; `models.ts`;
+i18n ×4 locales; `RoomTool.Coffee`.
+
+**Approach.**
+
+**The phase rail is the deliverable, not the cards.** Lean Coffee is
+`Propose → Vote → Discuss → Done`, and §34 deliberately left the retro's ordered,
+adjacency-only rail un-extracted for want of a second consumer. This is that consumer:
+generalise `RetroPhaseRules`' rail into the room engine (ordered phases, adjacency-only
+transitions, per-phase capability gates) and have both retro and coffee declare their own
+phases and gates against it. If that generalisation turns out not to fit, that is a
+finding worth recording — not a reason to copy the rail a second time.
+
+**What it reuses unchanged.** The dot budget with server-side enforcement from stored rows
+(§25) — the same "no arithmetic to get wrong, no client-supplied total to believe" rule.
+The ranked agenda projection. Hidden collection during Propose, so nobody anchors (§23).
+The per-recipient snapshot projection that makes hidden collection real (§21/§22). The
+countdown primitive and sweep loop (§34). Anonymity is **not** offered: a Lean Coffee
+topic is something you are volunteering to talk about, so attribution is the point.
+
+**What is new, and small.** A per-topic timebox rather than a per-phase one — the
+countdown restarts on each topic. And the extend vote: when a timebox expires, participants
+thumb keep-going or move-on, and the facilitator sees the split. That is a one-question
+hidden-until-reveal vote, which is poker's mechanism with a two-card deck; reuse it rather
+than inventing a third voting model, and if that proves awkward, say so.
+
+**The discussion log is the output.** Each topic records how long it actually ran, how many
+extensions it took, and any decisions captured against it (reusing retro's action items
+shape, including owner and due date). The export is the meeting minutes nobody had to take
+— Markdown first, as §28 established.
+
+**Deliberately out of scope.** No cross-room continuity: a Lean Coffee room is one
+conversation. Recurring meetings would need the team entity the platform does not have; if
+carrying unfinished topics forward proves valuable, it should copy §27's short-code
+carry-over rather than introduce one.
+
+## 36. Async Standup — a fourth tool, and the one that tests the model's limits
+
+**What.** A room where each participant answers the standup questions in their own time —
+yesterday / today / blockers by default, editable per room — and everyone can read the
+answers once they have posted their own. Blockers are highlighted. The board exports as the
+day's written standup.
+
+**Why.** It is the most-requested ceremony tool after estimation and retros, and for
+distributed teams it replaces the meeting rather than instrumenting it. It is also the
+honest stress test of the platform's founding constraints, which is a reason to spec it
+carefully rather than a reason to avoid it.
+
+**Read this before building it.** This tool wants three things the platform deliberately
+does not have, and the spec's job is to say what happens instead:
+
+1. **Recurrence.** A standup is daily. There is no scheduler and no team entity, so "the
+   same standup every morning" cannot exist as a first-class thing. *Instead:* each day is
+   its own room, and a room can be started from yesterday's short code the way a retro
+   carries actions forward (§27) — copying the question set and the unresolved blockers.
+   That keeps the one-room-one-ceremony rule and the single deliberate cross-room link.
+2. **Notifications.** "Remind the team at 09:30" needs an address for each person; identity
+   here is a display name in `localStorage` (§1). *Instead:* the room's invite link is the
+   reminder, pasted wherever the team already talks. Do not build a notifier that silently
+   reaches nobody.
+3. **"Who hasn't posted yet."** This one *is* answerable, but only for people who have
+   opened the room — presence is per-connection, and someone who never opens it is
+   indistinguishable from someone who does not exist. *Instead:* show "N of the M people
+   in this room have posted", never "Dave is missing". A roster needs accounts.
+
+**Touch points.** `Core/Models/Standup/StandupBoard.cs` (+ entries per participant per
+question); `Core/Standup/StandupService.cs`, `IStandupBoardStore.cs`;
+`Api/Hubs/StandupHub.cs`; EF migration ×3; `frontend/src/app/pages/standup/`; `models.ts`;
+i18n ×4; `RoomTool.Standup`.
+
+**Approach.**
+
+**Post-to-read is the core rule, and it is a projection, not a UI state.** You see other
+people's answers once you have posted your own — the same anti-anchoring principle as
+hidden collection (§23) and the same enforcement point: the per-recipient snapshot (§21).
+A client-side hide is a promise one devtools panel disproves (§22).
+
+**No phases.** Unlike every other tool here, a standup has no facilitator-driven rail: it
+opens, people post, it closes. Do not reach for §35's extracted rail because it exists —
+this is the tool that shows the rail is a retro/coffee concern and not a platform one.
+
+**Retention is the awkward part and needs a decision up front.** Idle rooms are evicted
+(§15), and a standup room is idle by construction between mornings. A daily room that
+disappears is fine; a *history* of standups is what teams actually ask for, and that needs
+either a longer retention window for this tool or an accepted "export it or lose it".
+Prefer the second — it matches the platform, and the export already exists as a pattern
+(§28). Say so in the UI rather than letting people discover it.
+
+**Blockers are the only structured field.** Everything else is free text. A blocker gets a
+flag and can be promoted to an action item with an owner (reusing §26's shape), because
+"who is unblocking this" is the only decision a standup actually produces.
+
+**If any of the three constraints above becomes a real problem in use, the answer is not
+to work around it per tool — it is a platform decision** (accounts, a team entity, a
+scheduler) that should be taken deliberately and once, for both existing tools too.
 
 ---
 

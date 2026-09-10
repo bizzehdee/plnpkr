@@ -731,3 +731,53 @@ into the TeamTools platform and add the second tool, Team Retro.
 > **`Csv.Date` came out of the extraction, not into it.** Both exports formatted dates
 > `yyyy-MM-dd` with `CultureInfo.InvariantCulture` inline. A locale-shaped date in a CSV is how
 > 03/04 becomes two different days downstream, so it is now a named function with a test saying so.
+
+---
+
+# Phase 3 — candidate tools (specced, not committed)
+
+§35 and §36 are **specs only**. Nothing below is built, and neither is a commitment to
+build it; they exist so the next tool starts from a design rather than from a blank file,
+and so the platform's constraints are confronted on paper first.
+
+| # | Task | Size | Depends on | Area |
+| --- | --- | --- | --- | --- |
+| 35 | Lean Coffee — the third tool | M | 34 | BE + FE |
+| 36 | Async Standup — the fourth | M | 34 | BE + FE |
+
+## 35. Lean Coffee  `M`  — depends on #34  📋 specced
+- [ ] `RoomTool.Coffee` + `CoffeeBoard` (topics, dot votes, per-topic timings), EF migration ×3.
+- [ ] `CoffeeService` + `CoffeePhaseRules`: `Propose → Vote → Discuss → Done`.
+- [ ] **Generalise the retro's phase rail into the room engine** — this is the second consumer #34 deliberately waited for. Both retro and coffee then declare their own phases and gates against it.
+- [ ] Reuse unchanged: the server-enforced dot budget (#25), the ranked agenda (#25), hidden collection during Propose (#23), the per-recipient projection (#21), the countdown primitive + sweep loop (#34).
+- [ ] Per-topic timebox (the countdown restarts per topic) and a keep-going/move-on vote — one question, hidden until reveal, i.e. poker's mechanism with a two-card deck.
+- [ ] The discussion log is the output: time actually spent, extensions taken, decisions captured (reusing #26's action-item shape). Markdown export first (#28).
+- [ ] i18n ×4; a launcher card; ≥90% Core coverage.
+
+> **No anonymity, deliberately.** A Lean Coffee topic is something you are volunteering to talk
+> about — attribution is the point, not a leak.
+
+> **This tool is the test of whether the room engine earned its keep.** If the third tool is not
+> substantially cheaper to build than the second was, the shared core is not paying for itself, and
+> that is worth knowing.
+
+## 36. Async Standup  `M`  — depends on #34  📋 specced
+- [ ] `RoomTool.Standup` + `StandupBoard` (an entry per participant per question), EF migration ×3.
+- [ ] **Post-to-read, enforced in the projection** — you see others' answers once you have posted your own. Same principle as hidden collection (#23), same enforcement point as anonymity (#22): the per-recipient snapshot, never the client.
+- [ ] **No phase rail.** A standup opens, people post, it closes. This is the tool that shows the rail is a retro/coffee concern, not a platform one — do not reach for #35's extraction just because it exists.
+- [ ] Blockers are the only structured field, and can be promoted to an action item with an owner (#26).
+- [ ] Start today's room from yesterday's short code, copying the question set and unresolved blockers — #27's carry-over, not a new cross-room concept.
+- [ ] i18n ×4; ≥90% Core coverage.
+
+> **This spec exists mostly to write down what the platform will *not* do for it.** A standup wants
+> recurrence, notifications and a roster; TeamTools has no scheduler, no addresses and no accounts.
+> So: each day is its own room; the invite link *is* the reminder; and the board says "N of the M
+> people in this room have posted", never "Dave is missing" — presence only knows who opened it.
+
+> **Retention needs deciding up front, not discovering.** Idle rooms are evicted (#15), and a
+> standup room is idle by construction between mornings. The spec's answer is "export it or lose it",
+> stated in the UI — matching the platform rather than carving out a special window for one tool.
+
+> **If a constraint here becomes a real problem in use, it is a platform decision, not a per-tool
+> workaround.** Accounts, a team entity or a scheduler would change both shipped tools too, and
+> should be taken deliberately and once.
