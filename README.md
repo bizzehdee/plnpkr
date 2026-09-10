@@ -88,42 +88,6 @@ configurable provider (SQLite by default; SQL Server / PostgreSQL also supported
 > addresses or accounts — platform decisions that would change all four tools, and worth taking
 > deliberately and once rather than as a workaround for one.
 
-## Shared by every tool
-
-- Roles: **voters** take part, **observers** watch; an optional **organiser** (the creator) drives.
-- Multiple organisers with automatic succession, so a facilitator dropping out doesn't strand a room.
-- No accounts — pick a display name (remembered per browser); names are unique per room.
-- Optional **room password** (organiser can set / change / clear; stored as a PBKDF2 hash, never
-  plaintext). It gates joining *and* reading the room back out — a protected room's history or export
-  needs the password, because a short code is only a bearer token.
-- Resilient: a dropped connection keeps your seat, vote and dots, and reconnects; idle rooms are
-  evicted on a published retention policy.
-- Emoji reactions (ephemeral, never persisted).
-- Light / dark / system theme, remembered locally.
-- Four languages (en / es / pt / pl) with locale-aware numbers, plurals and dates.
-- Accessibility baseline: keyboard equivalents for every pointer interaction, live-region
-  announcements, focus management.
-- Real **health checks** (`/health` readiness incl. DB, `/health/live` liveness) and a containerised
-  run (`docker compose up`).
-
-## Layout
-
-```
-backend/    .NET 10 solution:
-              TeamTools.Core        room engine (tool-agnostic) + Poker/, Retro/, Coffee/ and Standup/ namespaces
-              TeamTools.Data        EF Core model + DbContext, provider-agnostic
-              TeamTools.Data.{Sqlite,SqlServer,PostgreSql}
-                                    one project per engine: driver + migrations
-              TeamTools.Integrations  Jira / Azure DevOps adapters
-              TeamTools.Api         host: PokerHub + RetroHub + CoffeeHub + StandupHub + REST + health checks
-            plus a test project per layer
-frontend/   Angular 21 app (Bootstrap 5, @microsoft/signalr)
-deploy/     Terraform + shell scripts for an AWS deployment (EC2 + S3 + CloudFront)
-```
-
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design — the room / tool-payload split, the
-real-time contract, and why the tools share an engine but nothing else.
-
 ## Run locally — one command
 
 From the repo root, use the launcher (it checks prerequisites, installs/restores dependencies,
@@ -169,84 +133,6 @@ non-root user. Configuration is passed as environment variables (e.g. `Integrati
 
 > Single instance only — in-process SignalR + local SQLite means **don't run multiple replicas** of
 > this image as-is (scale up, not out).
-
-## Testing locally
-
-Prerequisites: **.NET 10 SDK**, **Node 20+**, and (for the coverage gate) **PowerShell 7** (`pwsh`).
-
-### Everything in one shot
-
-```bash
-./run.sh test       # backend tests + Core coverage gate + frontend tests
-./run.ps1 test      # same, on Windows PowerShell
-```
-
-This runs the same checks as CI, so a green `test` locally means a clean build.
-
-### Backend (xUnit) — 798 tests across Core / Integrations / Data / Api
-
-```bash
-cd backend
-dotnet test TeamTools.slnx                        # whole solution
-
-# One project at a time
-dotnet test tests/TeamTools.Core.Tests            # fast, no I/O (the bulk of the logic) — 658
-dotnet test tests/TeamTools.Integrations.Tests    # Jira/ADO adapters against stubbed HTTP — 40
-dotnet test tests/TeamTools.Data.Tests            # EfRoomStore + migrations against real SQLite — 48
-dotnet test tests/TeamTools.Api.Tests             # REST + SignalR + health over an in-memory server — 52
-
-# Run a single test or class by name
-dotnet test tests/TeamTools.Core.Tests --filter "FullyQualifiedName~RetroVotingTests"
-
-# Re-run on file changes while developing
-dotnet watch test --project tests/TeamTools.Core.Tests
-```
-
-### Coverage gate — Core must be ≥ 90% line + branch (currently ~95% / ~91%)
-
-```bash
-pwsh backend/coverage-gate.ps1                   # prints the numbers and fails if under threshold
-pwsh backend/coverage-gate.ps1 -Threshold 0.95   # try a stricter bar
-```
-
-### Frontend (Vitest + Angular TestBed) — 277 specs across 16 files
-
-```bash
-cd frontend
-npm ci                       # first time only
-npm test -- --no-watch       # run once (CI mode)
-npm test                     # watch mode while developing
-```
-
-### Continuous integration
-
-[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs on every push and pull request to
-`main`: the backend build + tests, the Core coverage gate, and the frontend production build +
-tests. Superseded runs on the same ref are cancelled.
-
-### Manual / exploratory testing
-
-```bash
-./run.sh            # dev: API :5210 + Angular :4200 (Ctrl+C stops both)
-```
-
-- Open **http://localhost:4200**, create a poker session or a retro, then open the **invite link in a
-  second browser or a private/incognito window** and join with a different name to act as another
-  user. Voting, reveal, auto-reveal, observers, away/reconnect, retro phases, grouping, dot voting
-  and the theme toggle all work live.
-- A retro is best exercised with two windows: write cards in both during Collect (each only sees its
-  own, plus a count), then walk the phases from the facilitator's window.
-- State persists in a local SQLite file (`teamtools.db` next to the API). To start clean, stop the
-  app and delete it:
-  ```bash
-  rm -f backend/src/TeamTools.Api/teamtools.db*
-  ```
-  A database from before the rename (`planningpoker.db`) is still picked up if it is there, with a
-  log hint to rename it — the app will not silently start against an empty database.
-- To exercise the exact production build locally (SPA served from `wwwroot`, one origin):
-  ```bash
-  ./run.sh prod       # publishes and serves on http://localhost:5210
-  ```
 
 ## Build a single deployable artifact
 
@@ -305,29 +191,6 @@ Whatever the target, three constraints hold:
 - **Single instance — do not scale out.** Scale *up*. (Horizontal scale later = Azure SignalR
   Service / a Redis backplane + a server database.)
 
-### AWS — Terraform + scripts
-
-[`deploy/`](./deploy) provisions and updates a small AWS deployment: the API on EC2 behind a systemd
-unit, the SPA in S3 served by CloudFront, optional Route53 + ACM for a custom domain.
-
-```bash
-cd deploy/terraform
-cp terraform.tfvars.example terraform.tfvars   # fill in ec2_key_pair_name, domain, etc.
-terraform init && terraform apply
-
-# then, from the repo root, to ship a new build:
-EC2_KEY=~/.ssh/my-key.pem bash deploy/scripts/deploy-backend.sh
-bash deploy/scripts/deploy-frontend.sh
-```
-
-`terraform output` prints the URLs and the log command. The instance runs migrations on startup and
-keeps SQLite under `/opt/teamtools/data`.
-
-> **Upgrading an existing `planning-poker` stack:** `app_name` (the prefix on every AWS resource
-> name) now defaults to `teamtools`. Applying that against a stack created under the old default
-> would *replace* the bucket and the instance. Pin the old value in your `terraform.tfvars`
-> (`app_name = "planning-poker"`) unless you actually want new resources.
-
 ### Azure — a single App Service
 
 Deploy the published output to one App Service instance. The tier/size is a DevOps decision; it must
@@ -366,5 +229,5 @@ license requires that you **keep the attribution**:
   on *TeamTools by Darren Horrocks* (see `NOTICE` for the wording and where it must appear).
 - **Mark your changes** — modified files must carry a prominent notice saying you changed them.
 
-Taking the source and shipping it — commercially or otherwise — **without that attribution is a breach
+Taking the source and shipping it, commercially or otherwise, **without that attribution is a breach
 of the license**. Contributions are submitted under the same Apache 2.0 terms (inbound = outbound).
