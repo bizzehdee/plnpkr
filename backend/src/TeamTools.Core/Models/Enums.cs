@@ -1,6 +1,16 @@
 namespace TeamTools.Core.Models;
 
-/// <summary>The built-in estimation card sets a session can use. See #32.</summary>
+/// <summary>
+/// Which tool a <see cref="Room"/> hosts. Chosen when the room is created and immutable afterwards —
+/// a room is a poker session or a retro board, never both. See #19.
+/// </summary>
+public enum RoomTool
+{
+    Poker,
+    Retro,
+}
+
+/// <summary>The built-in estimation card sets a poker round can use. See #32.</summary>
 public enum DeckType
 {
     Sequential,

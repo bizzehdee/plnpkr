@@ -1,8 +1,9 @@
+using TeamTools.Core.Models;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Integrations;
 using TeamTools.Core.Models;
 
-namespace TeamTools.Core;
+namespace TeamTools.Core.Poker;
 
 /// <summary>
 /// Per-provider feature toggles for the issue-tracker integration (#43). Each provider is
@@ -44,7 +45,7 @@ public class IntegrationService
 {
     private const int MaxQueueResults = 100;
 
-    private readonly ISessionStore _store;
+    private readonly IRoomStore _store;
     private readonly IIssueTrackerFactory _trackers;
     private readonly IIntegrationConnectionStore _connections;
     private readonly IBoardUrlParser _urlParser;
@@ -52,7 +53,7 @@ public class IntegrationService
     private readonly IntegrationsOptions _options;
 
     public IntegrationService(
-        ISessionStore store,
+        IRoomStore store,
         IIssueTrackerFactory trackers,
         IIntegrationConnectionStore connections,
         IBoardUrlParser urlParser,
@@ -77,7 +78,7 @@ public class IntegrationService
             return IntegrationResult.Disabled();
         }
 
-        var (session, error) = await LoadForControlAsync(shortCode, userId, ct);
+        var (room, error) = await LoadForControlAsync(shortCode, userId, ct);
         if (error is not null)
         {
             return error;
@@ -101,32 +102,32 @@ public class IntegrationService
             return IntegrationResult.Fail(IntegrationStatus.AuthFailed, validation.Error ?? "Could not authenticate.");
         }
 
-        _connections.Set(session!.Id, connection, validation.AccountName);
-        session.LinkedProvider = provider;
-        session.LastActivityAt = _clock.UtcNow;
-        await _store.UpdateAsync(session, ct);
+        _connections.Set(room!.Id, connection, validation.AccountName);
+        room.PokerRound!.LinkedProvider = provider;
+        room.LastActivityAt = _clock.UtcNow;
+        await _store.UpdateAsync(room, ct);
 
-        return IntegrationResult.Ok(SessionService.ToSnapshot(session), validation.AccountName);
+        return IntegrationResult.Ok(PokerService.ToSnapshot(room), validation.AccountName);
     }
 
     public async Task<IntegrationResult> DisconnectAsync(string shortCode, string userId, CancellationToken ct = default)
     {
-        var (session, error) = await LoadForControlAsync(shortCode, userId, ct);
+        var (room, error) = await LoadForControlAsync(shortCode, userId, ct);
         if (error is not null)
         {
             return error;
         }
 
-        _connections.Remove(session!.Id);
-        session.LinkedProvider = null;
-        session.LinkedIssue = null;
-        session.LastActivityAt = _clock.UtcNow;
-        await _store.UpdateAsync(session, ct);
+        _connections.Remove(room!.Id);
+        room.PokerRound!.LinkedProvider = null;
+        room.PokerRound!.LinkedIssue = null;
+        room.LastActivityAt = _clock.UtcNow;
+        await _store.UpdateAsync(room, ct);
 
-        return IntegrationResult.Ok(SessionService.ToSnapshot(session));
+        return IntegrationResult.Ok(PokerService.ToSnapshot(room));
     }
 
-    /// <summary>Looks up a ticket using the session's stored connection and links it (broadcast-safe).</summary>
+    /// <summary>Looks up a ticket using the room's stored connection and links it (broadcast-safe).</summary>
     public async Task<IntegrationResult> LinkIssueAsync(string shortCode, string userId, string issueKey, CancellationToken ct = default)
     {
         if (!_options.AnyEnabled)
@@ -134,13 +135,13 @@ public class IntegrationService
             return IntegrationResult.Disabled();
         }
 
-        var (session, error) = await LoadForControlAsync(shortCode, userId, ct);
+        var (room, error) = await LoadForControlAsync(shortCode, userId, ct);
         if (error is not null)
         {
             return error;
         }
 
-        if (!_connections.TryGet(session!.Id, out var connection))
+        if (!_connections.TryGet(room!.Id, out var connection))
         {
             return IntegrationResult.NotConnected();
         }
@@ -152,17 +153,17 @@ public class IntegrationService
 
         try
         {
-            await ApplyLinkedIssueAsync(session, connection, issueKey.Trim(), ct);
+            await ApplyLinkedIssueAsync(room, connection, issueKey.Trim(), ct);
         }
         catch (TrackerException ex)
         {
             return IntegrationResult.Fail(MapStatus(ex.Kind), ex.Message);
         }
 
-        session.LastActivityAt = _clock.UtcNow;
-        await _store.UpdateAsync(session, ct);
+        room.LastActivityAt = _clock.UtcNow;
+        await _store.UpdateAsync(room, ct);
 
-        return IntegrationResult.Ok(SessionService.ToSnapshot(session));
+        return IntegrationResult.Ok(PokerService.ToSnapshot(room));
     }
 
     /// <summary>Writes the agreed story points to the linked ticket, then refreshes it (#24).</summary>
@@ -173,13 +174,13 @@ public class IntegrationService
             return IntegrationResult.Disabled();
         }
 
-        var (session, error) = await LoadForControlAsync(shortCode, userId, ct);
+        var (room, error) = await LoadForControlAsync(shortCode, userId, ct);
         if (error is not null)
         {
             return error;
         }
 
-        if (!_connections.TryGet(session!.Id, out var connection))
+        if (!_connections.TryGet(room!.Id, out var connection))
         {
             return IntegrationResult.NotConnected();
         }
@@ -189,7 +190,7 @@ public class IntegrationService
             return IntegrationResult.Disabled();
         }
 
-        if (session.LinkedIssue is not { } linked)
+        if (room.PokerRound!.LinkedIssue is not { } linked)
         {
             return IntegrationResult.Fail(IntegrationStatus.IssueNotFound, "Link a ticket before submitting story points.");
         }
@@ -208,9 +209,9 @@ public class IntegrationService
             return IntegrationResult.Fail(MapStatus(ex.Kind), ex.Message);
         }
 
-        session.LastActivityAt = _clock.UtcNow;
-        await _store.UpdateAsync(session, ct);
-        return IntegrationResult.Ok(SessionService.ToSnapshot(session));
+        room.LastActivityAt = _clock.UtcNow;
+        await _store.UpdateAsync(room, ct);
+        return IntegrationResult.Ok(PokerService.ToSnapshot(room));
     }
 
     /// <summary>Loads a ticket queue from a board/query URL. See #38.</summary>
@@ -243,13 +244,13 @@ public class IntegrationService
             return IntegrationResult.Disabled();
         }
 
-        var (session, error) = await LoadForControlAsync(shortCode, userId, ct);
+        var (room, error) = await LoadForControlAsync(shortCode, userId, ct);
         if (error is not null)
         {
             return error;
         }
 
-        if (!_connections.TryGet(session!.Id, out var connection))
+        if (!_connections.TryGet(room!.Id, out var connection))
         {
             return IntegrationResult.NotConnected();
         }
@@ -269,19 +270,19 @@ public class IntegrationService
             return IntegrationResult.Fail(MapStatus(ex.Kind), ex.Message);
         }
 
-        session.TicketQueue = summaries
+        room.PokerRound!.TicketQueue = summaries
             .Select(s => new QueuedTicket { Key = s.Key, Title = s.Title, Status = s.Status, StoryPoints = s.StoryPoints, Url = s.Url })
             .ToList();
 
         // A single id behaves like the old "link ticket"; for a list we open the first so there's
         // always a ticket on the table. Best-effort — a fetch failure still leaves the queue loaded.
-        var selected = session.LinkedIssue?.Key;
-        var stillInQueue = selected is not null && session.TicketQueue.Any(t => string.Equals(t.Key, selected, StringComparison.OrdinalIgnoreCase));
-        if (session.TicketQueue.Count > 0 && !stillInQueue)
+        var selected = room.PokerRound!.LinkedIssue?.Key;
+        var stillInQueue = selected is not null && room.PokerRound!.TicketQueue.Any(t => string.Equals(t.Key, selected, StringComparison.OrdinalIgnoreCase));
+        if (room.PokerRound!.TicketQueue.Count > 0 && !stillInQueue)
         {
             try
             {
-                await ApplyLinkedIssueAsync(session, connection, session.TicketQueue[0].Key, ct);
+                await ApplyLinkedIssueAsync(room, connection, room.PokerRound!.TicketQueue[0].Key, ct);
             }
             catch (TrackerException)
             {
@@ -289,16 +290,16 @@ public class IntegrationService
             }
         }
 
-        session.LastActivityAt = _clock.UtcNow;
-        await _store.UpdateAsync(session, ct);
-        return IntegrationResult.Ok(SessionService.ToSnapshot(session));
+        room.LastActivityAt = _clock.UtcNow;
+        await _store.UpdateAsync(room, ct);
+        return IntegrationResult.Ok(PokerService.ToSnapshot(room));
     }
 
-    /// <summary>Fetches a ticket and sets it as the session's linked issue + current story (no persist).</summary>
-    private async Task ApplyLinkedIssueAsync(Models.Session session, TrackerConnection connection, string issueKey, CancellationToken ct)
+    /// <summary>Fetches a ticket and sets it as the room's linked issue + current story (no persist).</summary>
+    private async Task ApplyLinkedIssueAsync(Room room, TrackerConnection connection, string issueKey, CancellationToken ct)
     {
         var issue = await _trackers.For(connection.Provider).GetIssueAsync(connection, issueKey, ct);
-        session.LinkedIssue = new LinkedIssue
+        room.PokerRound!.LinkedIssue = new LinkedIssue
         {
             Key = issue.Key,
             Title = issue.Title,
@@ -308,56 +309,56 @@ public class IntegrationService
             StoryPointsFieldAvailable = issue.StoryPointsFieldAvailable,
         };
         // Surface the ticket title as the current story too, so it shows everywhere the story does.
-        session.CurrentStory = issue.Title;
+        room.PokerRound!.CurrentStory = issue.Title;
     }
 
     /// <summary>Clears the ticket queue (organiser-only).</summary>
     public async Task<IntegrationResult> ClearQueueAsync(string shortCode, string userId, CancellationToken ct = default)
     {
-        var (session, error) = await LoadForControlAsync(shortCode, userId, ct);
+        var (room, error) = await LoadForControlAsync(shortCode, userId, ct);
         if (error is not null)
         {
             return error;
         }
 
-        session!.TicketQueue.Clear();
-        session.LastActivityAt = _clock.UtcNow;
-        await _store.UpdateAsync(session, ct);
-        return IntegrationResult.Ok(SessionService.ToSnapshot(session));
+        room!.PokerRound!.TicketQueue.Clear();
+        room.LastActivityAt = _clock.UtcNow;
+        await _store.UpdateAsync(room, ct);
+        return IntegrationResult.Ok(PokerService.ToSnapshot(room));
     }
 
-    /// <summary>True if this session currently has a live (in-memory) connection.</summary>
-    public bool IsConnected(Guid sessionId) => _connections.IsConnected(sessionId);
+    /// <summary>True if this room currently has a live (in-memory) connection.</summary>
+    public bool IsConnected(Guid roomId) => _connections.IsConnected(roomId);
 
-    public string? ConnectedAccount(Guid sessionId) => _connections.GetAccountName(sessionId);
+    public string? ConnectedAccount(Guid roomId) => _connections.GetAccountName(roomId);
 
-    private async Task<(Session? Session, IntegrationResult? Error)> LoadForControlAsync(
+    private async Task<(Room? Room, IntegrationResult? Error)> LoadForControlAsync(
         string shortCode, string userId, CancellationToken ct)
     {
-        var session = await _store.FindByShortCodeAsync(shortCode, ct);
-        if (session is null)
+        var room = await _store.FindByShortCodeAsync(shortCode, ct);
+        if (room is null)
         {
             return (null, IntegrationResult.NotFound());
         }
 
-        if (session.Participants.All(p => p.UserId != userId))
+        if (room.Participants.All(p => p.UserId != userId))
         {
             return (null, IntegrationResult.NotParticipant());
         }
 
-        // Organiser, or anyone when the session has no organiser (same rule as reveal/reset, #10).
-        if (session.OrganiserUserId is not null && session.OrganiserUserId != userId)
+        // Organiser, or anyone when the room has no organiser (same rule as reveal/reset, #10).
+        if (room.OrganiserUserId is not null && room.OrganiserUserId != userId)
         {
             return (null, IntegrationResult.NotOrganiser());
         }
 
-        // A closed session is read-only (#26) — no integration changes.
-        if (session.ClosedAt is not null)
+        // A closed room is read-only (#26) — no integration changes.
+        if (room.ClosedAt is not null)
         {
             return (null, IntegrationResult.SessionClosed());
         }
 
-        return (session, null);
+        return (room, null);
     }
 
     private static IntegrationStatus MapStatus(TrackerErrorKind kind) => kind switch

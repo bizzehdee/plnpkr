@@ -26,7 +26,7 @@ public sealed class DatabaseHealthCheck : IHealthCheck
             }
 
             // Touch a migrated table so a missing/stale schema surfaces, not just connectivity.
-            _ = await _db.Sessions.AnyAsync(cancellationToken);
+            _ = await _db.Rooms.AnyAsync(cancellationToken);
 
             return HealthCheckResult.Healthy("Database reachable and queryable.");
         }

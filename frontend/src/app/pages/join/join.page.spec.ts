@@ -4,7 +4,7 @@ import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { HttpClient } from '@angular/common/http';
 import { JoinPage } from './join.page';
-import { SignalrRealtimeClient } from '../../core/realtime.client';
+import { SignalrRealtimeClient } from '../../core/poker.client';
 import { IdentityService } from '../../core/identity.service';
 import { JoinResult } from '../../core/models';
 

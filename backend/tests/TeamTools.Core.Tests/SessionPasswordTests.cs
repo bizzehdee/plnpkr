@@ -1,4 +1,5 @@
 using FluentAssertions;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Models;
@@ -12,13 +13,13 @@ namespace TeamTools.Core.Tests;
 public class SessionPasswordTests
 {
     private const string Code = "blue-fox-42";
-    private readonly FakeSessionStore _store = new();
+    private readonly FakeRoomStore _store = new();
     private readonly TestClock _clock = new();
-    private readonly SessionService _sut;
+    private readonly PokerService _sut;
 
     public SessionPasswordTests()
     {
-        _sut = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        _sut = TestServices.Poker(_store, new StubShortCodeGenerator(Code), _clock);
     }
 
     private Task CreateAsync(string? password) =>

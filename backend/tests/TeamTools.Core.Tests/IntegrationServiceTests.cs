@@ -1,4 +1,5 @@
 using FluentAssertions;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Integrations;
@@ -10,11 +11,11 @@ namespace TeamTools.Core.Tests;
 
 public class IntegrationServiceTests
 {
-    private readonly FakeSessionStore _store = new();
+    private readonly FakeRoomStore _store = new();
     private readonly TestClock _clock = new();
     private readonly FakeIssueTracker _tracker = new();
     private readonly InMemoryIntegrationConnectionStore _connections = new();
-    private readonly SessionService _sessions;
+    private readonly PokerService _sessions;
     private readonly IntegrationService _sut;
 
     private const string Code = "blue-fox-42";
@@ -23,7 +24,7 @@ public class IntegrationServiceTests
 
     public IntegrationServiceTests()
     {
-        _sessions = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        _sessions = TestServices.Poker(_store, new StubShortCodeGenerator(Code), _clock);
         _sut = new IntegrationService(_store, _tracker, _connections, new BoardUrlParser(), _clock, new IntegrationsOptions { Jira = new() { Enabled = true }, Ado = new() { Enabled = true } });
     }
 

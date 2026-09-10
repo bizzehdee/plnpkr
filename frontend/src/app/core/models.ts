@@ -74,21 +74,63 @@ export interface IntegrationInfo {
   queue: QueuedTicketInfo[];
 }
 
-export interface SessionSnapshot {
+export type RoomTool = 'Poker' | 'Retro';
+
+/**
+ * The room-level half of every tool snapshot (#19): identity, the participant list with presence
+ * and organiser flags, and the closed state. Both tools embed this exact shape, so a room-level
+ * field is mirrored here once rather than once per tool.
+ */
+export interface RoomSnapshot {
   id: string;
   shortCode: string;
   name: string;
-  deckType: DeckType;
-  cards: string[];
-  state: SessionState;
+  tool: RoomTool;
   organiserUserId: string | null;
-  autoReveal: boolean;
   reactionsEnabled: boolean;
   allowRoleChange: boolean;
   isClosed: boolean;
+  hasPassword: boolean;
+  participants: ParticipantInfo[];
+}
+
+/**
+ * The poker snapshot exactly as it arrives on the wire (#19): tool state alongside the embedded
+ * room fragment. `flattenSession` turns it into the flat {@link SessionSnapshot} the components
+ * use, so the room-level fields are defined once here and the UI keeps one shape to read.
+ */
+export interface SessionSnapshotWire {
+  room: RoomSnapshot;
+  deckType: DeckType;
+  cards: string[];
+  state: SessionState;
+  autoReveal: boolean;
   currentStory: string | null;
   currentStoryNote: string | null;
+  stats: VoteStats | null;
+  integration: IntegrationInfo | null;
+  timerDurationSeconds: number | null;
+  timerDeadline: string | null;
+  timerPausedRemainingSeconds: number | null;
+}
+
+/** The flat view model the components read; `room` is kept for room-level fields with no alias. */
+export interface SessionSnapshot {
+  room: RoomSnapshot;
+  id: string;
+  shortCode: string;
+  name: string;
+  organiserUserId: string | null;
+  reactionsEnabled: boolean;
+  allowRoleChange: boolean;
+  isClosed: boolean;
   participants: ParticipantInfo[];
+  deckType: DeckType;
+  cards: string[];
+  state: SessionState;
+  autoReveal: boolean;
+  currentStory: string | null;
+  currentStoryNote: string | null;
   stats: VoteStats | null;
   integration: IntegrationInfo | null;
   // Round timer (#14). duration = configured length; deadline (ISO UTC) set while running (tick
@@ -172,6 +214,8 @@ export interface SessionLanding {
   name: string;
   shortCode: string;
   requiresPassword: boolean;
+  /** Which tool the short code belongs to, so /join can route to the right page (#19). */
+  tool: RoomTool;
 }
 export interface JoinResult {
   status: JoinStatus;

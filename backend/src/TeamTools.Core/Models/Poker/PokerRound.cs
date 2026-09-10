@@ -3,7 +3,7 @@ using TeamTools.Core.Integrations;
 namespace TeamTools.Core.Models;
 
 /// <summary>
-/// The ticket a session is linked to (broadcast-safe content; may persist). The connection/token
+/// The ticket a poker round is linked to (broadcast-safe content; may persist). The connection/token
 /// that produced it is NOT here — that lives in the in-memory connection store. See #4.
 /// </summary>
 public class LinkedIssue
@@ -16,7 +16,7 @@ public class LinkedIssue
     public bool StoryPointsFieldAvailable { get; set; }
 }
 
-/// <summary>A row in the session's ticket queue (lightweight; full detail fetched on select). See #38.</summary>
+/// <summary>A row in the round's ticket queue (lightweight; full detail fetched on select). See #38.</summary>
 public class QueuedTicket
 {
     public string Key { get; set; } = string.Empty;
@@ -26,15 +26,21 @@ public class QueuedTicket
     public string Url { get; set; } = string.Empty;
 }
 
-/// <summary>A planning-poker room. Identified externally by <see cref="ShortCode"/> for invite links. See #1.</summary>
-public class Session
+/// <summary>
+/// The estimation payload of a poker <see cref="Room"/> (#19) — everything that used to sit on
+/// <c>Session</c> but only means something to Planning Poker: the round phase, the deck, the item
+/// under discussion, the round timer, the linked ticket/queue and the completed-round history.
+/// <para>
+/// One-to-one with its room and keyed by <see cref="RoomId"/> (a shared primary key), so a room and
+/// its round are always loaded and deleted together.
+/// </para>
+/// </summary>
+public class PokerRound
 {
-    public Guid Id { get; set; }
+    /// <summary>Primary key, shared with the owning <see cref="Room"/>.</summary>
+    public Guid RoomId { get; set; }
 
-    /// <summary>Short, URL-friendly slug used in the invite link (e.g. "blue-fox-42"). Unique. See #1.</summary>
-    public string ShortCode { get; set; } = string.Empty;
-
-    public string Name { get; set; } = string.Empty;
+    public Room? Room { get; set; }
 
     public DeckType DeckType { get; set; } = DeckType.Fibonacci;
 
@@ -43,16 +49,8 @@ public class Session
 
     public SessionState State { get; set; } = SessionState.Voting;
 
-    /// <summary>The organiser's UserId, or null if the session has no organiser. See #10.</summary>
-    public string? OrganiserUserId { get; set; }
-
-    /// <summary>When true, the session auto-reveals once every voter has voted. See #18.</summary>
+    /// <summary>When true, the round auto-reveals once every voter has voted. See #18.</summary>
     public bool AutoReveal { get; set; }
-
-    /// <summary>
-    /// Optional join password, stored as a salted KDF hash (never plaintext). Null = no password. See #2.
-    /// </summary>
-    public string? PasswordHash { get; set; }
 
     /// <summary>Optional current story/title being estimated.</summary>
     public string? CurrentStory { get; set; }
@@ -60,11 +58,7 @@ public class Session
     /// <summary>Optional free-text note/justification for the current story (collaborative). See #10.</summary>
     public string? CurrentStoryNote { get; set; }
 
-    public DateTimeOffset CreatedAt { get; set; }
-
-    public DateTimeOffset LastActivityAt { get; set; }
-
-    /// <summary>The issue tracker this session is connected to, or null. See #4.</summary>
+    /// <summary>The issue tracker this round is connected to, or null. See #4.</summary>
     public IntegrationProvider? LinkedProvider { get; set; }
 
     /// <summary>The linked ticket, or null if none. Owned entity (same table). See #20.</summary>
@@ -72,12 +66,6 @@ public class Session
 
     /// <summary>The loaded ticket queue (from a board/query URL or ID list). Persisted as JSON. See #38.</summary>
     public List<QueuedTicket> TicketQueue { get; set; } = new();
-
-    /// <summary>Whether emoji reactions are currently allowed (organiser-toggleable). See #17.</summary>
-    public bool ReactionsEnabled { get; set; } = true;
-
-    /// <summary>Whether participants may switch their own role mid-session (organiser-toggleable). See #21.</summary>
-    public bool AllowRoleChange { get; set; } = true;
 
     /// <summary>Configured round-timer length in seconds, or null if no timer is configured. See #14.</summary>
     public int? TimerDurationSeconds { get; set; }
@@ -88,14 +76,11 @@ public class Session
     /// <summary>Seconds left while the timer is paused; null when running/idle. See #14.</summary>
     public int? TimerPausedRemainingSeconds { get; set; }
 
-    /// <summary>When set, the session is closed (read-only). See #26.</summary>
-    public DateTimeOffset? ClosedAt { get; set; }
-
-    /// <summary>When set, the session is soft-deleted (hidden everywhere). See #26.</summary>
-    public DateTimeOffset? DeletedAt { get; set; }
-
-    public List<Participant> Participants { get; set; } = new();
-
-    /// <summary>Completed estimation rounds, oldest first — the session's history for analytics (#11).</summary>
+    /// <summary>Completed estimation rounds, oldest first — the history for analytics (#11).</summary>
     public List<RoundResult> RoundResults { get; set; } = new();
+
+    /// <summary>
+    /// Cards/stats stay visible through the discussion phase too — it is a post-reveal phase (#9).
+    /// </summary>
+    public bool IsRevealed => State is SessionState.Revealed or SessionState.Discussion;
 }

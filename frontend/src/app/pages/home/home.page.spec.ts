@@ -2,12 +2,24 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { vi } from 'vitest';
 import { HomePage } from './home.page';
-import { SignalrRealtimeClient } from '../../core/realtime.client';
+import { SignalrRealtimeClient } from '../../core/poker.client';
 import { IdentityService } from '../../core/identity.service';
 import { CreateSessionResult, SessionSnapshot } from '../../core/models';
 
 function snapshot(shortCode: string): SessionSnapshot {
   return {
+    room: {
+      id: 'id-1',
+      shortCode,
+      name: 'Sprint 24',
+      tool: 'Poker',
+      organiserUserId: 'user-1',
+      reactionsEnabled: true,
+      allowRoleChange: true,
+      isClosed: false,
+      hasPassword: false,
+      participants: [],
+    },
     id: 'id-1',
     shortCode,
     name: 'Sprint 24',

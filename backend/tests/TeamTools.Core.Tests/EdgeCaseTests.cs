@@ -1,4 +1,5 @@
 using FluentAssertions;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Models;
@@ -29,10 +30,10 @@ public class EdgeCaseTests
     [Fact]
     public async Task Short_code_generation_falls_back_when_every_attempt_collides()
     {
-        var store = new FakeSessionStore();
+        var store = new FakeRoomStore();
         var clock = new TestClock();
         // A generator that always returns the same code forces a collision on every attempt.
-        var sut = new SessionService(store, new ConstantShortCodeGenerator("dup"), clock);
+        var sut = TestServices.Poker(store, new ConstantShortCodeGenerator("dup"), clock);
 
         var first = await sut.CreateAsync(new CreateSessionRequest("A", DeckType.Fibonacci, null, "u1", "Al", false));
         var second = await sut.CreateAsync(new CreateSessionRequest("B", DeckType.Fibonacci, null, "u2", "Bo", false));
@@ -44,8 +45,8 @@ public class EdgeCaseTests
     [Fact]
     public async Task Setting_a_blank_story_clears_it()
     {
-        var store = new FakeSessionStore();
-        var sut = new SessionService(store, new StubShortCodeGenerator("blue-fox-42"), new TestClock());
+        var store = new FakeRoomStore();
+        var sut = TestServices.Poker(store, new StubShortCodeGenerator("blue-fox-42"), new TestClock());
         await sut.CreateAsync(new CreateSessionRequest("S", DeckType.Fibonacci, null, "alice", "Alice", true));
         await sut.SetStoryAsync("blue-fox-42", "alice", "something");
 
@@ -57,8 +58,8 @@ public class EdgeCaseTests
     [Fact]
     public async Task Control_action_by_a_non_participant_is_rejected()
     {
-        var store = new FakeSessionStore();
-        var sut = new SessionService(store, new StubShortCodeGenerator("blue-fox-42"), new TestClock());
+        var store = new FakeRoomStore();
+        var sut = TestServices.Poker(store, new StubShortCodeGenerator("blue-fox-42"), new TestClock());
         await sut.CreateAsync(new CreateSessionRequest("S", DeckType.Fibonacci, null, "alice", "Alice", true));
 
         var result = await sut.RevealAsync("blue-fox-42", "stranger");
@@ -69,8 +70,8 @@ public class EdgeCaseTests
     [Fact]
     public async Task Mark_disconnected_for_unknown_session_or_user_is_handled()
     {
-        var store = new FakeSessionStore();
-        var sut = new SessionService(store, new StubShortCodeGenerator("blue-fox-42"), new TestClock());
+        var store = new FakeRoomStore();
+        var sut = TestServices.Poker(store, new StubShortCodeGenerator("blue-fox-42"), new TestClock());
         await sut.CreateAsync(new CreateSessionRequest("S", DeckType.Fibonacci, null, "alice", "Alice", true));
 
         (await sut.MarkDisconnectedAsync("missing-code-1", "alice")).Status.Should().Be(SessionActionStatus.SessionNotFound);
@@ -80,8 +81,8 @@ public class EdgeCaseTests
     [Fact]
     public async Task Voting_actions_on_a_missing_session_return_not_found()
     {
-        var store = new FakeSessionStore();
-        var sut = new SessionService(store, new StubShortCodeGenerator("x"), new TestClock());
+        var store = new FakeRoomStore();
+        var sut = TestServices.Poker(store, new StubShortCodeGenerator("x"), new TestClock());
 
         (await sut.CastVoteAsync("missing-1", "u", "5")).Status.Should().Be(SessionActionStatus.SessionNotFound);
         (await sut.SetAutoRevealAsync("missing-1", "u", true)).Status.Should().Be(SessionActionStatus.SessionNotFound);

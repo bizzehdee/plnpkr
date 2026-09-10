@@ -1,19 +1,19 @@
 namespace TeamTools.Core.Models;
 
-/// <summary>A user taking part in a session. Identified by a stable client-supplied <see cref="UserId"/>. See #8.</summary>
+/// <summary>A user taking part in a room. Identified by a stable client-supplied <see cref="UserId"/>. See #8.</summary>
 public class Participant
 {
     /// <summary>Surrogate key.</summary>
     public int Id { get; set; }
 
-    public Guid SessionId { get; set; }
+    public Guid RoomId { get; set; }
 
     /// <summary>Stable per-browser id (localStorage GUID) used to reattach on reconnect. See #34.</summary>
     public string UserId { get; set; } = string.Empty;
 
     public string DisplayName { get; set; } = string.Empty;
 
-    /// <summary>Lower-cased, trimmed name used for the per-session uniqueness constraint. See #7.</summary>
+    /// <summary>Lower-cased, trimmed name used for the per-room uniqueness constraint. See #7.</summary>
     public string NormalizedName { get; set; } = string.Empty;
 
     /// <summary>True for the session creator if they opted to organise. See #10.</summary>
@@ -40,5 +40,5 @@ public class Participant
     /// <summary>Last time the participant connected or disconnected; drives idle eviction.</summary>
     public DateTimeOffset LastSeenAt { get; set; }
 
-    public Session? Session { get; set; }
+    public Room? Room { get; set; }
 }

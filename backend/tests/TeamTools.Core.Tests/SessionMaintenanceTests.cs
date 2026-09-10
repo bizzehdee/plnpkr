@@ -1,4 +1,5 @@
 using FluentAssertions;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Models;
@@ -9,10 +10,10 @@ namespace TeamTools.Core.Tests;
 
 public class SessionMaintenanceTests
 {
-    private readonly FakeSessionStore _store = new();
+    private readonly FakeRoomStore _store = new();
     private readonly TestClock _clock = new();
-    private readonly SessionService _sessions;
-    private readonly SessionMaintenanceService _sut;
+    private readonly PokerService _sessions;
+    private readonly RoomMaintenanceService _sut;
 
     private static readonly TimeSpan Grace = TimeSpan.FromMinutes(2);
     private static readonly RetentionOptions Retention = new(); // 12mo closed / 30d soft-delete / 30d idle defaults
@@ -21,14 +22,14 @@ public class SessionMaintenanceTests
 
     public SessionMaintenanceTests()
     {
-        _sessions = new SessionService(_store, new StubShortCodeGenerator(Code, "red-owl-99"), _clock);
-        _sut = new SessionMaintenanceService(_store, _clock);
+        _sessions = TestServices.Poker(_store, new StubShortCodeGenerator(Code, "red-owl-99"), _clock);
+        _sut = TestServices.Maintenance(_store, _clock);
     }
 
     private async Task SeedAsync(string code = Code, string creator = "alice", bool organise = false)
     {
         var gen = new StubShortCodeGenerator(code);
-        var svc = new SessionService(_store, gen, _clock);
+        var svc = TestServices.Poker(_store, gen, _clock);
         await svc.CreateAsync(new CreateSessionRequest("Sprint", DeckType.Fibonacci, null, creator, "Alice", organise));
     }
 
@@ -44,7 +45,7 @@ public class SessionMaintenanceTests
 
         var session = await _store.FindByShortCodeAsync(Code);
         session!.Participants.Select(p => p.UserId).Should().NotContain("bob");
-        report.UpdatedSessions.Should().ContainSingle(s => s.ShortCode == Code);
+        report.UpdatedRooms.Should().ContainSingle(r => r.ShortCode == Code);
     }
 
     [Fact]
@@ -96,14 +97,14 @@ public class SessionMaintenanceTests
 
         (await _store.FindByShortCodeAsync(Code)).Should().NotBeNull();
         report.RemovedShortCodes.Should().BeEmpty();
-        report.UpdatedSessions.Should().BeEmpty();
+        report.UpdatedRooms.Should().BeEmpty();
     }
 
     [Fact]
     public async Task Evicting_an_away_organiser_clears_the_organiser()
     {
         // Organiser session: Alice organiser-observer, Bob a connected voter (keeps session alive).
-        var svc = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        var svc = TestServices.Poker(_store, new StubShortCodeGenerator(Code), _clock);
         await svc.CreateAsync(new CreateSessionRequest("Sprint", DeckType.Fibonacci, null, "alice", "Alice", true));
         await svc.JoinAsync(new JoinSessionRequest(Code, "bob", "Bob", ParticipantRole.Voter));
         await svc.MarkDisconnectedAsync(Code, "alice");
@@ -150,7 +151,7 @@ public class SessionMaintenanceTests
     [Fact]
     public async Task Closed_session_just_under_the_closed_retention_window_is_untouched()
     {
-        var svc = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        var svc = TestServices.Poker(_store, new StubShortCodeGenerator(Code), _clock);
         await svc.CreateAsync(new CreateSessionRequest("Sprint", DeckType.Fibonacci, null, "alice", "Alice", true));
         await svc.CloseSessionAsync(Code, "alice");
 
@@ -164,7 +165,7 @@ public class SessionMaintenanceTests
     [Fact]
     public async Task Closed_session_past_the_closed_retention_window_is_soft_deleted()
     {
-        var svc = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        var svc = TestServices.Poker(_store, new StubShortCodeGenerator(Code), _clock);
         await svc.CreateAsync(new CreateSessionRequest("Sprint", DeckType.Fibonacci, null, "alice", "Alice", true));
         await svc.CloseSessionAsync(Code, "alice");
 
@@ -182,7 +183,7 @@ public class SessionMaintenanceTests
     {
         // Closing sets LastActivityAt too, so it'd also cross the (shorter) idle threshold — the idle
         // rule must not fire for a closed session; only ClosedAt + ClosedRetentionMonths governs it.
-        var svc = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        var svc = TestServices.Poker(_store, new StubShortCodeGenerator(Code), _clock);
         await svc.CreateAsync(new CreateSessionRequest("Sprint", DeckType.Fibonacci, null, "alice", "Alice", true));
         await svc.CloseSessionAsync(Code, "alice");
 

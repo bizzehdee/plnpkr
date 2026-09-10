@@ -1,7 +1,8 @@
+using TeamTools.Core.Models;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Integrations;
 
-namespace TeamTools.Core;
+namespace TeamTools.Core.Poker;
 
 public enum OAuthStatus
 {
@@ -24,20 +25,20 @@ public record OAuthAuthorizeResult(OAuthStatus Status, string? AuthorizationUrl,
 public record OAuthCompleteResult(
     OAuthStatus Status, string? ShortCode, string? UserId, string? AccountName, SessionSnapshot? Session, string? Error)
 {
-    public static OAuthCompleteResult Ok(string shortCode, string userId, string? account, SessionSnapshot session) =>
-        new(OAuthStatus.Ok, shortCode, userId, account, session, null);
+    public static OAuthCompleteResult Ok(string shortCode, string userId, string? account, SessionSnapshot room) =>
+        new(OAuthStatus.Ok, shortCode, userId, account, room, null);
     public static OAuthCompleteResult Fail(OAuthStatus status, string error) =>
         new(status, null, null, null, null, error);
 }
 
 /// <summary>
-/// Orchestrates the per-session OAuth "log in to the provider" flow (#4): start (validate +
+/// Orchestrates the per-room OAuth "log in to the provider" flow (#4): start (validate +
 /// PKCE + build authorize URL) and complete (exchange code + store the connection in memory). The
 /// HTTP/token specifics live in the provider's <see cref="IOAuthFlow"/>; this stays unit-testable.
 /// </summary>
 public class OAuthService
 {
-    private readonly ISessionStore _store;
+    private readonly IRoomStore _store;
     private readonly IOAuthFlowProvider _flows;
     private readonly IOAuthFlowStore _pending;
     private readonly IIntegrationConnectionStore _connections;
@@ -45,7 +46,7 @@ public class OAuthService
     private readonly IntegrationsOptions _options;
 
     public OAuthService(
-        ISessionStore store,
+        IRoomStore store,
         IOAuthFlowProvider flows,
         IOAuthFlowStore pending,
         IIntegrationConnectionStore connections,
@@ -78,15 +79,15 @@ public class OAuthService
             return OAuthAuthorizeResult.Fail(OAuthStatus.NotConfigured, "OAuth is not configured for this provider.");
         }
 
-        var (session, error) = await LoadForControlAsync(shortCode, userId, ct);
+        var (room, error) = await LoadForControlAsync(shortCode, userId, ct);
         if (error is { } status)
         {
-            return OAuthAuthorizeResult.Fail(status, "You cannot connect this session.");
+            return OAuthAuthorizeResult.Fail(status, "You cannot connect this room.");
         }
 
         var fieldOverride = string.IsNullOrWhiteSpace(storyPointsField) ? null : storyPointsField.Trim();
         var (verifier, challenge) = Pkce.Create();
-        var state = _pending.Create(provider, session!.ShortCode, userId, verifier, _clock.UtcNow, fieldOverride);
+        var state = _pending.Create(provider, room!.ShortCode, userId, verifier, _clock.UtcNow, fieldOverride);
         return OAuthAuthorizeResult.Ok(flow.BuildAuthorizationUrl(redirectUri, state, challenge));
     }
 
@@ -94,7 +95,7 @@ public class OAuthService
     {
         if (!_pending.TryConsume(state, _clock.UtcNow, out var pending))
         {
-            return OAuthCompleteResult.Fail(OAuthStatus.InvalidState, "The login session expired or is invalid — please try again.");
+            return OAuthCompleteResult.Fail(OAuthStatus.InvalidState, "The login room expired or is invalid — please try again.");
         }
 
         if (!_options.IsEnabled(pending.Provider))
@@ -108,8 +109,8 @@ public class OAuthService
             return OAuthCompleteResult.Fail(OAuthStatus.NotConfigured, "OAuth is not configured for this provider.");
         }
 
-        var session = await _store.FindByShortCodeAsync(pending.ShortCode, ct);
-        if (session is null)
+        var room = await _store.FindByShortCodeAsync(pending.ShortCode, ct);
+        if (room is null)
         {
             return OAuthCompleteResult.Fail(OAuthStatus.SessionNotFound, "Session not found.");
         }
@@ -128,33 +129,33 @@ public class OAuthService
         var resolved = pending.StoryPointsFieldOverride is { Length: > 0 } o
             ? connection.Connection with { StoryPointsFieldOverride = o }
             : connection.Connection;
-        _connections.Set(session.Id, resolved, connection.AccountName);
-        session.LinkedProvider = pending.Provider;
-        session.LastActivityAt = _clock.UtcNow;
-        await _store.UpdateAsync(session, ct);
+        _connections.Set(room.Id, resolved, connection.AccountName);
+        room.PokerRound!.LinkedProvider = pending.Provider;
+        room.LastActivityAt = _clock.UtcNow;
+        await _store.UpdateAsync(room, ct);
 
-        return OAuthCompleteResult.Ok(session.ShortCode, pending.UserId, connection.AccountName, SessionService.ToSnapshot(session));
+        return OAuthCompleteResult.Ok(room.ShortCode, pending.UserId, connection.AccountName, PokerService.ToSnapshot(room));
     }
 
-    private async Task<(Models.Session? Session, OAuthStatus? Error)> LoadForControlAsync(
+    private async Task<(Room? Room, OAuthStatus? Error)> LoadForControlAsync(
         string shortCode, string userId, CancellationToken ct)
     {
-        var session = await _store.FindByShortCodeAsync(shortCode, ct);
-        if (session is null)
+        var room = await _store.FindByShortCodeAsync(shortCode, ct);
+        if (room is null)
         {
             return (null, OAuthStatus.SessionNotFound);
         }
 
-        if (session.Participants.All(p => p.UserId != userId))
+        if (room.Participants.All(p => p.UserId != userId))
         {
             return (null, OAuthStatus.NotParticipant);
         }
 
-        if (session.OrganiserUserId is not null && session.OrganiserUserId != userId)
+        if (room.OrganiserUserId is not null && room.OrganiserUserId != userId)
         {
             return (null, OAuthStatus.NotOrganiser);
         }
 
-        return (session, null);
+        return (room, null);
     }
 }

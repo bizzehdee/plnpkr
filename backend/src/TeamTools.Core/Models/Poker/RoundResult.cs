@@ -2,13 +2,13 @@ namespace TeamTools.Core.Models;
 
 /// <summary>
 /// A completed estimation round, recorded when a revealed round is reset to move on (#11). Builds the
-/// session's history for velocity/throughput analytics and export (#12).
+/// round history for velocity/throughput analytics and export (#12).
 /// </summary>
 public class RoundResult
 {
     public Guid Id { get; set; }
 
-    public Guid SessionId { get; set; }
+    public Guid RoomId { get; set; }
 
     /// <summary>The story/title estimated, if one was set.</summary>
     public string? Story { get; set; }
@@ -30,5 +30,5 @@ public class RoundResult
     /// <summary>When the round was recorded (UTC).</summary>
     public DateTimeOffset RecordedAt { get; set; }
 
-    public Session? Session { get; set; }
+    public PokerRound? Round { get; set; }
 }

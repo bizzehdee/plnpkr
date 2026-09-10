@@ -59,7 +59,7 @@ namespace TeamTools.Data.PostgreSql.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("SessionId")
+                    b.Property<Guid>("RoomId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("UserId")
@@ -73,13 +73,118 @@ namespace TeamTools.Data.PostgreSql.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SessionId", "NormalizedName")
+                    b.HasIndex("RoomId", "NormalizedName")
                         .IsUnique();
 
-                    b.HasIndex("SessionId", "UserId")
+                    b.HasIndex("RoomId", "UserId")
                         .IsUnique();
 
                     b.ToTable("Participants");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.PokerRound", b =>
+                {
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AutoReveal")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("CurrentStory")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("CurrentStoryNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("CustomCards")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("DeckType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LinkedProvider")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TicketQueue")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("TicketQueue");
+
+                    b.Property<DateTimeOffset?>("TimerDeadline")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("TimerDurationSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimerPausedRemainingSeconds")
+                        .HasColumnType("integer");
+
+                    b.HasKey("RoomId");
+
+                    b.ToTable("PokerRounds");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.Room", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AllowRoleChange")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("LastActivityAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("OrganiserUserId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<bool>("ReactionsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ShortCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Tool")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShortCode")
+                        .IsUnique();
+
+                    b.ToTable("Rooms");
                 });
 
             modelBuilder.Entity("TeamTools.Core.Models.RoundResult", b =>
@@ -105,7 +210,7 @@ namespace TeamTools.Data.PostgreSql.Migrations
                     b.Property<DateTimeOffset>("RecordedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("SessionId")
+                    b.Property<Guid>("RoomId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Story")
@@ -117,128 +222,33 @@ namespace TeamTools.Data.PostgreSql.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SessionId");
+                    b.HasIndex("RoomId");
 
                     b.ToTable("RoundResult");
                 });
 
-            modelBuilder.Entity("TeamTools.Core.Models.Session", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("AllowRoleChange")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("AutoReveal")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTimeOffset?>("ClosedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CurrentStory")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("CurrentStoryNote")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("CustomCards")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<string>("DeckType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset>("LastActivityAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("LinkedProvider")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("OrganiserUserId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PasswordHash")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<bool>("ReactionsEnabled")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("ShortCode")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("TicketQueue")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("TicketQueue");
-
-                    b.Property<DateTimeOffset?>("TimerDeadline")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("TimerDurationSeconds")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("TimerPausedRemainingSeconds")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ShortCode")
-                        .IsUnique();
-
-                    b.ToTable("Sessions");
-                });
-
             modelBuilder.Entity("TeamTools.Core.Models.Participant", b =>
                 {
-                    b.HasOne("TeamTools.Core.Models.Session", "Session")
+                    b.HasOne("TeamTools.Core.Models.Room", "Room")
                         .WithMany("Participants")
-                        .HasForeignKey("SessionId")
+                        .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Session");
+                    b.Navigation("Room");
                 });
 
-            modelBuilder.Entity("TeamTools.Core.Models.RoundResult", b =>
+            modelBuilder.Entity("TeamTools.Core.Models.PokerRound", b =>
                 {
-                    b.HasOne("TeamTools.Core.Models.Session", "Session")
-                        .WithMany("RoundResults")
-                        .HasForeignKey("SessionId")
+                    b.HasOne("TeamTools.Core.Models.Room", "Room")
+                        .WithOne("PokerRound")
+                        .HasForeignKey("TeamTools.Core.Models.PokerRound", "RoomId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Session");
-                });
-
-            modelBuilder.Entity("TeamTools.Core.Models.Session", b =>
-                {
                     b.OwnsOne("TeamTools.Core.Models.LinkedIssue", "LinkedIssue", b1 =>
                         {
-                            b1.Property<Guid>("SessionId")
+                            b1.Property<Guid>("PokerRoundRoomId")
                                 .HasColumnType("uuid");
 
                             b1.Property<string>("Description")
@@ -266,22 +276,40 @@ namespace TeamTools.Data.PostgreSql.Migrations
                                 .HasMaxLength(1000)
                                 .HasColumnType("character varying(1000)");
 
-                            b1.HasKey("SessionId");
+                            b1.HasKey("PokerRoundRoomId");
 
-                            b1.ToTable("Sessions");
+                            b1.ToTable("PokerRounds");
 
                             b1.WithOwner()
-                                .HasForeignKey("SessionId");
+                                .HasForeignKey("PokerRoundRoomId");
                         });
 
                     b.Navigation("LinkedIssue");
+
+                    b.Navigation("Room");
                 });
 
-            modelBuilder.Entity("TeamTools.Core.Models.Session", b =>
+            modelBuilder.Entity("TeamTools.Core.Models.RoundResult", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.PokerRound", "Round")
+                        .WithMany("RoundResults")
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Round");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.PokerRound", b =>
+                {
+                    b.Navigation("RoundResults");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.Room", b =>
                 {
                     b.Navigation("Participants");
 
-                    b.Navigation("RoundResults");
+                    b.Navigation("PokerRound");
                 });
 #pragma warning restore 612, 618
         }

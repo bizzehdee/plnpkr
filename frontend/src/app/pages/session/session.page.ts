@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { SignalrRealtimeClient } from '../../core/realtime.client';
+import { SignalrRealtimeClient } from '../../core/poker.client';
 import { IdentityService } from '../../core/identity.service';
 import { SessionMembershipService } from '../../core/session-membership.service';
 import { TrackerStorageService } from '../../core/tracker-storage.service';

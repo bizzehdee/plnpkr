@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using TeamTools.Api.Hubs;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Integrations;
 

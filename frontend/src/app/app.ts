@@ -1,7 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterOutlet, RouterLink } from '@angular/router';
-import { SignalrRealtimeClient } from './core/realtime.client';
+import { SignalrRealtimeClient } from './core/poker.client';
 import { ThemeService } from './core/theme.service';
 import { I18nService, Locale } from './core/i18n.service';
 import { TranslatePipe } from './core/translate.pipe';

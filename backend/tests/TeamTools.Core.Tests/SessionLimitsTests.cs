@@ -1,4 +1,5 @@
 using FluentAssertions;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Models;
@@ -12,14 +13,14 @@ public class SessionLimitsTests
 {
     private const string Code = "blue-fox-42";
 
-    private readonly FakeSessionStore _store = new();
+    private readonly FakeRoomStore _store = new();
     private readonly TestClock _clock = new();
-    private readonly SessionService _sut;
+    private readonly PokerService _sut;
 
     public SessionLimitsTests()
     {
         // A tiny cap of 2 makes the boundary easy to exercise.
-        _sut = new SessionService(
+        _sut = TestServices.Poker(
             _store, new StubShortCodeGenerator(Code), _clock, limits: new SessionLimits { MaxParticipants = 2 });
     }
 
@@ -53,7 +54,7 @@ public class SessionLimitsTests
     [Fact]
     public async Task The_default_cap_allows_a_normal_sized_room()
     {
-        var sut = new SessionService(_store, new StubShortCodeGenerator(Code), _clock); // default cap (100)
+        var sut = TestServices.Poker(_store, new StubShortCodeGenerator(Code), _clock); // default cap (100)
         await sut.CreateAsync(new CreateSessionRequest("Sprint", DeckType.Fibonacci, null, "alice", "Alice", true));
 
         var result = await sut.JoinAsync(new JoinSessionRequest(Code, "bob", "Bob", ParticipantRole.Voter));

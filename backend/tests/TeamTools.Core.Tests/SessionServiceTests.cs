@@ -1,4 +1,5 @@
 using FluentAssertions;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Models;
@@ -9,13 +10,13 @@ namespace TeamTools.Core.Tests;
 
 public class SessionServiceTests
 {
-    private readonly FakeSessionStore _store = new();
+    private readonly FakeRoomStore _store = new();
     private readonly TestClock _clock = new();
-    private readonly SessionService _sut;
+    private readonly PokerService _sut;
 
     public SessionServiceTests()
     {
-        _sut = new SessionService(_store, new StubShortCodeGenerator("blue-fox-42", "red-owl-99"), _clock);
+        _sut = TestServices.Poker(_store, new StubShortCodeGenerator("blue-fox-42", "red-owl-99"), _clock);
     }
 
     private CreateSessionRequest CreateReq(

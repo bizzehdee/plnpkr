@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Integrations;
@@ -8,19 +9,19 @@ namespace TeamTools.Api.Hubs;
 
 /// <summary>
 /// SignalR hub for real-time session interaction. Thin adapter: every method delegates to
-/// <see cref="SessionService"/> and broadcasts results to the session's group.
+/// <see cref="PokerService"/> and broadcasts results to the session's group.
 /// One SignalR group per session, keyed by short code.
 /// </summary>
 public class PokerHub : Hub
 {
-    private readonly SessionService _sessions;
+    private readonly PokerService _sessions;
     private readonly ConnectionRegistry _connections;
     private readonly IntegrationService _integrations;
     private readonly ReactionRateLimiter _reactions;
     private readonly HubThrottle _throttle;
 
     public PokerHub(
-        SessionService sessions, ConnectionRegistry connections, IntegrationService integrations,
+        PokerService sessions, ConnectionRegistry connections, IntegrationService integrations,
         ReactionRateLimiter reactions, HubThrottle throttle)
     {
         _sessions = sessions;

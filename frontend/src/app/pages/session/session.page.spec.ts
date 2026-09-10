@@ -5,7 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { vi } from 'vitest';
 import { Subject } from 'rxjs';
 import { SessionPage } from './session.page';
-import { SignalrRealtimeClient } from '../../core/realtime.client';
+import { SignalrRealtimeClient } from '../../core/poker.client';
 import { IdentityService } from '../../core/identity.service';
 import { SessionMembershipService } from '../../core/session-membership.service';
 import { RevealCueService } from '../../core/reveal-cue.service';
@@ -30,21 +30,41 @@ function participant(over: Partial<ParticipantInfo> = {}): ParticipantInfo {
 }
 
 function snap(over: Partial<SessionSnapshot> = {}): SessionSnapshot {
-  return {
+  // Room-level fields are overridable flat (as the components read them) and mirrored into the
+  // `room` fragment, so a fake matches what `flattenSession` produces from the wire (#19).
+  const flat = {
     id: 'id',
     shortCode: CODE,
     name: 'Sprint 24',
-    deckType: 'Fibonacci',
-    cards: ['1', '2', '3', '?', '☕'],
-    state: 'Voting' as SessionState,
     organiserUserId: null,
-    autoReveal: false,
     reactionsEnabled: true,
     allowRoleChange: true,
     isClosed: false,
+    participants: [participant({ userId: ME, displayName: 'Me' })],
+    ...over,
+  };
+
+  return {
+    ...flat,
+    room: {
+      id: flat.id,
+      shortCode: flat.shortCode,
+      name: flat.name,
+      tool: 'Poker',
+      organiserUserId: flat.organiserUserId,
+      reactionsEnabled: flat.reactionsEnabled,
+      allowRoleChange: flat.allowRoleChange,
+      isClosed: flat.isClosed,
+      hasPassword: false,
+      participants: flat.participants,
+      ...over.room,
+    },
+    deckType: 'Fibonacci',
+    cards: ['1', '2', '3', '?', '☕'],
+    state: 'Voting' as SessionState,
+    autoReveal: false,
     currentStory: null,
     currentStoryNote: null,
-    participants: [participant({ userId: ME, displayName: 'Me' })],
     stats: null,
     integration: null,
     timerDurationSeconds: null,

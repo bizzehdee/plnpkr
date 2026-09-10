@@ -1,4 +1,5 @@
 using FluentAssertions;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Models;
@@ -11,13 +12,13 @@ namespace TeamTools.Core.Tests;
 public class SessionTimerTests
 {
     private const string Code = "blue-fox-42";
-    private readonly FakeSessionStore _store = new();
+    private readonly FakeRoomStore _store = new();
     private readonly TestClock _clock = new();
-    private readonly SessionService _sut;
+    private readonly PokerService _sut;
 
     public SessionTimerTests()
     {
-        _sut = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        _sut = TestServices.Poker(_store, new StubShortCodeGenerator(Code), _clock);
     }
 
     private Task<CreateSessionResult> CreateAsync(int? timerSeconds) =>
@@ -29,7 +30,7 @@ public class SessionTimerTests
     {
         var result = await CreateAsync(99999); // above the max → clamped
 
-        result.Session!.TimerDurationSeconds.Should().Be(SessionService.MaxTimerSeconds);
+        result.Session!.TimerDurationSeconds.Should().Be(PokerService.MaxTimerSeconds);
         result.Session.TimerDeadline.Should().BeNull(); // configured, not started
     }
 
@@ -140,17 +141,17 @@ public class SessionTimerTests
         reset.Session.TimerPausedRemainingSeconds.Should().BeNull();
     }
 
-    // --- Server-side expiry (via the maintenance sweep) ---
+    // --- Server-side expiry (via the poker timer sweep) ---
 
     [Fact]
     public async Task A_due_timer_force_reveals_the_session()
     {
-        var maintenance = new SessionMaintenanceService(_store, _clock);
+        var timers = TestServices.Timers(_store, _clock);
         await CreateAsync(30);
         await _sut.StartTimerAsync(Code, "alice", 30);
 
         _clock.Advance(TimeSpan.FromSeconds(31)); // past the deadline
-        var revealed = await maintenance.ExpireDueRoundTimersAsync();
+        var revealed = await timers.ExpireDueRoundTimersAsync();
 
         revealed.Should().ContainSingle();
         revealed[0].ShortCode.Should().Be(Code);
@@ -161,12 +162,12 @@ public class SessionTimerTests
     [Fact]
     public async Task A_timer_that_has_not_yet_expired_is_left_running()
     {
-        var maintenance = new SessionMaintenanceService(_store, _clock);
+        var timers = TestServices.Timers(_store, _clock);
         await CreateAsync(60);
         await _sut.StartTimerAsync(Code, "alice", 60);
 
         _clock.Advance(TimeSpan.FromSeconds(30)); // still time left
-        var revealed = await maintenance.ExpireDueRoundTimersAsync();
+        var revealed = await timers.ExpireDueRoundTimersAsync();
 
         revealed.Should().BeEmpty();
         (await _sut.GetByShortCodeAsync(Code))!.State.Should().Be(SessionState.Voting);
@@ -175,13 +176,13 @@ public class SessionTimerTests
     [Fact]
     public async Task A_paused_timer_does_not_expire()
     {
-        var maintenance = new SessionMaintenanceService(_store, _clock);
+        var timers = TestServices.Timers(_store, _clock);
         await CreateAsync(30);
         await _sut.StartTimerAsync(Code, "alice", 30);
         await _sut.PauseTimerAsync(Code, "alice");
 
         _clock.Advance(TimeSpan.FromMinutes(5)); // long past the original deadline, but paused
-        var revealed = await maintenance.ExpireDueRoundTimersAsync();
+        var revealed = await timers.ExpireDueRoundTimersAsync();
 
         revealed.Should().BeEmpty();
         (await _sut.GetByShortCodeAsync(Code))!.State.Should().Be(SessionState.Voting);

@@ -17,15 +17,18 @@ import {
   ReactionEvent,
   SessionActionResult,
   SessionSnapshot,
+  SessionSnapshotWire,
 } from './models';
+import {
+  ConnectionStatus,
+  PingResponse,
+  RoomClientBase,
+  flattenSession,
+} from './room.client';
 
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
+export type { ConnectionStatus, PingResponse };
 
-export interface PingResponse {
-  reply: string;
-  connectionId: string;
-  serverTimeUtc: string;
-}
+
 
 /**
  * Abstraction over the SignalR transport so components/stores can be unit-tested against a fake.
@@ -105,29 +108,18 @@ export interface IRealtimeClient {
   readonly reactions$: Observable<ReactionEvent>;
 }
 
-interface LastJoin {
-  shortCode: string;
-  displayName: string;
-  role: ParticipantRole;
-}
 
+
+/**
+ * The Planning Poker half of the realtime client (#19): the poker hub's methods and its session
+ * snapshot. Connection lifecycle, the terminal room-closed event and emoji reactions come from
+ * {@link RoomClientBase}, shared with any other tool's client.
+ */
 @Injectable({ providedIn: 'root' })
-export class SignalrRealtimeClient implements IRealtimeClient {
-  private connection: HubConnection | null = null;
-  private readonly _status = signal<ConnectionStatus>('disconnected');
+export class SignalrRealtimeClient extends RoomClientBase implements IRealtimeClient {
   private readonly _session = signal<SessionSnapshot | null>(null);
-  private readonly _closed = signal(false);
-  /** Remembers how to re-join after a transient reconnect (new connection => lost group). */
-  private lastJoin: LastJoin | null = null;
-  private lastUserId = '';
 
-  private readonly _reactions = new Subject<ReactionEvent>();
-
-  readonly status = this._status.asReadonly();
   readonly session = this._session.asReadonly();
-  /** Set when the server reports the current session has ended (idle eviction). */
-  readonly closed = this._closed.asReadonly();
-  readonly reactions$ = this._reactions.asObservable();
 
   async connect(): Promise<void> {
     if (this.connection && this.connection.state === HubConnectionState.Connected) {
@@ -153,8 +145,11 @@ export class SignalrRealtimeClient implements IRealtimeClient {
     });
     this.connection.onclose(() => this._status.set('disconnected'));
 
-    // The server pushes the full session snapshot whenever membership/state changes.
-    this.connection.on('SessionUpdated', (snapshot: SessionSnapshot) => this._session.set(snapshot));
+    // The server pushes the full session snapshot whenever membership/state changes. It arrives in
+    // wire shape (room fragment + tool state) and is flattened for the components (#19).
+    this.connection.on('SessionUpdated', (snapshot: SessionSnapshotWire) =>
+      this._session.set(flattenSession(snapshot)),
+    );
     this.connection.on('SessionClosed', () => {
       this._session.set(null);
       this._closed.set(true);
@@ -173,11 +168,6 @@ export class SignalrRealtimeClient implements IRealtimeClient {
     }
   }
 
-  async disconnect(): Promise<void> {
-    await this.connection?.stop();
-    this._status.set('disconnected');
-  }
-
   async createSession(
     name: string,
     deckType: DeckType,
@@ -189,17 +179,19 @@ export class SignalrRealtimeClient implements IRealtimeClient {
     enableReactions = true,
     timerDurationSeconds: number | null = null,
   ): Promise<CreateSessionResult> {
-    const result = await this.invoke<CreateSessionResult>(
-      'CreateSession',
-      name,
-      deckType,
-      customCards,
-      userId,
-      displayName,
-      organise,
-      password,
-      enableReactions,
-      timerDurationSeconds,
+    const result = this.mapResult(
+      await this.invoke<CreateSessionResult>(
+        'CreateSession',
+        name,
+        deckType,
+        customCards,
+        userId,
+        displayName,
+        organise,
+        password,
+        enableReactions,
+        timerDurationSeconds,
+      ),
     );
     if (result.status === 'Ok' && result.session) {
       this._closed.set(false);
@@ -217,7 +209,9 @@ export class SignalrRealtimeClient implements IRealtimeClient {
     role: ParticipantRole,
     password: string | null = null,
   ): Promise<JoinResult> {
-    const result = await this.invoke<JoinResult>('JoinSession', shortCode, userId, displayName, role, password);
+    const result = this.mapResult(
+      await this.invoke<JoinResult>('JoinSession', shortCode, userId, displayName, role, password),
+    );
     if (result.status === 'Ok' && result.session) {
       this._closed.set(false);
       this.lastUserId = userId;
@@ -372,15 +366,8 @@ export class SignalrRealtimeClient implements IRealtimeClient {
     return this.integrationAction('ClearQueue', shortCode, userId);
   }
 
-  async react(emoji: string): Promise<void> {
-    // Fire-and-forget; the server derives session/user from the connection. Ignore transport errors.
-    if (this.connection?.state === HubConnectionState.Connected) {
-      await this.connection.invoke('React', emoji).catch(() => {});
-    }
-  }
-
   private async integrationAction(method: string, ...args: unknown[]): Promise<IntegrationResult> {
-    const result = await this.invoke<IntegrationResult>(method, ...args);
+    const result = this.mapResult(await this.invoke<IntegrationResult>(method, ...args));
     if (result.status === 'Ok' && result.session) {
       this._session.set(result.session);
     }
@@ -389,11 +376,20 @@ export class SignalrRealtimeClient implements IRealtimeClient {
 
   /** Invokes a mutation; the authoritative new state arrives via the SessionUpdated broadcast. */
   private async action(method: string, ...args: unknown[]): Promise<SessionActionResult> {
-    const result = await this.invoke<SessionActionResult>(method, ...args);
+    const result = this.mapResult(await this.invoke<SessionActionResult>(method, ...args));
     if (result.status === 'Ok' && result.session) {
       this._session.set(result.session);
     }
     return result;
+  }
+
+  /**
+   * Results arrive with the wire snapshot; map them to the flat view model so callers and the
+   * session signal see one shape (#19).
+   */
+  private mapResult<T extends { status: string; session: SessionSnapshot | null }>(raw: T): T {
+    const wire = raw as unknown as { session: SessionSnapshotWire | null };
+    return wire.session ? { ...raw, session: flattenSession(wire.session) } : raw;
   }
 
   private async invoke<T>(method: string, ...args: unknown[]): Promise<T> {

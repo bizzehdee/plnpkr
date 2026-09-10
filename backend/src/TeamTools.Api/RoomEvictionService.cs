@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.SignalR;
 using TeamTools.Api.Hubs;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
+using TeamTools.Core.Models;
 
 namespace TeamTools.Api;
 
@@ -10,7 +12,7 @@ namespace TeamTools.Api;
 /// "is this stale?" decision lives in <see cref="SessionMaintenanceService"/> (Core, unit-tested);
 /// this is just the scheduler + retention config. See #37.
 /// </summary>
-public class SessionEvictionService : BackgroundService
+public class RoomEvictionService : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan DisconnectGrace = TimeSpan.FromMinutes(2);
@@ -18,13 +20,13 @@ public class SessionEvictionService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHubContext<PokerHub> _hub;
     private readonly RetentionOptions _retention;
-    private readonly ILogger<SessionEvictionService> _logger;
+    private readonly ILogger<RoomEvictionService> _logger;
 
-    public SessionEvictionService(
+    public RoomEvictionService(
         IServiceScopeFactory scopeFactory,
         IHubContext<PokerHub> hub,
         RetentionOptions retention,
-        ILogger<SessionEvictionService> logger)
+        ILogger<RoomEvictionService> logger)
     {
         _scopeFactory = scopeFactory;
         _hub = hub;
@@ -47,7 +49,7 @@ public class SessionEvictionService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Session eviction pass failed.");
+                _logger.LogError(ex, "Room eviction pass failed.");
             }
         }
     }
@@ -55,14 +57,19 @@ public class SessionEvictionService : BackgroundService
     private async Task PurgeOnceAsync(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
-        var maintenance = scope.ServiceProvider.GetRequiredService<SessionMaintenanceService>();
+        var maintenance = scope.ServiceProvider.GetRequiredService<RoomMaintenanceService>();
 
         var report = await maintenance.PurgeAsync(DisconnectGrace, _retention, ct);
 
-        foreach (var snapshot in report.UpdatedSessions)
+        // The purge is tool-agnostic and hands back rooms; each is projected through its own tool
+        // snapshot and broadcast on that tool's event (#19).
+        foreach (var room in report.UpdatedRooms)
         {
-            await _hub.Clients.Group(PokerHub.GroupName(snapshot.ShortCode))
-                .SendAsync("SessionUpdated", snapshot, ct);
+            if (room.Tool == RoomTool.Poker)
+            {
+                await _hub.Clients.Group(PokerHub.GroupName(room.ShortCode))
+                    .SendAsync("SessionUpdated", PokerService.ToSnapshot(room), ct);
+            }
         }
 
         foreach (var shortCode in report.RemovedShortCodes)

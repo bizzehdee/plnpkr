@@ -1,3 +1,5 @@
+using TeamTools.Core.Models;
+
 namespace TeamTools.Core.Contracts;
 
 public enum CreateSessionStatus
@@ -61,8 +63,11 @@ public record JoinResult(
         new(JoinStatus.RateLimited, null, null, "You're doing that too often — please wait a moment and try again.");
 }
 
-/// <summary>Lean info for the /join landing page: enough to render it without exposing the full snapshot. See #2.</summary>
-public record SessionLanding(string Name, string ShortCode, bool RequiresPassword);
+/// <summary>
+/// Lean info for the /join landing page: enough to render it without exposing the full snapshot (#2),
+/// plus which tool the short code belongs to so the page can route to /poker or /retro (#19).
+/// </summary>
+public record SessionLanding(string Name, string ShortCode, bool RequiresPassword, RoomTool Tool);
 
 public enum LeaveStatus
 {

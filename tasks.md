@@ -237,17 +237,45 @@ into the TeamTools platform and add the second tool, Team Retro.
 > The legacy `planningpoker.db` files in `src/TeamTools.Api/` are gitignored dev artifacts; they are
 > exactly the case the fallback above covers.
 
-## 19. Shared Room core  `L`  — depends on #17, #18
+## 19. Shared Room core  `L`  — depends on #17, #18  ✅ done
 **The platform bet. Implements #17's design. Behaviour-preserving; no new features.**
-- [ ] `Session` → `Room` (short code, name, participants, presence, organiser set, password, `ClosedAt`/`DeletedAt`, reactions, `LastActivityAt`) + `RoomTool` discriminator (`Poker` | `Retro`), fixed at creation.
-- [ ] Poker-specific state → `Poker/PokerRound` (`State`, deck, story + note, timer fields, tracker link/queue, `RoundResult`s).
-- [ ] `ISessionStore` → `IRoomStore` + a poker store for `GetSessionsWithExpiredTimerAsync`; update `EfSessionStore` and the in-memory fake.
-- [ ] `SessionService` → `RoomService` (join/leave/role/organiser/password/close/delete) + `PokerService` (vote/reveal/reset/deck/story/timer/discussion).
-- [ ] Move `SessionMaintenanceService` + `RetentionOptions` to room level; retention (#15) now applies to any room.
-- [ ] Room-scope `ConnectionRegistry`, `HubThrottle`, `ReactionRateLimiter` so #3's limits cover both tools.
-- [ ] `RoomSnapshot` fragment in the contracts, embedded by each tool snapshot; mirror in `core/models.ts`; split `realtime.client.ts` into `room.client.ts` + `poker.client.ts`.
-- [ ] EF migration ×3 that **moves** existing rows into `Rooms` + `PokerRounds` — hand-written data motion, not a scaffolded drop/recreate.
-- [ ] Verify: existing suites pass unchanged and the Core coverage gate stays ≥90%; a pre-refactor DB upgrades with sessions, participants, notes and round history intact; the result matches #17's doc (correct the doc in #29 if it does not).
+- [x] `Session` → `Room` (short code, name, participants, presence, organiser set, password, `ClosedAt`/`DeletedAt`, reactions, `LastActivityAt`) + `RoomTool` discriminator (`Poker` | `Retro`), fixed at creation.
+- [x] Poker-specific state → `Models/Poker/PokerRound` (`State`, deck, story + note, timer fields, tracker link/queue, `RoundResult`s), 1:1 with its room on a shared primary key.
+- [x] `ISessionStore` → `IRoomStore`; the one poker-specific query moved to `IPokerRoundStore.GetRoomsWithExpiredTimerAsync`. `EfRoomStore` implements both (one `DbContext`, one unit of work); `FakeRoomStore` likewise.
+- [x] `SessionService` → `RoomService` (join/leave/presence/role/organiser/password/close/delete) + `Poker/PokerService` (vote/reveal/reset/deck/story/note/timer/discussion/analytics), with `RoomAuthz` and `PokerRoundRules` holding the pure rules.
+- [x] `SessionMaintenanceService` → room-level `RoomMaintenanceService` (purge + retention, returns rooms not snapshots) and poker-level `Poker/PokerTimerService` (round-timer expiry). Retention (#15) now applies to any room.
+- [x] Room-scoped hub infra: `ConnectionRegistry`, `HubThrottle`, `ReactionRateLimiter` and the renamed `RoomEvictionService`, which projects each purged room through its own tool snapshot.
+- [x] `RoomSnapshot` fragment embedded by `SessionSnapshot`; mirrored in `core/models.ts` as `RoomSnapshot` + `SessionSnapshotWire`; `realtime.client.ts` split into `room.client.ts` (transport, lifecycle, reactions, `flattenSession`) + `poker.client.ts` (poker hub methods).
+- [x] EF migration ×3 that **moves** existing rows into `Rooms` + `PokerRounds` — hand-written data motion, plus a lossless `Down`.
+- [x] Verify: backend **386** tests pass (368 + 14 `RoomCoreTests` + 4 migration tests), frontend **118** (115 + 3 `flattenSession`), coverage gate **94.5% line / 90.5% branch** (≥90%), `docker build` + container boot with `/health` 200 and `/api/config` serving.
+
+> **The scaffolded migration would have destroyed every session.** Two separate data-loss bugs were
+> found and fixed here, both by the pre-refactor-upgrade test rather than by reading the diff:
+> 1. EF's scaffold answered the table split with `DropTable("Sessions")` + two empty `CreateTable`s.
+> 2. After hand-writing the data motion, the SQLite run *still* lost every participant seat and
+>    round-history row: SQLite cannot alter a foreign key in place, so EF defers those tables to a
+>    rebuild emitted at the **end** of the migration while hoisting `DROP TABLE "Sessions"` **above**
+>    it — and with foreign keys enforced, SQLite's `DROP TABLE` fires the children's `ON DELETE
+>    CASCADE` first. (EF's own `PRAGMA foreign_keys = 0` around the rebuild is a no-op inside the
+>    migration transaction.) The SQLite migration therefore rebuilds the child tables itself, in
+>    order, and drops `Sessions` only once nothing references it.
+>
+> `SplitRoomMigrationTests` seeds a database **under the old schema** and asserts the room, its
+> seats (including a mid-round vote), the round state, the story note and the round history all
+> survive — plus a lossless downgrade. SQL Server and PostgreSQL use in-place `ALTER TABLE`
+> constraint changes and have no cascade-on-drop semantics, so they keep the straightforward
+> operation order; they are **not** covered by an executed test here (no server available locally),
+> which is the one gap in this task's verification.
+
+> **Divergence from #17's design, corrected in `ARCHITECTURE.md` rather than left silent.** The doc
+> specified `TeamTools.Poker` / `TeamTools.Retro` as separate *projects*, to make "the tools never
+> reference each other" a compile-time guarantee. That is not purchasable at this price: room-level
+> changes must re-evaluate a tool's completion gate (making someone an observer can complete a poker
+> round), which across assemblies needs an event-port indirection in `Core`, and one EF `DbContext`
+> must own every tool's entities regardless. The tools are sibling namespaces inside
+> `TeamTools.Core` instead (`Core/Poker/`, `Core/Retro/`), with the coupling made explicit as a
+> **tool hook**: `RoomService` takes an `afterChange` callback that the tool supplies. The rule is
+> now review-enforced, not compiler-enforced — stated as such in the doc.
 
 ## 20. Tool picker & platform shell  `M`  — depends on #19
 - [ ] Home page → platform picker (Planning Poker | Team Retro); poker creation moves to `pages/poker/create`.

@@ -2,7 +2,7 @@ using System.Globalization;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Models;
 
-namespace TeamTools.Core;
+namespace TeamTools.Core.Poker;
 
 /// <summary>
 /// Computes reveal statistics over the current voter votes. Pure and deterministic. Only numeric

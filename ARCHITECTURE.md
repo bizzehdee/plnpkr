@@ -229,9 +229,9 @@ projects; `Api` and `Data` are thin adapters.
     IClock.cs                 # time abstraction for deterministic time-based tests
     Security/                 # PasswordHasher (PBKDF2)
     Integrations/             # provider-agnostic issue-tracker ports (IIssueTracker, etc.)
-  TeamTools.Poker/            # Estimation domain: PokerService, DeckCatalog, StatsCalculator,
-                              #   PokerRound state machine, round timer, discussion phase, RoundResult
-  TeamTools.Retro/            # Retrospective domain: RetroService, RetroTemplateCatalog,
+    Poker/                    # Estimation domain: PokerService, PokerRoundRules, DeckCatalog,
+                              #   StatsCalculator, PokerTimerService, IntegrationService, OAuthService
+    Retro/                    # Retrospective domain: RetroService, RetroTemplateCatalog,
                               #   phase state machine, grouping, dot-vote tallies, action items
   TeamTools.Data/             # EF Core adapter: TeamToolsDbContext, EfRoomStore, IDatabaseProvider
   TeamTools.Data.{Sqlite,SqlServer,PostgreSql}/   # one project per engine: driver + migrations
@@ -247,9 +247,20 @@ Key choices:
 - **`IRoomStore`** hides EF Core; `Core.Tests` use an in-memory fake, `Data.Tests` verify the real
   `EfRoomStore` against SQLite. **`IClock`** makes time-based behaviour (eviction, retention, timer and
   phase expiry) deterministic.
-- **`TeamTools.Poker` and `TeamTools.Retro` depend on `TeamTools.Core`, never on each other.** A
-  dependency between the two tools is the failure mode this structure exists to prevent; a third tool
-  should need no change to either.
+- **The two tools never reference each other.** `TeamTools.Core.Poker` and `TeamTools.Core.Retro`
+  both build on the room engine; a dependency between the tools is the failure mode this structure
+  exists to prevent.
+
+  > **Design correction (found while implementing #19).** This document originally specified
+  > `TeamTools.Poker` and `TeamTools.Retro` as *separate projects*, for a compile-time guarantee of
+  > that rule. Implementing it showed the guarantee cannot be had that cheaply: room-level changes
+  > must re-evaluate a tool's completion gate — making someone an observer can complete a poker
+  > round — so the room engine has to reach the tool. Across assemblies that needs an event-port
+  > indirection in `Core`, and one EF `DbContext` has to own every tool's entities anyway. The tools
+  > are therefore **sibling namespaces inside `TeamTools.Core`** (`Core/Poker/`, `Core/Retro/`),
+  > with the coupling made explicit instead: `RoomService` takes an `afterChange` **tool hook** that
+  > the tool service supplies (poker passes its auto-reveal gate). The rule is now a convention the
+  > review enforces rather than the compiler. Recorded here rather than quietly restated, per #17.
 - **Engine-per-project:** `TeamTools.Data` holds only the model + `DbContext` + the `IDatabaseProvider`
   abstraction (no driver). Each engine project owns its driver and provider-specific migrations, so a
   build only ships the engines it references. Provider is chosen by config (`Database:Provider`);
@@ -304,12 +315,13 @@ boundaries (the store, the clock, the realtime transport).
 
 - **`TeamTools.Core.Tests`** — the room engine: `RoomService` through its public API against the
   in-memory store + fake clock; retention/eviction decisions.
-- **`TeamTools.Poker.Tests`** — `PokerService` state machine, `DeckCatalog` / `StatsCalculator`
-  (table-driven), round timer and discussion phase.
-- **`TeamTools.Retro.Tests`** — `RetroService`: phase transitions and phase-gated mutations, grouping,
-  server-side dot budgets, action items, carry-over. **Snapshot-projection tests are first-class here:**
-  assert that an anonymous board's snapshot carries no other-author identity *on the wire*, that Collect
-  hides others' card text, and that dot totals are absent during Vote.
+- **`TeamTools.Core.Tests` (poker)** — `PokerService` state machine, `DeckCatalog` /
+  `StatsCalculator` (table-driven), round timer and discussion phase; `RoomCoreTests` covers the
+  room/tool split itself (one tool per room, the shared room fragment, the tool hook).
+- **`TeamTools.Core.Tests` (retro)** — `RetroService`: phase transitions and phase-gated mutations,
+  grouping, server-side dot budgets, action items, carry-over. **Snapshot-projection tests are
+  first-class here:** assert that an anonymous board's snapshot carries no other-author identity
+  *on the wire*, that Collect hides others' card text, and that dot totals are absent during Vote.
 - **`TeamTools.Data.Tests`** — `EfRoomStore` behaviour against real SQLite (unique constraints, cascade
   delete, query filter, projected queries) **plus a pre-refactor-database upgrade test** for the #19
   migration.
@@ -318,9 +330,9 @@ boundaries (the store, the clock, the realtime transport).
   test client; kept thin (logic is already covered in the domain test projects).
 - **Frontend** — pure reducers/formatting unit-tested directly; component specs via TestBed + fake client.
 
-**Coverage:** the existing hard gate of **≥90% line and branch** carries over to the domain projects —
-`TeamTools.Core`, `TeamTools.Poker` and `TeamTools.Retro` (`coverage-gate.ps1`) — with lighter
-expectations on adapter/wiring projects. Generated code (EF migrations, Angular boilerplate) is excluded.
+**Coverage:** the hard gate of **≥90% line and branch on `TeamTools.Core`** (`coverage-gate.ps1`)
+now covers the room engine and both tool namespaces, with lighter expectations on adapter/wiring
+projects. Generated code (EF migrations, Angular boilerplate) is excluded.
 Coverage is a guardrail; every test maps to a behaviour. The gate is also the safety net for the #19
 refactor, which must land with the suite green and no behavioural change.
 

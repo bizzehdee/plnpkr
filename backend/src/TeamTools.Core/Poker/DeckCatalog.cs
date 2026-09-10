@@ -1,6 +1,6 @@
 using TeamTools.Core.Models;
 
-namespace TeamTools.Core;
+namespace TeamTools.Core.Poker;
 
 /// <summary>
 /// Resolves a <see cref="DeckType"/> (or a custom list) to the concrete card values shown to users.

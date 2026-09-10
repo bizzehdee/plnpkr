@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using TeamTools.Api.Hubs;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 
 namespace TeamTools.Api;
@@ -7,7 +8,7 @@ namespace TeamTools.Api;
 /// <summary>
 /// Fires round-timer expiry: on a tight cadence it force-reveals sessions whose timer deadline has
 /// passed and broadcasts the new snapshot, so the reveal lands promptly and every client agrees on
-/// when time was up. The "is it due?" decision lives in <see cref="SessionMaintenanceService"/>
+/// when time was up. The "is it due?" decision lives in <see cref="PokerTimerService"/>
 /// (Core, unit-tested); this is just the scheduler. See #14.
 /// </summary>
 public class RoundTimerService : BackgroundService
@@ -51,7 +52,7 @@ public class RoundTimerService : BackgroundService
     private async Task ExpireOnceAsync(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
-        var maintenance = scope.ServiceProvider.GetRequiredService<SessionMaintenanceService>();
+        var maintenance = scope.ServiceProvider.GetRequiredService<PokerTimerService>();
 
         var revealed = await maintenance.ExpireDueRoundTimersAsync(ct);
 

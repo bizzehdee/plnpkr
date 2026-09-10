@@ -1,4 +1,5 @@
 using FluentAssertions;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Models;
@@ -14,15 +15,15 @@ public class DiscussionTests
     private const string Organiser = "alice";
     private const string Bob = "bob";
 
-    private readonly FakeSessionStore _store = new();
+    private readonly FakeRoomStore _store = new();
     private readonly TestClock _clock = new();
-    private readonly SessionService _sut;
-    private readonly SessionMaintenanceService _maintenance;
+    private readonly PokerService _sut;
+    private readonly PokerTimerService _timers;
 
     public DiscussionTests()
     {
-        _sut = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
-        _maintenance = new SessionMaintenanceService(_store, _clock);
+        _sut = TestServices.Poker(_store, new StubShortCodeGenerator(Code), _clock);
+        _timers = TestServices.Timers(_store, _clock);
     }
 
     private async Task SeedRevealedAsync()
@@ -84,7 +85,7 @@ public class DiscussionTests
         await _sut.StartDiscussionAsync(Code, Organiser, 30);
 
         _clock.Advance(TimeSpan.FromSeconds(31));
-        var expired = await _maintenance.ExpireDueRoundTimersAsync();
+        var expired = await _timers.ExpireDueRoundTimersAsync();
 
         expired.Should().ContainSingle();
         var snapshot = expired[0];

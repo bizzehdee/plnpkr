@@ -1,4 +1,5 @@
 using FluentAssertions;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Integrations;
@@ -10,12 +11,12 @@ namespace TeamTools.Core.Tests;
 
 public class OAuthServiceTests
 {
-    private readonly FakeSessionStore _store = new();
+    private readonly FakeRoomStore _store = new();
     private readonly TestClock _clock = new();
     private readonly FakeOAuthFlow _flow = new();
     private readonly InMemoryOAuthFlowStore _pending = new();
     private readonly InMemoryIntegrationConnectionStore _connections = new();
-    private readonly SessionService _sessions;
+    private readonly PokerService _sessions;
     private readonly OAuthService _sut;
 
     private const string Code = "blue-fox-42";
@@ -25,7 +26,7 @@ public class OAuthServiceTests
 
     public OAuthServiceTests()
     {
-        _sessions = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        _sessions = TestServices.Poker(_store, new StubShortCodeGenerator(Code), _clock);
         _sut = new OAuthService(_store, _flow, _pending, _connections, _clock, new IntegrationsOptions { Jira = new() { Enabled = true }, Ado = new() { Enabled = true } });
     }
 

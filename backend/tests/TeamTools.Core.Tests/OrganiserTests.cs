@@ -1,4 +1,5 @@
 using FluentAssertions;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Contracts;
 using TeamTools.Core.Models;
@@ -15,13 +16,13 @@ public class OrganiserTests
     private const string Bob = "bob";
     private const string Carol = "carol";
 
-    private readonly FakeSessionStore _store = new();
+    private readonly FakeRoomStore _store = new();
     private readonly TestClock _clock = new();
-    private readonly SessionService _sut;
+    private readonly PokerService _sut;
 
     public OrganiserTests()
     {
-        _sut = new SessionService(_store, new StubShortCodeGenerator(Code), _clock);
+        _sut = TestServices.Poker(_store, new StubShortCodeGenerator(Code), _clock);
     }
 
     private async Task SeedAsync()

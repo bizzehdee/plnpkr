@@ -2,22 +2,23 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 
 namespace TeamTools.Api.Controllers;
 
 /// <summary>
 /// Read-only REST surface used to validate/bootstrap an invite link before the client opens a
-/// SignalR connection (the /join landing page). Thin adapter over <see cref="SessionService"/>.
+/// SignalR connection (the /join landing page). Thin adapter over <see cref="PokerService"/>.
 /// See #34/#6/#9.
 /// </summary>
 [ApiController]
 [Route("api/sessions")]
 public sealed class SessionsController : ControllerBase
 {
-    private readonly SessionService _sessions;
+    private readonly PokerService _sessions;
 
-    public SessionsController(SessionService sessions) => _sessions = sessions;
+    public SessionsController(PokerService sessions) => _sessions = sessions;
 
     /// <summary>Landing info for /join: name + whether a password is required (never the hash). See #2.</summary>
     [HttpGet("{shortCode}")]

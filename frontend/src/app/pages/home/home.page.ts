@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { SignalrRealtimeClient } from '../../core/realtime.client';
+import { SignalrRealtimeClient } from '../../core/poker.client';
 import { IdentityService } from '../../core/identity.service';
 import { DeckStorageService } from '../../core/deck-storage.service';
 import { DeckType, DECK_LABEL_KEYS, SavedDeck } from '../../core/models';

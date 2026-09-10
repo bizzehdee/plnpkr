@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using TeamTools.Api;
 using TeamTools.Api.Health;
 using TeamTools.Api.Hubs;
+using TeamTools.Core.Poker;
 using TeamTools.Core;
 using TeamTools.Core.Integrations;
 using TeamTools.Core.Security;
@@ -57,13 +58,17 @@ public class Program
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddSingleton<IShortCodeGenerator, ShortCodeGenerator>();
         builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
-        builder.Services.AddScoped<ISessionStore, EfSessionStore>();
-        builder.Services.AddScoped<SessionService>();
-        builder.Services.AddScoped<SessionMaintenanceService>();
+        builder.Services.AddScoped<EfRoomStore>();
+        builder.Services.AddScoped<IRoomStore>(sp => sp.GetRequiredService<EfRoomStore>());
+        builder.Services.AddScoped<IPokerRoundStore>(sp => sp.GetRequiredService<EfRoomStore>());
+        builder.Services.AddScoped<RoomService>();
+        builder.Services.AddScoped<PokerService>();
+        builder.Services.AddScoped<RoomMaintenanceService>();
+        builder.Services.AddScoped<PokerTimerService>();
         builder.Services.AddSingleton<ConnectionRegistry>();
         builder.Services.AddSingleton<ReactionRateLimiter>();
 
-        // Abuse protection (#3-abuse): room-size cap (enforced in SessionService) and per-connection
+        // Abuse protection (#3-abuse): room-size cap (enforced in PokerService) and per-connection
         // throttles on session create/join (enforced in the hub). All tunable via "Abuse:*".
         builder.Services.AddSingleton(new SessionLimits
         {
@@ -76,7 +81,7 @@ public class Program
         });
         builder.Services.AddSingleton<HubThrottle>();
 
-        // Long-term session retention policy (#15), layered on Session.ClosedAt/DeletedAt (#26).
+        // Long-term room retention policy (#15), layered on Room.ClosedAt/DeletedAt (#26).
         // Tunable via "Retention:*"; see RetentionOptions for defaults.
         builder.Services.AddSingleton(new RetentionOptions
         {
@@ -84,7 +89,7 @@ public class Program
             SoftDeleteRetentionDays = builder.Configuration.GetValue("Retention:SoftDeleteRetentionDays", 30),
             IdleRetentionDays = builder.Configuration.GetValue("Retention:IdleRetentionDays", 30),
         });
-        builder.Services.AddHostedService<SessionEvictionService>();
+        builder.Services.AddHostedService<RoomEvictionService>();
         builder.Services.AddHostedService<RoundTimerService>(); // expires round timers → auto-reveal (#14)
 
         // --- Issue-tracker integration (#4, optional, off unless configured) ---

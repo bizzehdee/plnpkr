@@ -52,7 +52,7 @@ namespace TeamTools.Data.Sqlite.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("SessionId")
+                    b.Property<Guid>("RoomId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("UserId")
@@ -66,13 +66,118 @@ namespace TeamTools.Data.Sqlite.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SessionId", "NormalizedName")
+                    b.HasIndex("RoomId", "NormalizedName")
                         .IsUnique();
 
-                    b.HasIndex("SessionId", "UserId")
+                    b.HasIndex("RoomId", "UserId")
                         .IsUnique();
 
                     b.ToTable("Participants");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.PokerRound", b =>
+                {
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("AutoReveal")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CurrentStory")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CurrentStoryNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CustomCards")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeckType")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LinkedProvider")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketQueue")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("TicketQueue");
+
+                    b.Property<DateTimeOffset?>("TimerDeadline")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("TimerDurationSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("TimerPausedRemainingSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("RoomId");
+
+                    b.ToTable("PokerRounds");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.Room", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("AllowRoleChange")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("LastActivityAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OrganiserUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("ReactionsEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ShortCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tool")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShortCode")
+                        .IsUnique();
+
+                    b.ToTable("Rooms");
                 });
 
             modelBuilder.Entity("TeamTools.Core.Models.RoundResult", b =>
@@ -98,7 +203,7 @@ namespace TeamTools.Data.Sqlite.Migrations
                     b.Property<DateTimeOffset>("RecordedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("SessionId")
+                    b.Property<Guid>("RoomId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Story")
@@ -110,128 +215,33 @@ namespace TeamTools.Data.Sqlite.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SessionId");
+                    b.HasIndex("RoomId");
 
                     b.ToTable("RoundResult");
                 });
 
-            modelBuilder.Entity("TeamTools.Core.Models.Session", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("AllowRoleChange")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("AutoReveal")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset?>("ClosedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CurrentStory")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CurrentStoryNote")
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CustomCards")
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DeckType")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("LastActivityAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("LinkedProvider")
-                        .HasMaxLength(32)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("OrganiserUserId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PasswordHash")
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("ReactionsEnabled")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ShortCode")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("TicketQueue")
-                        .IsRequired()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("TicketQueue");
-
-                    b.Property<DateTimeOffset?>("TimerDeadline")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("TimerDurationSeconds")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("TimerPausedRemainingSeconds")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ShortCode")
-                        .IsUnique();
-
-                    b.ToTable("Sessions");
-                });
-
             modelBuilder.Entity("TeamTools.Core.Models.Participant", b =>
                 {
-                    b.HasOne("TeamTools.Core.Models.Session", "Session")
+                    b.HasOne("TeamTools.Core.Models.Room", "Room")
                         .WithMany("Participants")
-                        .HasForeignKey("SessionId")
+                        .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Session");
+                    b.Navigation("Room");
                 });
 
-            modelBuilder.Entity("TeamTools.Core.Models.RoundResult", b =>
+            modelBuilder.Entity("TeamTools.Core.Models.PokerRound", b =>
                 {
-                    b.HasOne("TeamTools.Core.Models.Session", "Session")
-                        .WithMany("RoundResults")
-                        .HasForeignKey("SessionId")
+                    b.HasOne("TeamTools.Core.Models.Room", "Room")
+                        .WithOne("PokerRound")
+                        .HasForeignKey("TeamTools.Core.Models.PokerRound", "RoomId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Session");
-                });
-
-            modelBuilder.Entity("TeamTools.Core.Models.Session", b =>
-                {
                     b.OwnsOne("TeamTools.Core.Models.LinkedIssue", "LinkedIssue", b1 =>
                         {
-                            b1.Property<Guid>("SessionId")
+                            b1.Property<Guid>("PokerRoundRoomId")
                                 .HasColumnType("TEXT");
 
                             b1.Property<string>("Description")
@@ -259,22 +269,40 @@ namespace TeamTools.Data.Sqlite.Migrations
                                 .HasMaxLength(1000)
                                 .HasColumnType("TEXT");
 
-                            b1.HasKey("SessionId");
+                            b1.HasKey("PokerRoundRoomId");
 
-                            b1.ToTable("Sessions");
+                            b1.ToTable("PokerRounds");
 
                             b1.WithOwner()
-                                .HasForeignKey("SessionId");
+                                .HasForeignKey("PokerRoundRoomId");
                         });
 
                     b.Navigation("LinkedIssue");
+
+                    b.Navigation("Room");
                 });
 
-            modelBuilder.Entity("TeamTools.Core.Models.Session", b =>
+            modelBuilder.Entity("TeamTools.Core.Models.RoundResult", b =>
+                {
+                    b.HasOne("TeamTools.Core.Models.PokerRound", "Round")
+                        .WithMany("RoundResults")
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Round");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.PokerRound", b =>
+                {
+                    b.Navigation("RoundResults");
+                });
+
+            modelBuilder.Entity("TeamTools.Core.Models.Room", b =>
                 {
                     b.Navigation("Participants");
 
-                    b.Navigation("RoundResults");
+                    b.Navigation("PokerRound");
                 });
 #pragma warning restore 612, 618
         }

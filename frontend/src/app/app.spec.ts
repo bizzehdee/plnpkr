@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
-import { SignalrRealtimeClient, ConnectionStatus } from './core/realtime.client';
+import { SignalrRealtimeClient, ConnectionStatus } from './core/poker.client';
 import { I18nService } from './core/i18n.service';
 
 class FakeRealtimeClient {
