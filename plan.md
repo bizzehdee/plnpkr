@@ -776,6 +776,41 @@ them event-driven (schedule against the next known deadline) would remove the id
 queries entirely, but it is a scheduling change with its own failure modes — and at one
 cheap indexed query per second it is not yet worth them.
 
+## 34. Extract the room-level primitives — before any third tool
+
+**What.** Pull the machinery that is genuinely duplicated between the two tools into the
+room engine: the countdown deadline primitive, CSV field escaping, and the periodic
+background-sweep loop.
+
+**Why.** Two tools can carry a little duplication; three cannot. Each new tool otherwise
+writes its own copy of the same three things, and one of them — the sweep loop's "a failed
+pass must not end the loop" catch — fails *silently* when written wrong: a background
+service dies for the life of the process and nothing surfaces it. Doing this before tool
+three means the third tool inherits the primitives instead of adding a third copy.
+
+**Touch points.** New `Core/Countdown.cs`, `Core/Csv.cs`, `Api/RoomSweepService.cs`;
+`PokerRoundRules`/`RetroPhaseRules` delegate their clamps; `PokerService` and
+`RetroExportRenderer` share the CSV escaping; all three background services inherit the
+loop.
+
+**Approach.** **Measure before extracting.** Only take what is actually duplicated today,
+and say out loud what is not:
+
+- *Extract*: the countdown clamp (two call sites, same shape, different bounds — bounds
+  stay the tool's), CSV escaping (character-for-character identical), the sweep loop
+  (three copies).
+- *Leave alone*: the vote budget and the estimate stats, which look adjacent and share
+  nothing — n dots across many items is not one value per person. The expiry **actions**,
+  because poker force-reveals and a retro deliberately does not (§23), and that asymmetry
+  is the most interesting line in either tool. The store queries, whose narrowed shape is
+  a convention worth copying rather than code worth sharing.
+- *Defer*: the retro's ordered phase rail. It is the obvious thing for a third tool to
+  reuse, but poker's Voting/Revealed/Discussion is not a rail — extracting it now would be
+  generalising from a single example. It waits for its first real second consumer (§35).
+
+The shared loop's one dangerous behaviour gets a direct test rather than three implicit
+ones: throw on the first pass, assert a later pass still runs.
+
 ---
 
 ## Cross-cutting notes

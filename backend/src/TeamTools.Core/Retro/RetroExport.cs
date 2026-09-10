@@ -194,14 +194,14 @@ public static class RetroExportRenderer
 
         foreach (var action in export.Actions)
         {
-            var cells = new List<string> { "action", string.Empty, string.Empty, Csv(action.Title) };
+            var cells = new List<string> { "action", string.Empty, string.Empty, Csv.Field(action.Title) };
             if (withAuthor)
             {
                 cells.Add(string.Empty);
             }
             cells.Add(string.Empty); // Dots
-            cells.Add(Csv(action.Owner));
-            cells.Add(Csv(action.DueDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)));
+            cells.Add(Csv.Field(action.Owner));
+            cells.Add(Csv.Date(action.DueDate));
             cells.Add(action.Done ? "true" : "false");
             cells.Add(action.CarriedOver ? "true" : "false");
             sb.AppendLine(string.Join(',', cells));
@@ -212,10 +212,10 @@ public static class RetroExportRenderer
         static void AppendCardRow(
             StringBuilder sb, string kind, string theme, RetroExportCard card, bool withAuthor)
         {
-            var cells = new List<string> { kind, Csv(theme), Csv(card.Column), Csv(card.Text) };
+            var cells = new List<string> { kind, Csv.Field(theme), Csv.Field(card.Column), Csv.Field(card.Text) };
             if (withAuthor)
             {
-                cells.Add(Csv(card.Author));
+                cells.Add(Csv.Field(card.Author));
             }
             cells.Add(card.Dots.ToString(CultureInfo.InvariantCulture));
             cells.Add(string.Empty); // Owner
@@ -224,21 +224,5 @@ public static class RetroExportRenderer
             cells.Add(string.Empty); // CarriedOver
             sb.AppendLine(string.Join(',', cells));
         }
-    }
-
-    /// <summary>RFC-4180 CSV field: quote when it contains a comma, quote, CR or LF; double inner quotes.</summary>
-    private static string Csv(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        if (value.IndexOfAny([',', '"', '\r', '\n']) < 0)
-        {
-            return value;
-        }
-
-        return $"\"{value.Replace("\"", "\"\"")}\"";
     }
 }

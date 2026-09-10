@@ -524,33 +524,17 @@ public class PokerService
         sb.AppendLine("RecordedAt,Story,FinalEstimate,Average,Consensus,VoteCount,Note");
         foreach (var r in analytics.Rounds)
         {
-            sb.AppendLine(string.Join(',',
-                Csv(r.RecordedAt.ToString("o", CultureInfo.InvariantCulture)),
-                Csv(r.Story),
-                Csv(r.FinalEstimate),
-                Csv(r.Average?.ToString(CultureInfo.InvariantCulture)),
-                Csv(r.Consensus ? "true" : "false"),
-                Csv(r.VoteCount.ToString(CultureInfo.InvariantCulture)),
-                Csv(r.Note)));
+            sb.AppendLine(Csv.Row(
+                r.RecordedAt.ToString("o", CultureInfo.InvariantCulture),
+                r.Story,
+                r.FinalEstimate,
+                r.Average?.ToString(CultureInfo.InvariantCulture),
+                r.Consensus ? "true" : "false",
+                r.VoteCount.ToString(CultureInfo.InvariantCulture),
+                r.Note));
         }
 
         return (SessionExportStatus.Ok, sb.ToString());
-    }
-
-    /// <summary>RFC-4180 CSV field: quote when it contains a comma, quote, CR or LF; double inner quotes.</summary>
-    private static string Csv(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        if (value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) < 0)
-        {
-            return value;
-        }
-
-        return $"\"{value.Replace("\"", "\"\"")}\"";
     }
 
     // --- Helpers -----------------------------------------------------------

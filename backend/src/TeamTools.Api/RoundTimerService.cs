@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using TeamTools.Api.Hubs;
 using TeamTools.Core.Poker;
-using TeamTools.Core;
 
 namespace TeamTools.Api;
 
@@ -9,54 +8,31 @@ namespace TeamTools.Api;
 /// Fires round-timer expiry: on a tight cadence it force-reveals sessions whose timer deadline has
 /// passed and broadcasts the new snapshot, so the reveal lands promptly and every client agrees on
 /// when time was up. The "is it due?" decision lives in <see cref="PokerTimerService"/>
-/// (Core, unit-tested); this is just the scheduler. See #14.
+/// (Core, unit-tested); the loop is <see cref="RoomSweepService"/>. See #14.
 /// </summary>
-public class RoundTimerService : BackgroundService
+public class RoundTimerService : RoomSweepService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromSeconds(1);
-
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHubContext<PokerHub> _hub;
-    private readonly ILogger<RoundTimerService> _logger;
 
     public RoundTimerService(
         IServiceScopeFactory scopeFactory,
         IHubContext<PokerHub> hub,
         ILogger<RoundTimerService> logger)
+        : base(scopeFactory, logger)
     {
-        _scopeFactory = scopeFactory;
         _hub = hub;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    // A second: a reveal that lands late is a reveal the room has already talked over.
+    protected override TimeSpan Interval => TimeSpan.FromSeconds(1);
+
+    protected override string SweepName => "Round-timer expiry";
+
+    protected override async Task SweepAsync(IServiceProvider services, CancellationToken ct)
     {
-        using var timer = new PeriodicTimer(Interval);
-        while (await timer.WaitForNextTickAsync(stoppingToken))
-        {
-            try
-            {
-                await ExpireOnceAsync(stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Round-timer expiry pass failed.");
-            }
-        }
-    }
+        var timers = services.GetRequiredService<PokerTimerService>();
 
-    private async Task ExpireOnceAsync(CancellationToken ct)
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var maintenance = scope.ServiceProvider.GetRequiredService<PokerTimerService>();
-
-        var revealed = await maintenance.ExpireDueRoundTimersAsync(ct);
-
-        foreach (var snapshot in revealed)
+        foreach (var snapshot in await timers.ExpireDueRoundTimersAsync(ct))
         {
             await _hub.Clients.Group(PokerHub.GroupName(snapshot.ShortCode))
                 .SendAsync("SessionUpdated", snapshot, ct);

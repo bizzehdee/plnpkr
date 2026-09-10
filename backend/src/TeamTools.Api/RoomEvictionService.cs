@@ -9,55 +9,36 @@ namespace TeamTools.Api;
 /// <summary>
 /// Periodically purges away disconnected-past-grace participants and applies the retention policy
 /// (#15), broadcasting the result so live clients update (or are told the session closed). The
-/// "is this stale?" decision lives in <see cref="SessionMaintenanceService"/> (Core, unit-tested);
-/// this is just the scheduler + retention config. See #37.
+/// "is this stale?" decision lives in <see cref="RoomMaintenanceService"/> (Core, unit-tested); this
+/// is just the retention config and the broadcast. The loop is <see cref="RoomSweepService"/>. #37.
 /// </summary>
-public class RoomEvictionService : BackgroundService
+public class RoomEvictionService : RoomSweepService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan DisconnectGrace = TimeSpan.FromMinutes(2);
 
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHubContext<PokerHub> _hub;
     private readonly RetentionOptions _retention;
-    private readonly ILogger<RoomEvictionService> _logger;
 
     public RoomEvictionService(
         IServiceScopeFactory scopeFactory,
         IHubContext<PokerHub> hub,
         RetentionOptions retention,
         ILogger<RoomEvictionService> logger)
+        : base(scopeFactory, logger)
     {
-        _scopeFactory = scopeFactory;
         _hub = hub;
         _retention = retention;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(Interval);
-        while (await timer.WaitForNextTickAsync(stoppingToken))
-        {
-            try
-            {
-                await PurgeOnceAsync(stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Room eviction pass failed.");
-            }
-        }
-    }
+    // A minute, not a second: nothing here is time-critical, and unlike the countdown sweeps this
+    // one genuinely does load every room with its whole graph in order to delete it (#33).
+    protected override TimeSpan Interval => TimeSpan.FromMinutes(1);
 
-    private async Task PurgeOnceAsync(CancellationToken ct)
+    protected override string SweepName => "Room eviction";
+
+    protected override async Task SweepAsync(IServiceProvider services, CancellationToken ct)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var maintenance = scope.ServiceProvider.GetRequiredService<RoomMaintenanceService>();
+        var maintenance = services.GetRequiredService<RoomMaintenanceService>();
 
         var report = await maintenance.PurgeAsync(DisconnectGrace, _retention, ct);
 

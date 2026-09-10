@@ -50,9 +50,13 @@ public static class RetroPhaseRules
     public static bool IsLegalTransition(RetroPhase from, RetroPhase to) =>
         Next(from) == to || Previous(from) == to;
 
-    /// <summary>Clamps a requested countdown into the allowed range; null stays null.</summary>
+    /// <summary>
+    /// Clamps a requested countdown into the allowed range; null stays null. The clamp is the shared
+    /// <see cref="Countdown"/> primitive (#34); the 30s floor is the retro's — a phase that short is
+    /// not a phase.
+    /// </summary>
     public static int? NormalizeDuration(int? seconds) =>
-        seconds is null ? null : Math.Clamp(seconds.Value, MinPhaseSeconds, MaxPhaseSeconds);
+        Countdown.Normalize(seconds, MinPhaseSeconds, MaxPhaseSeconds);
 
     /// <summary>
     /// Whether cards may be added or edited. Only during <see cref="RetroPhase.Collect"/>: once the

@@ -7,55 +7,33 @@ namespace TeamTools.Api;
 /// <summary>
 /// Fires retro phase-countdown expiry (#23): on a tight cadence it clears elapsed countdowns and
 /// re-broadcasts the board, so every client stops its ticker at the same moment. The "is it due?"
-/// decision lives in <see cref="RetroPhaseTimerService"/> (Core, unit-tested); this is just the
-/// scheduler — the retro sibling of <see cref="RoundTimerService"/>.
+/// decision lives in <see cref="RetroPhaseTimerService"/> (Core, unit-tested); the loop is
+/// <see cref="RoomSweepService"/>, shared with the poker round timer.
 /// </summary>
-public class RetroPhaseTimerBackgroundService : BackgroundService
+public class RetroPhaseTimerBackgroundService : RoomSweepService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromSeconds(1);
-
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHubContext<RetroHub> _hub;
     private readonly ConnectionRegistry _connections;
-    private readonly ILogger<RetroPhaseTimerBackgroundService> _logger;
 
     public RetroPhaseTimerBackgroundService(
         IServiceScopeFactory scopeFactory,
         IHubContext<RetroHub> hub,
         ConnectionRegistry connections,
         ILogger<RetroPhaseTimerBackgroundService> logger)
+        : base(scopeFactory, logger)
     {
-        _scopeFactory = scopeFactory;
         _hub = hub;
         _connections = connections;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(Interval);
-        while (await timer.WaitForNextTickAsync(stoppingToken))
-        {
-            try
-            {
-                await ExpireOnceAsync(stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Retro phase-timer expiry pass failed.");
-            }
-        }
-    }
+    protected override TimeSpan Interval => TimeSpan.FromSeconds(1);
 
-    private async Task ExpireOnceAsync(CancellationToken ct)
+    protected override string SweepName => "Retro phase-timer expiry";
+
+    protected override async Task SweepAsync(IServiceProvider services, CancellationToken ct)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var timers = scope.ServiceProvider.GetRequiredService<RetroPhaseTimerService>();
-        var retro = scope.ServiceProvider.GetRequiredService<RetroService>();
+        var timers = services.GetRequiredService<RetroPhaseTimerService>();
+        var retro = services.GetRequiredService<RetroService>();
 
         foreach (var room in await timers.ExpireDuePhaseTimersAsync(ct))
         {

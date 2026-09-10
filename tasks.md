@@ -175,6 +175,7 @@ into the TeamTools platform and add the second tool, Team Retro.
 | 31 | Get the frontend bundle back under its budget | S | 29 | FE |
 | 32 | Join a room over its own tool's hub | S | 19, 31 | BE + FE |
 | 33 | Narrow the retro phase-countdown sweep | S | 23 | BE |
+| 34 | Extract the room-level primitives | S | 33 | BE |
 
 > **Why this order.** The ease-before-dependents rule still applies, but four hard
 > constraints dominate.
@@ -689,3 +690,44 @@ into the TeamTools platform and add the second tool, Team Retro.
 > deadline would remove the idle queries entirely, but it trades one cheap indexed query per second
 > for a scheduler with its own failure modes (a missed reschedule is a countdown that never fires).
 > Recorded in plan.md §33 as out of scope rather than silently skipped.
+
+## 34. Extract the room-level primitives  `S`  — before any third tool  ✅ done
+**Measured the duplication first. Three things were genuinely duplicated; the rest were not.**
+- [x] `Core/Countdown.cs` — the deadline primitive: clamp a requested length into the caller's bounds, turn it into one server-authoritative instant. `PokerRoundRules.NormalizeTimerDuration` and `RetroPhaseRules.NormalizeDuration` now delegate, keeping their own bounds.
+- [x] `Core/Csv.cs` — RFC-4180 field escaping, plus an invariant date and a row join. Was character-for-character identical in `PokerService` (#12) and `RetroExportRenderer` (#28).
+- [x] `Api/RoomSweepService.cs` — the periodic-sweep loop. All **three** background services had their own copy: the round timer (#14), the retro phase countdown (#23) and idle eviction (#37).
+- [x] Tests: 13 core (`PrimitiveTests`) + 3 API (`RoomSweepServiceTests`). Backend **662**, coverage gate **95.4% line / 91.7% branch**.
+
+> **I overstated the duplication last time, and measuring corrected it.** I had listed six primitives
+> as "tool-private and about to be tripled". Only three were actually duplicated. The other three —
+> the hidden-until-reveal projection, the vote budget, and cards-with-grouping — are tool-*private*
+> but not tool-*duplicated*: there is exactly one implementation of each, and no second consumer yet.
+
+> **What was deliberately not extracted, and why.**
+> - **Vote budget vs estimate stats.** `RetroTallyCalculator` counts n dots across many items;
+>   `StatsCalculator` averages one value per person. They look adjacent and share nothing. Merging
+>   them would be a shared abstraction over two different domains — the classic mistake.
+> - **The expiry *actions*.** Poker force-reveals or auto-advances to a re-vote; a retro only clears
+>   the countdown and leaves the phase to the facilitator (#23). That asymmetry is a product
+>   decision, and burying it in a shared base class would hide the most interesting line in either
+>   tool.
+> - **The store queries.** Both sweeps narrow in SQL (#14/#33) but need different includes and
+>   different predicates. The shape is a convention worth copying, not code worth sharing.
+> - **The phase rail.** Retro's ordered, adjacency-only phase machine is the obvious thing for a
+>   third tool to reuse — but poker's Voting/Revealed/Discussion is not a rail, so extracting it now
+>   would be generalising from one example. It waits for Lean Coffee (#35), its first real second
+>   consumer.
+
+> **The sweep loop's one dangerous behaviour is now tested.** A pass that throws must not end the
+> loop — without the catch, one bad tick silently takes a background service down for the life of the
+> process and nothing surfaces it. Each service used to carry its own copy of that guarantee; now one
+> mistake would break all three, so `RoomSweepService` gets a direct test for it (throw on the first
+> pass, assert the third still happens) rather than relying on three services to each be right.
+>
+> The loop is also covered end to end by the pre-existing hub test that starts a 5-second round timer
+> and waits for the background sweep to force-reveal it — which is what proves the extracted base
+> class really resolves its scope and broadcasts.
+
+> **`Csv.Date` came out of the extraction, not into it.** Both exports formatted dates
+> `yyyy-MM-dd` with `CultureInfo.InvariantCulture` inline. A locale-shaped date in a CSV is how
+> 03/04 becomes two different days downstream, so it is now a named function with a test saying so.

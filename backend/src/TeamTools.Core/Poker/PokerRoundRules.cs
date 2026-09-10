@@ -13,9 +13,12 @@ public static class PokerRoundRules
     public const int MinTimerSeconds = 5;
     public const int MaxTimerSeconds = 3600;
 
-    /// <summary>Clamps a requested timer duration into the allowed range; null stays null (no timer).</summary>
+    /// <summary>
+    /// Clamps a requested timer duration into the allowed range; null stays null (no timer). The
+    /// clamp is the shared <see cref="Countdown"/> primitive (#34); the bounds are poker's.
+    /// </summary>
     public static int? NormalizeTimerDuration(int? seconds) =>
-        seconds is null ? null : Math.Clamp(seconds.Value, MinTimerSeconds, MaxTimerSeconds);
+        Countdown.Normalize(seconds, MinTimerSeconds, MaxTimerSeconds);
 
     /// <summary>Clears the running/paused timer state (idle), leaving the configured duration intact.</summary>
     public static void StopRunningTimer(PokerRound round)
