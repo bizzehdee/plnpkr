@@ -11,7 +11,7 @@ If you use, deploy, or build on this software — including modified versions an
 commercial use — you must retain this notice and visibly credit the project. Use a
 statement such as:
 
-    "Based on plnpkr by Darren Horrocks
+    "Based on TeamTools (formerly plnpkr) by Darren Horrocks
      (https://github.com/<your-fork-or-source-url>)."
 
 Per section 4(d) of the Apache License 2.0, a readable copy of this attribution must

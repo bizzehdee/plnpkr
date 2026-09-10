@@ -4,8 +4,12 @@
 # Required
 ec2_key_pair_name = "my-key-pair"   # must already exist in your AWS account
 
+# Resource name prefix. Defaults to "teamtools". A stack created before the rename must pin the
+# old value, or `terraform apply` will replace the S3 bucket and the EC2 instance.
+# app_name = "planning-poker"
+
 # Optional — remove or leave empty to use the CloudFront *.cloudfront.net domain
-# domain_name     = "poker.example.com"
+# domain_name     = "teamtools.example.com"
 # route53_zone_id = "Z1234567890ABC"  # only needed for automatic DNS + cert validation
 
 # Deployment region

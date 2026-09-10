@@ -9,12 +9,12 @@ and in [plan.md](./plan.md) / [tasks.md](./tasks.md); this document covers the c
 domain model, the real-time contract, project structure, testing strategy, and deployment — that isn't
 tied to a single feature.
 
-> **Status: this document describes the target, ahead of the code.** It is written first, deliberately
-> (task #17), because tasks #18–#28 rename the solution, split the domain model in two and rewrite the
-> persistence schema with hand-written data motion — a refactor that needs an agreed design to implement
-> and to be reviewed against. The code catches up task by task; task #29 corrects this document wherever
-> the implementation found the design wrong (and says so, rather than quietly rewriting history).
-> Where the two differ today, the section notes it.
+> **Status: the code has caught up.** This document was written first, deliberately (task #17),
+> because tasks #18–#28 renamed the solution, split the domain model in two and rewrote the
+> persistence schema with hand-written data motion — a refactor that needed an agreed design to
+> implement against and to be reviewed against. Those tasks have landed, and task #29 has corrected
+> this document where the implementation found the design wrong. Every such place is marked
+> **Design correction** and says what changed and why, rather than quietly rewriting history.
 
 ## Resolved foundational decisions
 
@@ -40,9 +40,9 @@ tools without a second implementation. Rate limiting, the accessibility baseline
 multi-organiser with succession, and the retention policy are all *room-level* concerns; see
 [Inherited cross-cutting concerns](#inherited-cross-cutting-concerns).
 
-### Where each current `Session` field goes
+### Where each old `Session` field went
 
-`Session` is split; no field is dropped.
+`Session` was split; no field was dropped.
 
 | → `Room` (tool-agnostic) | → `PokerRound` (estimation-specific) |
 | --- | --- |
@@ -101,18 +101,18 @@ PokerRound                    # 1:1 with a Poker room
 
 RetroBoard                    # 1:1 with a Retro room
   Phase: Collect | Group | Vote | Discuss | Actions | Closed
-  TemplateType (enum), Columns: [RetroColumn]
+  Template (enum), Columns: [RetroColumn]
   Anonymous (bool)            # locked once the first card exists — see below
   VoteBudget (int), AllowMultiplePerItem (bool)
   AllowParticipantGrouping (bool)
-  PhaseDeadline?              # same deadline-broadcast mechanism as the poker round timer
+  PhaseDurationSeconds?, PhaseDeadline?   # same deadline-broadcast mechanism as the poker round timer
   PreviousBoardShortCode?     # provenance for carried-over actions
   Cards: [RetroCard], Groups: [RetroGroup], Votes: [RetroVote], Actions: [RetroActionItem]
 
 RetroColumn        Id, BoardId, Title, Order
 RetroCard          Id, ColumnId, GroupId?, AuthorUserId, Text, CreatedAt, Order
 RetroGroup         Id, BoardId, Label, Order
-RetroVote          BoardId, VoterUserId, TargetKind: Card | Group, TargetId
+RetroVote          Id, BoardId, VoterUserId, TargetKind: Card | Group, TargetId
 RetroActionItem    Id, BoardId, Title, OwnerUserId?, OwnerName?, DueDate?, DoneAt?,
                    SourceGroupId?, CarriedFromBoardId?
 ```
@@ -121,7 +121,7 @@ Card decks (Sequential, Fibonacci, Modified Fibonacci, T-shirt, Powers of two, C
 server-side from `DeckType` so all clients agree; every deck also appends `?` (unsure) and `☕` (break).
 Stats (average/consensus/outliers) are computed over numeric votes only. Retro column templates (Went
 well / To improve / Actions, Start-Stop-Continue, 4Ls, Mad-Sad-Glad, Custom) resolve the same way, from
-`TemplateType` in a `RetroTemplateCatalog` that mirrors `DeckCatalog`.
+`Template` in a `RetroTemplateCatalog` that mirrors `DeckCatalog`.
 
 ### Anonymity is a contract property, not a UI setting
 
@@ -135,8 +135,10 @@ client-side-only hide is a promise that one devtools panel disproves.
   UI must not imply otherwise.
 - The toggle locks once the first card exists. Flipping it mid-retro would retroactively expose cards
   written under a promise of anonymity.
-- **Exports honour it too**: an anonymous board exports no author column in any format, with no organiser
-  override.
+- **Exports honour it too**: an anonymous board exports no author column in any format — the CSV drops
+  the column entirely rather than blanking it — and there is no organiser override, because
+  `RetroService.GetExportAsync` takes no caller identity at all. There is nothing to authorise, so
+  there is nothing to get wrong.
 
 The mechanism already exists — poker projects the snapshot per recipient to hide votes before reveal —
 so this is the same projection applied to a second field.
@@ -146,18 +148,31 @@ so this is the same projection applied to a second field.
 ### Table shape after the split
 
 ```
-Rooms          # renamed from Sessions, minus the poker columns, plus Tool
-PokerRounds    # 1:1 with a Poker room; owns the moved poker columns (incl. the owned LinkedIssue
-               #   columns and the TicketQueue JSON column)
-Participants   # unchanged except SessionId -> RoomId
-RoundResults   # unchanged except SessionId -> RoomId (via PokerRounds)
-RetroBoards, RetroColumns, RetroCards, RetroGroups, RetroVotes, RetroActionItems
+Rooms            # replaces Sessions, minus the poker columns, plus Tool
+PokerRounds      # 1:1 with a Poker room; owns the moved poker columns (incl. the owned LinkedIssue
+                 #   columns and the TicketQueue JSON column)
+Participants     # unchanged except SessionId -> RoomId
+RoundResult      # unchanged except SessionId -> RoomId (via PokerRounds)
+RetroBoard, RetroColumn, RetroCard, RetroGroup, RetroVote, RetroActionItem
 ```
 
-Preserved from the current model: the unique index on `Rooms.ShortCode`; the two per-room unique indexes
-on `Participants` (`(RoomId, NormalizedName)` and `(RoomId, UserId)`); cascade delete from a room to its
-participants, payload and history; and the global soft-delete query filter (`DeletedAt == null`), which
-retention queries must bypass explicitly (`IgnoreQueryFilters()`).
+Preserved from the pre-split model: the unique index on `Rooms.ShortCode`; the two per-room unique
+indexes on `Participants` (`(RoomId, NormalizedName)` and `(RoomId, UserId)`); cascade delete from a room
+to its participants, payload and history; and the global soft-delete query filter (`DeletedAt == null`),
+which retention queries must bypass explicitly (`IgnoreQueryFilters()`).
+
+> **Design correction (#19–#28).** Child tables are named in the singular (`RoundResult`,
+> `RetroCard`, …) because that is what EF's conventions produced for the existing schema and the new
+> tables followed the schema already in the database rather than this document's plural. Only the two
+> aggregate roots are plural. Not worth a rename migration to make prettier.
+
+Two constraint choices the retro tables forced, both about cascade paths rather than aesthetics:
+
+- **`RetroGroup` → `RetroCard` is `SetNull`, not cascade.** Deleting a theme must un-group its cards,
+  not delete the team's input.
+- **`RetroColumn` → `RetroCard` is `NoAction`.** A card is reachable from its board via both its column
+  and the board itself, and SQL Server refuses multiple cascade paths to one table. The board's cascade
+  is the one that matters, so the column's is explicit no-action.
 
 ### The migration must move data, not drop it
 
@@ -165,10 +180,26 @@ The refactor migration (task #19) is the one place in this project where a scaff
 actively dangerous: EF's default answer to a table split is drop-and-recreate, which would silently
 discard every existing session, participant, story note and round-history row.
 
-**Requirement:** the data motion is hand-written for all three providers — rename `Sessions` → `Rooms`,
-create `PokerRounds`, `INSERT … SELECT` the poker columns across keyed by room id, then drop the moved
-columns. Verified by upgrading a pre-refactor database and asserting rooms, participants, notes and round
-history all survive.
+**Requirement:** the data motion is hand-written for all three providers — create `Rooms` and
+`PokerRounds`, `INSERT … SELECT` the columns across from `Sessions` keyed by room id (stamping
+`Tool = 'Poker'`), re-point the child tables, and only then drop `Sessions`. Verified by upgrading a
+pre-refactor database and asserting rooms, participants, votes, notes and round history all survive,
+plus a lossless downgrade.
+
+> **Design correction (found while implementing #19): "re-point the child tables" cannot be left to
+> EF on SQLite.** SQLite has no `ALTER TABLE … DROP CONSTRAINT`, so EF implements a foreign-key change
+> as a *table rebuild* — and it defers that rebuild to the **end** of the migration while hoisting the
+> `DROP TABLE "Sessions"` above it. With foreign keys enforced, dropping `Sessions` at that point fires
+> the children's `ON DELETE CASCADE` and takes every `Participant` and `RoundResult` row with it. (EF's
+> own `PRAGMA foreign_keys = 0` does not help: it is a no-op inside the migration's transaction.) The
+> SQLite migration therefore rebuilds `Participants` and `RoundResult` itself, in raw SQL and in order,
+> and drops `Sessions` last. The upgrade test caught this; reading the generated diff did not.
+
+> **Design correction (#23, #25): string-enum and defaulted columns need their defaults set by hand.**
+> A scaffolded `Phase` column defaulted to `""`, which is not a parseable `RetroPhase` and would have
+> broken every board created before the column existed; `VoteBudget` defaulted to `0`, which is a board
+> nobody can vote on. Both are hand-set (`'Collect'`, `3`) in all three providers. Any future column
+> whose zero value is not a valid state needs the same treatment.
 
 ## Real-time contract (SignalR)
 
@@ -194,15 +225,62 @@ PokerHub    (renamed from PlanningPokerHub)   RetroHub
   auto-reveal, story, story note, deck, password, reactions-enabled, allow-role-change; change role;
   promote/demote/transfer organiser; round-timer start/pause/resume/stop/set-duration; start/end
   discussion; close/delete room; emoji `React`; issue-tracker connect/disconnect/link/submit-points/queue.
-- **Client → server (retro):** create/join/leave; add/edit/delete/move card; set template; set
-  anonymous; advance/set phase; group/ungroup/rename group; cast/withdraw dot vote; add/edit/delete
-  action, toggle done; close/delete room; emoji `React`.
-- **Per-recipient projection.** Both tools hide state that must not leak: poker hides vote values before
-  reveal; retro hides other participants' card text during Collect, authorship on an anonymous board,
-  and dot totals during Vote. This is done in the snapshot projection, never in the client.
+- **Client → server (retro):** create (with template/custom columns, anonymity, password, and an
+  optional previous board to carry from)/join/leave; add/edit/delete/move card; set template; set
+  anonymous; advance/previous/set phase, set phase duration; group/ungroup/rename group, set
+  allow-participant-grouping; cast/withdraw dot vote, set vote budget; add/edit/delete action, toggle
+  done; set password, reactions-enabled, allow-role-change; change role; promote/demote/transfer
+  organiser; close/delete room; emoji `React`.
+- **Per-recipient projection, pushed per connection.** Both tools hide state that must not leak:
+  poker hides vote values before reveal; retro hides other participants' card text during Collect
+  (sending only a per-column count), authorship on an anonymous board, and dot totals during Vote.
+  This is done in the snapshot projection, never in the client.
+
+  > **Design correction (found while implementing #22/#23).** A retro update cannot be a group
+  > broadcast of one payload the way a poker update mostly can: during Collect *what each recipient
+  > may see differs*, so `RetroHub` projects and sends the snapshot **per connection**. That is the
+  > single enforcement point for all three of the retro's hidden-state rules, which is why they are
+  > implemented in one method (`RetroService.ToSnapshot(room, forUserId)`) rather than three places.
 - **Reconnection:** the client stores `userId` in `localStorage`; on reconnect the server re-attaches the
   existing participant by `userId` (not connection id), reclaiming their seat, vote/dots, role and
   organiser status.
+
+### The REST surface beside the hubs
+
+Everything interactive goes over a hub; REST carries the things that are not room state — a landing
+read, server config, health, the OAuth callback — and file downloads.
+
+```
+GET  /api/sessions/{code}                 tool-agnostic landing read for /join/<code>
+GET  /api/sessions/{code}/analytics       poker: velocity/throughput summary (#11)
+GET  /api/sessions/{code}/export          poker: completed-round history, csv|json (#12)
+POST /api/retro/{code}/export             retro: the whole board, md|csv|json (#28)
+GET  /api/integrations/options            which trackers are enabled, and how to connect (#16)
+GET  /api/integrations/{provider}/connect  OAuth start; {provider}/callback completes it
+GET  /api/config                          retention windows, integration availability
+GET  /health, /health/live                readiness (incl. DB) and liveness
+```
+
+**The retro export is a POST, and deliberately not a GET.** A protected board's export needs its
+password, and a password in a query string ends up in server logs, proxy logs and browser history; the
+body keeps it out of all three. The cost is that the download must be triggered from script rather than
+a plain `<a download>` link — the SPA fetches it and hands it to the browser as an object URL.
+
+It carries a second guard the poker export has no equivalent of: **the phase**. Before the discussion
+starts, an export would hand out cards the team has not seen (#23) and dot totals it has not reached
+(#25), so export opens at `Discuss`. The board does not offer the button before then, making the
+refusal a backstop rather than the normal path.
+
+> **Design correction (#28): the poker export has no password guard, and #28 did not inherit one.**
+> This document and the plan both assumed the retro export could reuse "#12's existence-plus-password
+> guard" verbatim. There is no password guard in #12 — `GET /api/sessions/{code}/export` checks only
+> that the session exists, so a short code alone downloads a protected session's whole round history.
+> The retro export does not copy that shape: it verifies the password. Poker's gap is pre-existing,
+> out of scope for #28, and recorded in [tasks.md](./tasks.md) as work of its own.
+
+The retro export's JSON is **camelCase with named enums**, unlike #12's, because it is not only a file:
+the read-only summary page parses it directly. One `RetroExportRenderer.ToJson` is shared by the
+controller and the tests so there is a single answer to what the payload looks like.
 
 ### One deliberate cross-board link
 
@@ -288,24 +366,44 @@ narrow, tested, and the only write permitted on a closed room.
 
 ```
 /frontend/src/app/
-  core/      room.client.ts   (shared room-level realtime behind IRealtimeClient)
-             poker.client.ts, retro.client.ts (per-tool events)
-             state via signals, pure reducers for incoming events,
-             localStorage services (identity, theme, decks, tracker), i18n service
+  core/      room.client.ts        RoomClientBase: connection lifecycle, presence, the shared
+                                   RoomClosed event, reactions — everything true of any tool's hub
+             poker.client.ts       SignalrRealtimeClient : RoomClientBase, behind IRealtimeClient
+             retro.client.ts       SignalrRetroClient    : RoomClientBase, behind IRetroClient
+             retro-export.service.ts  the export POST + object-URL download (#28)
+             models.ts             wire types + the flat view models, with the mappers between them
+             localStorage services (identity, membership, theme, decks, tracker), i18n service
   pages/     home     (platform tool picker)
-             poker/   (create, table)
-             retro/   (create, board)
+             poker/   (create) — the estimation table lives in pages/session/, see below
+             retro/   (create, board, summary)
              join     (resolves a short code -> { tool, shortCode } and routes accordingly)
 ```
 
-Routes are `/`, `/join/:shortCode`, `/poker/:shortCode`, `/retro/:shortCode` plus per-tool create routes.
-`/session/:shortCode` is kept as a **permanent redirect** to `/poker/:shortCode` so invite links already
-sitting in people's calendars keep working.
+Routes are `/`, `/join/:shortCode`, `/poker/:shortCode`, `/retro/:shortCode`,
+`/retro/:shortCode/summary` plus per-tool create routes. `/session/:shortCode` is kept as a
+**permanent redirect** to `/poker/:shortCode` so invite links already sitting in people's calendars
+keep working.
 
-SignalR sits behind an `IRealtimeClient` interface so components/stores test against a fake (no live
-socket). Incoming events apply through **pure reducer functions** (event + state → new state), unit-tested
-directly; component specs (Angular TestBed + fake client) assert user-visible behaviour. Zoneless,
-standalone components with Angular signals; Bootstrap 5 with native color modes for theming.
+SignalR sits behind a per-tool interface (`IRealtimeClient` / `IRetroClient`) so components test
+against a fake, with no live socket. Component specs (Angular TestBed + fake client) assert
+user-visible behaviour. Zoneless, standalone components with Angular signals; Bootstrap 5 with native
+color modes for theming.
+
+> **Design correction (#19–#21): there are no reducers, and the poker table did not move.** This
+> document specified "pure reducer functions (event + state → new state), unit-tested directly". The
+> server sends a **whole snapshot** after every mutation, so there is no incremental event to reduce:
+> each client sets one signal from the incoming snapshot, and the only pure functions at that boundary
+> are the `flattenSession` / `flattenBoard` mappers that spread the shared `room` fragment up into a
+> flat view model. Tests assert on rendered behaviour instead, which is what the reducers existed to
+> make possible. Separately, the estimation table still lives in `pages/session/` rather than
+> `pages/poker/table/`: the *route* moved to `/poker/:shortCode` in #20 and the folder name simply
+> lagged. Not worth a rename that would touch every import for no behavioural gain.
+
+> **`window.__PP_CONFIG__` keeps its old name deliberately.** The split-deployment API base is read
+> from a `config.js` that lives in the *deployed* static files and is edited there, not rebuilt.
+> Renaming the global would make any deployment whose `config.js` was not updated in the same breath
+> as the bundle fall back silently to same-origin — a broken deploy that looks fine. The name is
+> internal; the cost of changing it is not.
 
 ## Testing strategy
 
@@ -321,20 +419,30 @@ boundaries (the store, the clock, the realtime transport).
 - **`TeamTools.Core.Tests` (retro)** — `RetroService`: phase transitions and phase-gated mutations,
   grouping, server-side dot budgets, action items, carry-over. **Snapshot-projection tests are
   first-class here:** assert that an anonymous board's snapshot carries no other-author identity
-  *on the wire*, that Collect hides others' card text, and that dot totals are absent during Vote.
+  *on the wire*, that Collect hides others' card text, and that dot totals are absent during Vote —
+  and that the **export** carries no author data in any of its three formats.
 - **`TeamTools.Data.Tests`** — `EfRoomStore` behaviour against real SQLite (unique constraints, cascade
   delete, query filter, projected queries) **plus a pre-refactor-database upgrade test** for the #19
   migration.
 - **`TeamTools.Integrations.Tests`** — tracker adapters against a stubbed `HttpMessageHandler`.
 - **`TeamTools.Api.Tests`** — hub/controller/health behaviour via `WebApplicationFactory` + a SignalR
   test client; kept thin (logic is already covered in the domain test projects).
-- **Frontend** — pure reducers/formatting unit-tested directly; component specs via TestBed + fake client.
+- **`TeamTools.Api.Tests` (export)** — the retro export end to end: a retro run over the hub, then
+  downloaded, asserting the status mapping (404 / 403 / 409) and that an anonymous board names nobody
+  in md, csv **or** json. The anonymity guarantee is checked at the edge of the system as well as in
+  the renderer, because that is where a leak would actually reach someone.
+- **Frontend** — formatting and mapping unit-tested directly; component specs via TestBed + fake
+  client, including the fake export service.
 
 **Coverage:** the hard gate of **≥90% line and branch on `TeamTools.Core`** (`coverage-gate.ps1`)
 now covers the room engine and both tool namespaces, with lighter expectations on adapter/wiring
 projects. Generated code (EF migrations, Angular boilerplate) is excluded.
-Coverage is a guardrail; every test maps to a behaviour. The gate is also the safety net for the #19
-refactor, which must land with the suite green and no behavioural change.
+Coverage is a guardrail; every test maps to a behaviour. The gate was also the safety net for the #19
+refactor, which landed with the suite green and no behavioural change. It runs in CI as well as
+locally (`./run.sh test`).
+
+As of task #29 that is **620 backend tests** (Core 504, Integrations 40, Data 35, Api 41) and **214
+frontend specs**, with `TeamTools.Core` at ~96% line / ~92% branch.
 
 ## Deployment & hosting
 
@@ -359,6 +467,13 @@ starting against an empty database.
 
 **Docker:** a multi-stage `Dockerfile` + `docker-compose.yml` produce one container serving the API, both
 hubs, and the SPA as a non-root user with SQLite on a volume.
+
+**Provisioning and CI.** `deploy/` holds Terraform for a small AWS deployment (API on EC2 behind a
+systemd unit, SPA in S3 + CloudFront, optional Route53/ACM) plus two shell scripts that ship a new
+build to it. `.github/workflows/ci.yml` builds and tests both halves on every push and PR to `main`
+and runs the Core coverage gate. The resource-name prefix (`app_name`) follows the rename and now
+defaults to `teamtools`; a stack created under the old default must pin the old value, since changing
+it would replace the bucket and the instance.
 
 ## License
 

@@ -1,7 +1,10 @@
 variable "app_name" {
+  # Renamed with the project (TeamTools, formerly plnpkr). Changing this on an EXISTING stack
+  # replaces every resource named from it — the S3 bucket and the EC2 instance included — so a
+  # stack created under the old default should pin app_name = "planning-poker" in terraform.tfvars.
   description = "Name prefix for all AWS resources"
   type        = string
-  default     = "planning-poker"
+  default     = "teamtools"
 }
 
 variable "aws_region" {
@@ -11,7 +14,7 @@ variable "aws_region" {
 }
 
 variable "domain_name" {
-  description = "Custom domain (e.g. poker.example.com). Leave empty to use the CloudFront *.cloudfront.net domain."
+  description = "Custom domain (e.g. teamtools.example.com). Leave empty to use the CloudFront *.cloudfront.net domain."
   type        = string
   default     = ""
 }

@@ -33,6 +33,11 @@ jobs:
       - name: Test
         run: dotnet test backend/TeamTools.slnx --configuration Release --no-build --verbosity normal
 
+      # The repo's hard gate: >=90% line AND branch on TeamTools.Core. Fails the job if under.
+      - name: Core coverage gate
+        shell: pwsh
+        run: ./backend/coverage-gate.ps1
+
   frontend:
     name: Frontend (build + test)
     runs-on: ubuntu-latest

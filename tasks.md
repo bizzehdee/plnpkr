@@ -499,9 +499,33 @@ into the TeamTools platform and add the second tool, Team Retro.
 > `JsonSerializerOptions` and so ships PascalCase; nothing parses it. This payload *is* parsed —
 > the summary view reads it directly — so it uses the platform's own wire casing and named enums,
 > via a single `RetroExportRenderer.ToJson` shared by the controller and the tests.
-## 29. `README.md` & deploy  `S`  — depends on #17–#28
-**Last: the README describes shipped features, so it waits until they are.**
-- [ ] `README.md`: platform intro, per-tool feature lists, updated layout block, run/prerequisite instructions.
-- [ ] `ARCHITECTURE.md`: corrections only, where #18–#28 diverged from #17's design — note the divergence rather than quietly rewriting to match the code.
-- [ ] `.github/workflows`, `deploy/` and `run.sh`/`run.ps1` help text, for anything the retro tool added that #18 could not settle in advance.
-- [ ] One commit, done last, so the docs match a single point in the history. (Docs-only: no test run needed just to source a number.)
+
+## 29. `README.md` & deploy  `S`  — depends on #17–#28  ✅ done
+**Last: the README describes shipped features, so it waited until they were.**
+- [x] `README.md` rewritten around the platform: intro, a feature list per tool, a "shared by both tools" list, the new solution layout, and corrected project/db/test names throughout (it still said `PlanningPoker.Api`, `planningpoker.db` and 303 tests).
+- [x] `ARCHITECTURE.md`: corrections only, each marked **Design correction** and saying what changed — singular child-table names, the retro cascade choices, the SQLite table-rebuild trap, hand-set migration defaults, per-connection retro broadcast, the absent reducers, `pages/session/`, `__PP_CONFIG__`, and the #12 password gap. Plus a new REST-surface subsection, since #28 added the platform's second export.
+- [x] CI: the Core coverage gate now runs in `.github/workflows/ci.yml`, not only locally — the README had been promising for several tasks that CI ran "the same checks".
+- [x] `deploy/terraform`: `app_name` follows the rename (`teamtools`), with a loud note in both `variables.tf` and `terraform.tfvars.example` that an existing stack must pin the old value.
+- [x] `NOTICE`: the required-credit wording still said "Based on plnpkr" under a header that already said TeamTools.
+- [x] One commit, docs-only. Per the repo convention, no test run to source a number — the numbers come from #28's run.
+
+> **The README claimed CI/CD and IaC were out of scope.** Both had since landed (`.github/workflows/ci.yml`,
+> `deploy/`), so the deploy section is now organised by target — AWS via Terraform, Azure App Service —
+> behind the three constraints that hold for any of them (WebSockets, no idle shutdown, single instance).
+
+> **`window.__PP_CONFIG__` and `pages/session/` keep their old names on purpose,** and both are now
+> documented as decisions rather than left looking like misses. The config global is read from a
+> `config.js` that lives in *deployed* static files: renaming it would make any deployment whose
+> `config.js` was not updated in the same breath as the bundle fall back silently to same-origin. The
+> folder is only a folder — the route moved to `/poker/:shortCode` in #20 — and renaming it would touch
+> every import for no behavioural gain.
+
+> **One thing deliberately left undone: the poker export has no password guard** (#12 —
+> `GET /api/sessions/{shortCode}/export` checks only that the session exists, so a short code alone
+> downloads a protected session's whole round history). Found while implementing #28, which does not
+> copy the gap. Fixing poker's export is a behavioural change to a shipped feature, not a docs task,
+> so it is recorded here rather than smuggled into the last commit.
+
+> **The bundle is over its 800 kB budget (906 kB).** Pre-existing and unrelated to #28/#29 — it was
+> 889 kB before the export UI. Worth a task of its own (lazy-load the two tools' routes), not a
+> silently raised budget.
